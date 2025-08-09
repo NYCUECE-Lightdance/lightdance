@@ -5,7 +5,6 @@ services:
     ports:
       - 80:80
     volumes:
-      - ./frontend/build:/home/www
       - ./nginx/:/etc/nginx/conf.d
     depends_on:
       - fast-api
