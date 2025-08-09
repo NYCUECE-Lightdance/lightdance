@@ -3,7 +3,6 @@
 # Python 相關
 __pycache__/
 *.pyc
-.env
 .env.example
 venv/
 *.egg-info/
