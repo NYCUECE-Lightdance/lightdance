@@ -1,0 +1,227 @@
+.control-panel {
+  flex-direction: column; /* 垂直排列 */
+  height: 65%;
+  width: 100%;
+  position: absolute;
+  bottom: 0px;
+  left: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgb(0, 0, 0);
+  z-index: 0;
+}
+
+.downpart-container {
+  position: relative;
+  display: flex;
+  width: 100%;
+  height: 95%;
+  border-top: 1px solid rgb(49, 47, 47);
+}
+.lefttool-container {
+  position: absolute;
+  flex-direction: column; /* 垂直排列子元素 */
+  align-items: end;
+  display: flex;
+  height: 100%;
+  width: 8%;
+  background-color: rgb(21, 21, 21); /* 灰色背景 */
+}
+.leftupcorner {
+  height: 10%;
+  justify-content: center;
+  align-content: end;
+}
+.choosetimeline,
+.undo,
+.redo,
+.add-timeline {
+  background-color: rgb(49, 47, 47);
+  color: rgb(150, 146, 146);
+  border: none;
+  border-radius: 5px;
+  cursor: pointer;
+  margin-right: 20px;
+  margin-bottom: 20px;
+  gap: 5px;
+}
+.choosetimeline:hover,
+.undo:hover,
+.redo:hover,
+.add-timeline:hover {
+  color: white; /* 懸停時改變文字顏色 */
+}
+
+/* 通用 Tooltip 樣式 */
+.tooltip {
+  visibility: hidden; /* 默認隱藏 */
+  opacity: 0; /* 默認透明 */
+  position: absolute;
+  background-color: rgb(49, 47, 47); /* 和按鈕一致的背景色 */
+  color: rgb(255, 255, 255); /* 和按鈕一致的文字顏色 */
+  text-align: center;
+  align-items: center; /* 垂直置中對齊 */
+  border-radius: 5px;
+  padding: 5px 10px;
+  font-size: 20px;
+  z-index: 10;
+  transition: opacity 0.2s ease-in-out;
+  top: -4px; /* 向上移動，位於按鈕上方 */
+  transform: translateX(-50%); /* 水平居中 */
+}
+
+/* 按鈕懸停時顯示 Tooltip */
+.choosetimeline:hover .tooltip,
+.undo:hover .tooltip,
+.redo:hover .tooltip,
+.add-timeline:hover .tooltip {
+  visibility: visible; /* 顯示 Tooltip */
+  opacity: 1; /* 不透明 */
+}
+.choosetimeline:hover .tooltip {
+  left: 28%;
+}
+.undo:hover .tooltip {
+  width: 120px;
+  left: 48%;
+}
+.redo:hover .tooltip {
+  width: 120px;
+  left: 68%;
+}
+.add-timeline:hover .tooltip {
+  width: 110px;
+  left: 88%;
+}
+
+.timeline-setting-container {
+  width: 100%;
+  overflow-y: scroll; /* 允許垂直滾動 */
+  background-color: rgb(21, 21, 21); /* 灰色背景 */
+  color: white;
+  position: relative;
+  border-top: 4px solid rgb(49, 47, 47);
+}
+
+/* 隱藏滾動條樣式 */
+.timeline-setting-container::-webkit-scrollbar {
+  display: none; /* 隱藏 Webkit 瀏覽器的滾動條 */
+}
+
+.timeline-setting-container {
+  -ms-overflow-style: none; /* 隱藏 IE 和 Edge 的滾動條 */
+  scrollbar-width: none; /* 隱藏 Firefox 的滾動條 */
+}
+
+.delete-timeline-button,
+.move-timeline-down-button,
+.move-timeline-up-button,
+.toggle-timeline-visibility-button {
+  background-color: rgb(49, 47, 47);
+  color: rgb(150, 146, 146);
+  height: 28px;
+  width: 28px;
+  border: none;
+  border-radius: 5px;
+}
+.move-timeline-buttons {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+}
+
+.waveform-setting-block {
+  min-height: 17%;
+  width: 100%;
+  padding-bottom: 10px;
+}
+/* 下拉式选单容器 */
+.timeline-settings-block label select {
+  appearance: none; /* 移除浏览器默认样式 */
+  background-color: rgb(49, 47, 47); /* 預設背景色 */
+  color: rgb(150, 146, 146);
+  height: 30px;
+  width: 50px;
+  border: 5px solid transparent;
+  border-radius: 5px; /* 圆角 */
+  font-size: 16px; /* 字体大小 */
+  outline: none; /* 去掉焦点边框 */
+}
+
+/* 鼠标悬停时 */
+.timeline-settings-block label select:hover {
+  color: rgb(255, 255, 255); /* 懸停時暫停圖標顏色 */
+}
+.modal-overlay {
+  position: fixed;
+  display: flex;
+  justify-content: space-between;
+  top: 45%;
+  color: rgb(165, 165, 165);
+  width: 17%;
+  border-radius: 10px;
+  background-color: rgba(0, 0, 0, 0.9);
+  z-index: 100;
+}
+
+.modal-content {
+  background-color: white;
+  width: 100%;
+  height: 100%;
+  padding: 20px;
+  border-radius: 10px;
+  text-align: center;
+}
+
+.allsel-button {
+  margin-top: 10px;
+  margin-bottom: 10px;
+  border: none;
+  border-radius: 5px;
+  background-color: rgb(49, 47, 47); /* 預設背景色 */
+  color: rgb(150, 146, 146);
+  cursor: pointer;
+}
+
+.allsel-button:hover {
+  color: #ffffff; /* 悬停背景色 */
+}
+
+.modal-buttons {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 20px;
+  background-color: rgba(0, 0, 0, 0.9);
+}
+
+.modal-buttons button {
+  padding: 10px 20px;
+  border: none;
+  border-radius: 5px;
+  background-color: rgb(49, 47, 47); /* 預設背景色 */
+  color: rgb(150, 146, 146);
+  cursor: pointer;
+}
+
+.modal-buttons button:hover {
+  color: #ffffff; /* 悬停背景色 */
+}
+.checkbox-button {
+  width: 80px;
+  height: 30px;
+  border: 1px solid #ccc;
+  border-radius: 5px;
+  background-color: white;
+  color: black;
+  font-size: 16px;
+  cursor: pointer;
+  text-align: center;
+}
+
+.checkbox-button.selected {
+  background-color: rgb(68, 143, 100);
+  color: white;
+  border-color: rgb(68, 143, 100);
+}

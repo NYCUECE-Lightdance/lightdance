@@ -1,0 +1,28 @@
+# .gitignore
+
+# Python 相關
+__pycache__/
+*.pyc
+.env
+.env.example
+venv/
+*.egg-info/
+
+# Node.js 相關
+node_modules/
+build/
+dist/
+.npm/
+*.log
+
+# Docker 相關
+.docker/
+
+# 執行期間產生的資料 (絕不納入版本控制)
+music_file/
+db/
+
+# IDE 與作業系統產生的檔案
+.vscode/
+.idea/
+._.DS_Store

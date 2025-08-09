@@ -1,0 +1,5 @@
+.timeline-block:hover {
+  opacity: 0.85;
+  transform: scale(1.0005); /* 鼠标悬停时放大 */
+  transition: all 0.1s ease-in-out;
+}

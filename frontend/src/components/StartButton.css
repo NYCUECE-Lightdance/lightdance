@@ -1,0 +1,29 @@
+.start-button {
+  display: inline-block; /* Make the div act like an inline element */
+  padding: 10px 20px; /* Space inside the button */
+  background-color: #28a745; /* Green background color */
+  color: white; /* White text color */
+  font-size: 16px; /* Font size */
+  font-weight: bold; /* Bold text */
+  text-align: center; /* Center the text */
+  border-radius: 5px; /* Rounded corners */
+  border: none; /* No border */
+  cursor: pointer; /* Pointer cursor on hover */
+  box-shadow: 0 4px #1e7e34; /* Shadow to create depth */
+  transition: background-color 0.3s, box-shadow 0.3s; /* Smooth transition on hover */
+  position: absolute;
+  left: 30px;
+  top: 375px;
+  z-index: 100;
+}
+
+.start-button:hover {
+  background-color: #218838; /* Darker green on hover */
+  box-shadow: 0 2px #1e7e34; /* Slightly reduce shadow on hover */
+}
+
+.start-button:active {
+  background-color: #1e7e34; /* Even darker green when clicked */
+  box-shadow: 0 1px #1c7430; /* Reduce shadow more on click */
+  transform: translateY(2px); /* Move button down slightly when clicked */
+}

@@ -1,0 +1,164 @@
+#colorWell {
+  width: 100px;
+  height: 100px;
+  margin-top: 5%;
+  position: relative;
+  z-index: 10;
+}
+.palette {
+  right: 0.3%;
+  top: 0.3%;
+  width: 10%;
+  display: flex;
+  position: absolute;
+  flex-direction: column;
+  background: rgb(26, 26, 26);
+  justify-content: start;
+  /*left: 400px;*/
+  height: 100%;
+  align-items: center;
+}
+.color_example {
+  width: 0px;
+  height: 0px;
+  margin-top: 10px;
+  border-radius: 10px;
+  /* background-color: rgba(0, 0, 0, 1); 主要顏色示例 */
+  z-index: 10;
+  position: absolute;
+  border: solid #a1aaae;
+}
+
+.color_example_background {
+  width: 75px;
+  height: 75px;
+
+  border-radius: 10px;
+  background-color: rgba(255, 255, 255, 1); /* 背景色 */
+  z-index: 1;
+  position: relative;
+  /* justify-content: center; 水平居中 */
+  /* justify-self: center; */
+  /* align-items: center; 垂直居中 */
+  border: solid #a1aaae;
+}
+
+.favorite_color_sample {
+  margin-top: 0px;
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  border: solid #a1aaae;
+  background-color: rgba(0, 0, 0, 1); /* 默認顏色示例 */
+}
+
+.favorite_color_background {
+  display: flex;
+  bottom: 5%;
+  position: absolute;
+  justify-self: center;
+  align-items: center;
+  flex-direction: column;
+  gap: 10px;
+  /* margin-top: 10px; */
+}
+
+.favorite_color_line {
+  display: flex;
+  /* flex-direction: row; 水平排列 */
+  gap: 10px; /* 每個顏色樣本之間的間距 */
+  /* justify-content: center; 水平居中 */
+  /* align-items: center; 垂直居中 */
+  z-index: 10;
+}
+
+/* Firefox 瀏覽器的滑塊樣式 
+input[type="range"]::-moz-range-thumb {
+  width: 10px; 長方形寬度 
+  height: 20px;  長方形高度 
+  background: #ffffff; /* 滑塊背景色 
+  border-radius: 5px; /* 圓角設置 
+  cursor: pointer; /* 滑鼠指標樣式 
+  border: 1px solid #ccc; /* 滑塊邊框 
+}
+
+/* WebKit 瀏覽器（Chrome、Safari）的滑塊樣式 
+input[type="range"]::-webkit-slider-thumb {
+  appearance: none; /* 移除預設樣式 
+  width: 10px; /* 長方形寬度 
+  height: 20px; /* 長方形高度 
+  background: #ffffff; /* 滑塊背景色 
+  border-radius: 5px; /* 圓角設置 
+  cursor: pointer; /* 滑鼠指標樣式 
+  border: 1px solid #ccc; /* 滑塊邊框 
+}
+
+/* Edge 瀏覽器的滑塊樣式 
+input[type="range"]::-ms-thumb {
+  width: 10px; /* 長方形寬度 
+  height: 20px; /* 長方形高度 
+  background: #ffffff; /* 滑塊背景色 
+  border-radius: 5px; /* 圓角設置 
+  cursor: pointer; /* 滑鼠指標樣式 
+  border: 1px solid #ccc; /* 滑塊邊框 
+}*/
+
+.color-status {
+  width: 170px;
+  display: flex; /* 使用 Flexbox 進行水平排列 */
+  align-items: center; /* 讓子元素垂直置中 */
+  justify-content: space-between; /* 子元素在容器內平均分布 */
+  gap: 10px; /* 設定子元素之間的水平間距 */
+  position: relative; /* 如果需要調整容器位置可保留 */
+  top: 8px; /* 容器的垂直位置 */
+}
+.color-slider {
+  z-index: 20;
+  width: 70px;
+  height: 20px;
+  /*position: absolute;
+  top: 180px;
+  left: 2px;*/
+  cursor: pointer;
+  appearance: none; /* 移除瀏覽器預設樣式 */
+  background: linear-gradient(to right, #adadad, #4f4f4f);
+  border-radius: 5px;
+}
+
+.color-slider::-webkit-slider-thumb {
+  appearance: none; /* 移除預設樣式 */
+  width: 10px; /* 長方形寬度 */
+  height: 20px; /* 長方形高度 */
+  background: #ffffff; /* 滑塊背景色 */
+  border-radius: 5px; /* 圓角設置 */
+  cursor: pointer; /* 滑鼠指標樣式 */
+  border: 1px solid #ccc; /* 滑塊邊框 */
+}
+
+.color-slider::-moz-range-thumb {
+  width: 15px;
+  height: 15px;
+  background: #ffffff; /* 滑塊顏色 */
+  border-radius: 50%;
+  cursor: pointer;
+}
+.color-slider::-ms-thumb {
+  width: 10px; /* 長方形寬度 */
+  height: 20px; /* 長方形高度 */
+  background: #ffffff; /* 滑塊背景色 */
+  border-radius: 5px; /* 圓角設置 */
+  cursor: pointer; /* 滑鼠指標樣式 */
+  border: 1px solid #ccc; /* 滑塊邊框 */
+}
+
+.color-status span {
+  /*position: absolute;
+  top: 150px;
+  left: 10px;*/
+  /*width: 120px;*/
+  display: flex;
+  font-weight: bold;
+  font-size: 13px;
+  color: white;
+  z-index: 20;
+}

@@ -1,0 +1,399 @@
+#colorWell {
+  width: 100px;
+  height: 100px;
+  margin-top: 5%;
+  position: relative;
+  z-index: 10;
+}
+
+.audio-player-container {
+  position: absolute;
+  background-color: rgb(21, 21, 21); /* 灰色背景 */
+  display: flex;
+  flex-direction: column;
+  right: 0.3%;
+  width: 92%;
+  height: 100%;
+  z-index: 10;
+}
+
+.scroll-container {
+  position: absolute;
+  bottom: 0;
+  width: 100%;
+  height: 90%;
+  overflow-x: auto;
+  overflow-y: hidden;
+  flex-direction: column;
+  border-top: 4px solid rgb(49, 47, 47);
+}
+
+.main-controlPanel {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+.timeline-container {
+  width: 100%;
+  height: 80%;
+  background-color: rgb(0, 0, 0);
+  overflow-y: scroll;
+  border-radius: 10px;
+  padding-bottom: 10px;
+}
+
+.timeline-container::-webkit-scrollbar {
+  display: none; /* 隱藏滾動條 */
+}
+
+.timeline-container::-webkit-scrollbar-thumb {
+  background-color: rgba(255, 255, 255, 0.5);
+  border-radius: 5px; /* 圓角效果 */
+}
+
+.timeline-container::-webkit-scrollbar-track {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.waveform-container {
+  width: 100%;
+  height: 20%;
+  background-color: rgb(68, 143, 100);
+  overflow: hidden;
+  border-radius: 10px;
+  padding-bottom: 20px;
+  padding-right: 10px;
+}
+
+.scroll-container::-webkit-scrollbar,
+.waveform-container::-webkit-scrollbar {
+  height: 10px;
+}
+
+.scroll-container::-webkit-scrollbar-thumb,
+.waveform-container::-webkit-scrollbar-thumb {
+  background-color: rgba(255, 255, 255, 0.5);
+  border-radius: 5px;
+}
+
+.scroll-container::-webkit-scrollbar-track {
+  background: rgba(68, 143, 100, 0.5);
+}
+
+.waveform-container::-webkit-scrollbar-track {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.progress-flag {
+  position: absolute;
+  bottom: 0;
+  width: 3px;
+  height: 10px;
+  background-color: red;
+  pointer-events: none;
+}
+
+.controls {
+  all: unset; /* 重置所有默認樣式 */
+  display: flex;
+  justify-content: flex-end;
+  gap: 40px;
+  height: 10%;
+  width: 100%;
+  align-items: center;
+}
+.effect-button,
+.cut-button,
+.timeline-left,
+.timeline-right,
+.magnet-button,
+.delete-button,
+.brightness-button,
+.color-button {
+  background-color: rgb(49, 47, 47);
+  color: rgb(150, 146, 146);
+  border: none;
+  border-radius: 5px;
+  z-index: 10; /* 提高层级 */
+}
+.timeline-controls {
+  align-items: center; /* 垂直居中 */
+}
+.effect-button:hover,
+.cut-button:hover,
+.brightness-button:hover,
+.timeline-left:hover,
+.timeline-right:hover,
+.magnet-button:hover,
+.delete-button:hover,
+.color-button:hover {
+  color: white;
+}
+.tooltip {
+  position: absolute;
+  background-color: rgb(49, 47, 47); /* 和按鈕一致的背景色 */
+  color: rgb(255, 255, 255); /* 和按鈕一致的文字顏色 */
+  text-align: center;
+  border-radius: 5px;
+  font-size: 20px;
+  z-index: 10;
+  transition: opacity 0.2s ease-in-out;
+  top: -12px; /* 向上移動，位於按鈕上方 */
+}
+
+/* 按鈕懸停時顯示 Tooltip */
+.timeline-left:hover .tooltip,
+.timeline-right:hover .tooltip,
+.cut-button:hover .tooltip,
+.delete-button:hover .tooltip,
+.dropdown:hover .tooltip,
+.brightness-control:hover .tooltip,
+.color-button:hover .tooltip,
+.play-button:hover .tooltip,
+.effect-button:hover .tooltip {
+  visibility: visible; /* 顯示 Tooltip */
+  opacity: 1; /* 不透明 */
+}
+.effect-button:hover .tooltip {
+  left: 64%;
+  /* width: 130px; */
+  top: -40px;
+}
+.dropdown:hover .tooltip {
+  left: 64%;
+  width: 130px;
+  top: -40px;
+}
+.play-button:hover .tooltip {
+  left: 78%;
+}
+.brightness-control {
+  background-color: rgb(49, 47, 47);
+  color: rgb(150, 146, 146);
+  border: none;
+  border-radius: 5px;
+  padding: 0px 10px;
+  z-index: 10; /* 提高层级 */
+}
+
+.play-control {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.zoom-controls {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.volume-control {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-right: 1%;
+}
+.dropdown {
+  position: relative;
+}
+.dropdown-select,
+.dropdown-select {
+  appearance: none; /* 移除默认样式 */
+  background-color: rgb(49, 47, 47); /* 預設背景色 */
+  color: rgb(150, 146, 146);
+  width: 60px; /* 下拉框寬度 */
+  height: 100%; /* 下拉框高度 */
+  border-radius: 5px; /* 圆角 */
+  font-size: 16px; /* 字体大小 */
+  border: 10px solid transparent;
+}
+.dropdown-select:hover,
+.dropdown-select:hover {
+  color: rgb(255, 255, 255); /* 懸停時暫停圖標顏色 */
+}
+
+.play-button {
+  width: 45px;
+  height: 45px;
+  background-color: rgb(49, 47, 47); /* 預設背景色 */
+  color: rgb(150, 146, 146);
+  border: none;
+  border-radius: 50%; /* 圓形按鈕 */
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  cursor: pointer;
+}
+
+.play-button:hover {
+  color: white;
+}
+
+.time-display {
+  color: white;
+  font-size: 16px;
+  margin-right: 20px;
+}
+
+.volume-slider {
+  width: 100px; /* 滑桿寬度 */
+  height: 5px; /* 滑桿高度 */
+  outline: none; /* 移除外框 */
+  border-radius: 5px;
+}
+
+.volume-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 15px; /* 滑塊大小 */
+  height: 15px;
+  background-color: rgb(49, 47, 47); /* 灰色背景 */
+  border-radius: 50%; /* 圓形 */
+  cursor: pointer;
+}
+.zoom-slider {
+  -webkit-appearance: none; /* 清除默認樣式 */
+  appearance: none;
+  width: 100px; /* 滑桿寬度 */
+  height: 5px; /* 滑桿高度 */
+  background-color: rgb(49, 47, 47); /* 灰色背景 */
+  outline: none; /* 移除外框 */
+}
+
+.zoom-slider::-webkit-slider-runnable-track {
+  width: 100%;
+  border-radius: 5px;
+}
+
+.zoom-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 15px; /* 滑塊大小 */
+  height: 15px;
+  background-color: rgb(150, 146, 146);
+  border-radius: 50%; /* 圓形 */
+  cursor: pointer;
+  box-shadow: 0 0 2px rgba(0, 0, 0, 0.5); /* 陰影效果 */
+}
+
+.zoom-slider:focus::-webkit-slider-runnable-track {
+  background: transparent; /* 聚焦時仍保持透明 */
+}
+
+.zoom-controls button {
+  all: unset; /* 重置所有默認樣式 */
+  background-color: rgb(49, 47, 47); /* 預設灰色背景 */
+  color: rgb(150, 146, 146);
+  border: none;
+  width: 30px; /* 按鈕寬度 */
+  height: 30px; /* 按鈕高度 */
+  line-height: 30px; /* 讓文字垂直居中 */
+  border-radius: 50%; /* 圓形按鈕 */
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  cursor: pointer;
+  font-family: "Arial Black", sans-serif;
+  font-weight: 900; /* 最大的粗體值 */
+  font-size: 20px; /* 調整字體大小 */
+  box-sizing: border-box; /* 確保寬高包含邊框和內邊距 */
+  transition: background-color 0.3s ease, color 0.3s ease; /* 添加過渡效果 */
+}
+
+.zoom-controls button:hover {
+  color: white; /* 懸停時改變文字顏色 */
+}
+
+.zoom-controls button:disabled {
+  background-color: darkgrey; /* 禁用時更深的灰色 */
+  cursor: not-allowed;
+}
+.hover-line {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  background-color: rgb(68, 143, 100);
+  pointer-events: none;
+}
+
+.effect-wrapper {
+  position: relative;
+  display: inline-block; /* 或者 flex / inline-flex，看你想怎麼排 */
+}
+
+.effect-menu {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+  position: absolute;
+  top: 100%; /* 正好在 wrapper 底部 */
+  left: 0; /* 跟按鈕左邊對齊 */
+  margin-top: 4px;
+  /* top: 40px;
+  right: 20px; */
+  background: #333;
+  border-radius: 6px;
+  padding: 8px;
+  z-index: 1000;
+  white-space: nowrap; /* 單行不換行 */
+}
+
+.effect-menu-item {
+  padding: 6px 12px;
+  cursor: pointer;
+  color: #fff;
+}
+
+.effect-menu-item:hover {
+  background: #444;
+}
+
+.gradient-settings-popup {
+  display: flex;
+  flex-direction: row;
+  align-items: flex-start;
+  position: absolute;
+  top: 100%; /* 一樣從 wrapper 底部算起 */
+  left: 0; /* 跟按鈕左邊對齊 */
+  margin-top: 40px;
+  /* top: 80px;
+  right: 20px; */
+  background: #222;
+  padding: 12px;
+  border-radius: 8px;
+  color: #fff;
+  z-index: 1001;
+  white-space: nowrap; /* 單行不換行 */
+}
+
+.gradient-settings-popup label {
+  display: inline-block;
+  margin: 0 4px 0 0;
+}
+
+.gradient-settings-popup select {
+  margin: 0 12px 8px 0;
+}
+
+.gradient-settings-actions {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 20px;
+  background-color: rgba(0, 0, 0, 0.9);
+}
+
+.gradient-settings-actions button {
+  padding: 10px 20px;
+  border: none;
+  border-radius: 5px;
+  background-color: rgb(49, 47, 47); /* 預設背景色 */
+  color: rgb(150, 146, 146);
+  cursor: pointer;
+}
+
+.gradient-settings-actions button:hover {
+  color: #ffffff; /* 悬停背景色 */
+}

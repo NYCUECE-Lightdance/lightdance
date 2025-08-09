@@ -1,0 +1,116 @@
+.edit-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100vh;
+  background-color: #f8f9fa; /* Light background */
+  padding: 20px;
+}
+
+.select-container {
+  display: flex;
+  gap: 20px;
+  height: 50px;
+  margin-bottom: 20px;
+  align-content: center;
+  background: #ffffff;
+  padding: 15px;
+  border-radius: 8px;
+  box-shadow: 0px 2px 5px rgba(0, 0, 0, 0.1);
+}
+
+.history-buttons {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.table-wrapper {
+  display: flex;
+  justify-content: center;
+  width: 100%;
+}
+
+.back-button {
+  background-color: #007bff;
+  color: white;
+  padding: 10px 15px;
+  border: none;
+  border-radius: 5px;
+  cursor: pointer;
+  margin-bottom: 15px;
+  transition: all 0.3s ease;
+  box-shadow: 0px 2px 5px rgba(0, 0, 0, 0.2);
+}
+
+.back-button:hover {
+  background-color: #0056b3;
+  transform: scale(1.05);
+}
+.table-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center; /* 水平置中 */
+  justify-content: center; /* 垂直置中 */
+  width: 100%;
+}
+
+.scrollable-table {
+  width: 90%;
+  max-width: 1000px; /* 限制最大寬度 */
+  overflow-x: auto; /* 允許水平滾動 */
+  max-height: 65vh; /* 限制表格的最大高度 */
+  overflow-y: auto; /* 允許垂直滾動 */
+  background: #ffffff;
+  border-radius: 10px;
+  box-shadow: 0px 4px 10px rgba(0, 0, 0, 0.1);
+  padding: 15px;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  background: #fff;
+  border-radius: 8px;
+}
+
+th,
+td {
+  padding: 12px;
+  text-align: center;
+  border: 1px solid #ddd;
+}
+th {
+  background: #007bff;
+  color: white;
+}
+
+/* 讓表格置中 */
+.scrollable-table table {
+  margin: 0 auto;
+}
+
+/* 當畫面較小時，讓表格可以滾動 */
+@media (max-width: 768px) {
+  .scrollable-table {
+    width: 100%;
+  }
+}
+
+/* 按鈕樣式 */
+button {
+  background-color: #28a745;
+  color: white;
+  border: none;
+  padding: 10px 15px;
+  border-radius: 5px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  box-shadow: 0px 2px 5px rgba(0, 0, 0, 0.2);
+}
+
+button:hover {
+  background-color: #218838;
+  transform: scale(1.05);
+}

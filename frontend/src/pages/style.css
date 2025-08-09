@@ -1,0 +1,129 @@
+.login-button {
+  position: absolute;
+  width: 200px;
+  height: 50px;
+  font-size: 25px;
+  background-color: rgb(235, 231, 143);
+  border-radius: 10rem;
+  border: 0;
+  transition: all 0.2s ease-in-out;
+  margin-top: 310px;
+  margin-right: 250px;
+}
+
+.login-button:hover {
+  cursor: pointer;
+  background-color: rgb(190, 187, 98);
+}
+
+.pass-button {
+  position: absolute;
+  width: 200px;
+  height: 50px;
+  font-size: 25px;
+  background-color: rgb(151, 235, 143);
+  border-radius: 10rem;
+  border: 0;
+  transition: all 0.2s ease-in-out;
+  margin-top: 310px;
+  margin-right: 250px;
+}
+
+.pass-button:hover {
+  cursor: pointer;
+  background-color: rgb(151, 235, 143);
+}
+
+.signup-button {
+  position: absolute;
+  width: 200px;
+  height: 50px;
+  font-size: 25px;
+  background-color: rgb(255, 255, 255);
+  border-radius: 10rem;
+  border: 0;
+  transition: all 0.2s ease-in-out;
+  margin-top: 310px;
+  margin-left: 250px;
+}
+
+.signup-button:hover {
+  cursor: pointer;
+  background-color: rgb(204, 202, 182);
+}
+
+.welcome-page {
+  background-image: linear-gradient(black, rgb(10, 10, 51));
+  height: 100vh;
+  width: 100%;
+  position: absolute;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+
+Form {
+  text-align: left;
+  width: 300px;
+  font-size: 17px;
+  position: absolute;
+  color: white;
+}
+.form-control {
+  height: 35px;
+  font-size: 10px;
+  padding: 8px 12px;
+  width: 100%;
+}
+
+.brand {
+  transition: all ease-out 0.2s;
+}
+
+.brand:hover {
+  cursor: pointer;
+  color: rgb(214, 214, 214);
+}
+
+.form {
+  color: black;
+  position: relative;
+  width: 80%;
+  margin: auto;
+}
+
+.delete_button {
+  width: 60px;
+  height: 40px;
+  position: relative;
+  top: 10px;
+}
+
+.modify_password_form {
+  color: black;
+  position: relative;
+  margin: auto;
+  width: 300px;
+  margin-top: 50px;
+}
+
+.select-page {
+  height: 100vh;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(black, rgb(10, 10, 51));
+}
+
+.link-text {
+  color: #0080ff;
+  text-decoration: underline;
+}
+
+.link-text:hover {
+  cursor: pointer;
+  color: #0067ce;
+}
