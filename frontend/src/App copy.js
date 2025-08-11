@@ -6,6 +6,7 @@ import Palette from "./components/Palette.js";
 import TransparentButton from "./components/TransparentButton.js";
 import People from "./components/People.js";
 import UploadBottom from "./components/audio/audioUploadBtm.js";
+import { API_ENDPOINTS } from "./config/api.js";
 
 function App() {
   const [colors, setColors] = useState([]);
@@ -106,7 +107,7 @@ function App() {
     let list = { color: str };
     // console.log(JSON.parse(JSON.stringify(list)));
 
-    fetch("http://140.113.160.136:8000/items/", {
+    fetch(`${API_ENDPOINTS.BASE}/items/`, {
       method: "POST",
       body: JSON.stringify(list),
       headers: {
@@ -118,7 +119,7 @@ function App() {
   };
 
   const loading = () => {
-    fetch("http://140.113.160.136:8000/items/latest/", {
+    fetch(`${API_ENDPOINTS.BASE}/items/latest/`, {
       method: "GET",
       headers: {
         "Content-Type": "application/json",

@@ -4,6 +4,7 @@ import "bootstrap/dist/css/bootstrap.min.css";
 import { MdInput } from "react-icons/md";
 import { useDispatch, useSelector } from "react-redux";
 import { updateActionTable } from "../redux/actions";
+import { API_ENDPOINTS } from "../config/api.js";
 
 function Dropdown({ userName, setIsDirty, isDirty, setIsLoaded, isLoaded }) {
   const [timeList, setTimeList] = useState([]);
@@ -14,7 +15,7 @@ function Dropdown({ userName, setIsDirty, isDirty, setIsLoaded, isLoaded }) {
 
   async function fetchAvailableDataList() {
     // Define the API endpoint
-    const apiEndpoint = "http://140.113.160.136:8000/timelist/" + userName; // Example API
+    const apiEndpoint = `${API_ENDPOINTS.TIMELIST}/${userName}`; // Example API
 
     // Use fetch to send a GET request
     fetch(apiEndpoint)
@@ -45,8 +46,7 @@ function Dropdown({ userName, setIsDirty, isDirty, setIsLoaded, isLoaded }) {
   async function handleChoose(user, time) {
     // console.log(time);
     // Define the API endpoint
-    const apiEndpoint =
-      "http://140.113.160.136:8000/items/" + user + "/" + time; // Example API
+    const apiEndpoint = `${API_ENDPOINTS.ITEMS}/${user}/${time}`; // Example API
     // Use fetch to send a GET request
     fetch(apiEndpoint)
       .then((response) => {
@@ -84,7 +84,7 @@ function Dropdown({ userName, setIsDirty, isDirty, setIsLoaded, isLoaded }) {
   async function fetchRawPlayerData(user, time) {
     // console.log(time);
     // Define the API endpoint
-    const apiEndpoint = "http://140.113.160.136:8000/raw/" + user + "/" + time; // Example API
+    const apiEndpoint = `${API_ENDPOINTS.BASE}/raw/${user}/${time}`; // Example API
     // Use fetch to send a GET request
     fetch(apiEndpoint)
       .then((response) => {

@@ -17,6 +17,10 @@ RUN npm install
 # 將前端專案的所有原始碼複製到容器中
 COPY . .
 
+# 接受構建參數並設置環境變量
+ARG REACT_APP_API_BASE_URL=/api
+ENV REACT_APP_API_BASE_URL=$REACT_APP_API_BASE_URL
+
 # 執行建置指令，產生優化後的靜態檔案 (通常在 /app/build 或 /app/dist)
 RUN npm run build
 
