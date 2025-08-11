@@ -1,6 +1,7 @@
 # 🕺 LightDance Project
 
-A full-stack web application for designing and controlling light dance performances. Built with modern technologies and containerized for easy deployment and development.
+Developed by students from the Department of Electrical Engineering, National Yang Ming Chiao Tung University.  
+A full-stack web application for designing and controlling light dance performances. 
 
 ![Tech Stack](https://img.shields.io/badge/Tech-React%20%7C%20FastAPI%20%7C%20MongoDB-blue)
 ![Docker](https://img.shields.io/badge/Docker-Compose%20Ready-2496ED?logo=docker)
@@ -31,14 +32,15 @@ A full-stack web application for designing and controlling light dance performan
 
 ### Prerequisites
 
-- [Docker Desktop](https://www.docker.com/products/docker-desktop/) (includes Docker Compose)
-- Git (optional, for cloning)
+- [Docker](https://docs.docker.com/get-docker/) and [Docker Compose](https://docs.docker.com/compose/install/)
+- [Node.js](https://nodejs.org/) (v18+ for development)
+- [Git](https://git-scm.com/)
 
 ### Production Deployment
 
 1. **Clone the repository**
    ```bash
-   git clone <your-repository-url>
+   git clone https://github.com/czl0706/lightdance.git
    cd lightdance
    ```
 
@@ -57,27 +59,32 @@ A full-stack web application for designing and controlling light dance performan
 
 For active development with hot reload:
 
-1. **Start development environment**
-   ```bash
-   ./start-dev.sh
-   ```
-   This will:
-   - Start backend services (API + Database)
-   - Launch frontend development server with hot reload
-   - Set up automatic API endpoint detection
-
-2. **Stop development environment**
-   ```bash
-   ./stop-dev.sh
-   ```
+```bash
+./start-dev.sh
+```
+This will:
+- Start backend services (API + Database)
+- Launch frontend development server with hot reload
+- Set up automatic API endpoint detection
+- **Press Ctrl+C to stop all services**
 
 ## 🌐 Service Access
 
+### Production Mode
 Once deployed, access the application at:
 
 | Service | URL | Description |
 |---------|-----|-------------|
 | **Frontend** | [http://localhost](http://localhost) | Main application interface |
+| **API Documentation** | [http://localhost:8000/api/docs](http://localhost:8000/api/docs) | Interactive API documentation |
+| **Database Admin** | [http://localhost:8081](http://localhost:8081) | MongoDB management interface |
+
+### Development Mode
+When using `./start-dev.sh`:
+
+| Service | URL | Description |
+|---------|-----|-------------|
+| **Frontend** | [http://localhost:3000](http://localhost:3000) | Development server with hot reload |
 | **API Documentation** | [http://localhost:8000/api/docs](http://localhost:8000/api/docs) | Interactive API documentation |
 | **Database Admin** | [http://localhost:8081](http://localhost:8081) | MongoDB management interface |
 
@@ -106,8 +113,7 @@ lightdance/
 │   ├── .env.example           # Environment template
 │   └── .env.development       # Development overrides
 ├── 🚀 Deployment Scripts
-│   ├── start-dev.sh           # Development environment
-│   ├── stop-dev.sh            # Stop development services
+│   ├── start-dev.sh           # Development environment (with auto-cleanup)
 │   └── run-deploy.sh          # Production deployment
 └── 📚 Documentation
     ├── README.md              # This file
@@ -149,8 +155,8 @@ REACT_APP_API_BASE_URL_PROD=/api
 
 | Mode | Frontend | Backend | Database | Features |
 |------|----------|---------|----------|----------|
-| **Development** | `npm start` (port 3000) | Hot reload enabled | Exposed on 27017 | Live code updates |
-| **Production** | Nginx served | Optimized build | Internal only | Performance optimized |
+| **Development** | `npm start` (port 3000) | Hot reload enabled | Exposed on 27017 | Live code updates, Ctrl+C to stop |
+| **Production** | Nginx served (port 80) | Optimized build | Internal only | Performance optimized |
 
 ## 🔧 Advanced Usage
 

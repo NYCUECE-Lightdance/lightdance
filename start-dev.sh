@@ -1,79 +1,102 @@
 #!/bin/bash
 
-echo "🚀 啟動 LightDance 開發環境..."
+# Cleanup function to stop services when script exits
+cleanup() {
+    echo ""
+    echo "🛑 Stopping development environment..."
+    if [ ! -z "$FRONTEND_PID" ] && kill -0 "$FRONTEND_PID" 2>/dev/null; then
+        echo "🎨 Stopping frontend service..."
+        kill "$FRONTEND_PID" 2>/dev/null
+    fi
+    echo "📦 Stopping backend services and database..."
+    docker compose down
+    echo "✅ All services stopped"
+    exit 0
+}
 
-# 檢查Docker是否運行
+# Set up signal handlers
+trap cleanup SIGINT SIGTERM EXIT
+
+echo "🚀 Starting LightDance development environment..."
+
+# Check if Docker is running
 if ! docker info > /dev/null 2>&1; then
-    echo "❌ Docker 未運行，請先啟動 Docker"
+    echo "❌ Docker is not running, please start Docker first"
     exit 1
 fi
 
-echo "📦 啟動後端服務和資料庫..."
-# 只啟動後端相關服務，不啟動nginx
-docker-compose up -d backend mongo mongo-express
+echo "📦 Starting backend services and database..."
+# Start only backend related services, not nginx
+docker compose up -d backend mongo mongo-express
 
-echo "⏳ 等待服務啟動..."
+echo "⏳ Waiting for services to start..."
 sleep 5
 
-# 檢查服務狀態
-echo "🔍 檢查服務狀態:"
+# Check service status
+echo "🔍 Checking service status:"
 if curl -s http://localhost:8000/api > /dev/null; then
-    echo "✅ 後端 API 服務正常 (http://localhost:8000/api)"
+    echo "✅ Backend API service is running (http://localhost:8000/api)"
 else
-    echo "⚠️  後端 API 服務可能還在啟動中..."
+    echo "⚠️  Backend API service might still be starting..."
 fi
 
 echo ""
-echo "🎯 開發環境已準備就緒！"
+echo "🎯 Development environment is ready!"
 echo ""
-echo "🎨 啟動前端開發服務器..."
-echo "前端將在新的終端窗口中啟動 (port 3000)"
+echo "🎨 Starting frontend development server..."
+echo "Frontend will start in background (port 3000)"
 
-# 檢查是否在frontend目錄存在package.json
+# Check if frontend/package.json exists
 if [ ! -f "frontend/package.json" ]; then
-    echo "❌ 找不到 frontend/package.json，請確保在正確的目錄執行"
+    echo "❌ Cannot find frontend/package.json, please ensure you're in the correct directory"
     exit 1
 fi
 
-# 檢查是否已安裝依賴
+# Check if dependencies are installed
 if [ ! -d "frontend/node_modules" ]; then
-    echo "📦 檢測到未安裝依賴，正在安裝..."
+    echo "📦 Dependencies not detected, installing..."
     cd frontend
     npm install
     cd ..
-    echo "✅ 依賴安裝完成"
+    echo "✅ Dependencies installed successfully"
 fi
 
-# 使用背景模式啟動前端，輸出重定向到日誌文件
-echo "🚀 啟動前端服務..."
+# Start frontend in background, redirecting output to log file
+echo "🚀 Starting frontend service..."
 cd frontend
-nohup npm start > ../frontend-dev.log 2>&1 &
+npm start > ../frontend-dev.log 2>&1 &
 FRONTEND_PID=$!
 cd ..
 
-# 等待前端啟動
-echo "⏳ 等待前端服務啟動..."
+# Wait for frontend to start
+echo "⏳ Waiting for frontend service to start..."
 sleep 8
 
-# 檢查前端是否成功啟動
+# Check if frontend started successfully
 if curl -s http://localhost:3000 > /dev/null; then
-    echo "✅ 前端服務已啟動 (http://localhost:3000)"
+    echo "✅ Frontend service started (http://localhost:3000)"
 else
-    echo "⚠️  前端服務可能還在啟動中，請稍候..."
+    echo "⚠️  Frontend service might still be starting, please wait..."
 fi
 
 echo ""
-echo "🎉 完整開發環境已啟動！"
+echo "🎉 Full development environment is up and running!"
 echo ""
-echo "📍 服務地址："
-echo "   - 前端: http://localhost:3000 (Hot Reload)"
+echo "📍 Service URLs:"
+echo "   - Frontend: http://localhost:3000 (Hot Reload)"
 echo "   - API: http://localhost:8000/api"
 echo "   - Mongo Express: http://localhost:8081"
 echo ""
-echo "📋 管理指令："
-echo "   - 查看前端日誌: tail -f frontend-dev.log"
-echo "   - 停止所有服務: docker-compose down && kill $FRONTEND_PID"
-echo "   - 只停止前端: kill $FRONTEND_PID"
+echo "📋 Management commands:"
+echo "   - View frontend logs: tail -f frontend-dev.log"
+echo "   - Press Ctrl+C to stop all services"
 echo ""
-echo "🔧 前端進程 PID: $FRONTEND_PID"
-echo "� 前端已自動檢測並連接到 API 端點"
+echo "🔧 Frontend process PID: $FRONTEND_PID"
+echo "✅ Frontend has automatically detected and connected to the API endpoint"
+echo ""
+echo "🎯 Development environment is running. Press Ctrl+C to stop..."
+
+# Keep script running and wait for signals
+while true; do
+    sleep 1
+done
