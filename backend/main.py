@@ -20,10 +20,20 @@ from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm #
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.encoders import jsonable_encoder
 
-app = FastAPI()
+app = FastAPI(
+    root_path="/api",
+    title="LightDance API",
+    description="API for LightDance project",
+    version="1.0.0"
+)
 
 load_dotenv()
 uri = os.getenv('MONGO_CONNECT_URI')
+
+# 音樂文件路徑配置
+# Docker容器內使用 /music，本地開發使用 ./music_file
+MUSIC_FILE_PATH = os.getenv('MUSIC_FILE_PATH', '/music')
+print(f"Music file path: {MUSIC_FILE_PATH}")
 
 client = MongoClient(uri)
 
@@ -320,10 +330,10 @@ async def upload_music(file: UploadFile = File(None), current_user: User = Depen
 	if file.content_type != "audio/mpeg":
 		raise HTTPException(status_code=415, detail="File must be an MP3")
 
-	file_location = f"./music_file/{current_user.username}"
+	file_location = f"{MUSIC_FILE_PATH}/{current_user.username}"
 	if not os.path.exists(file_location):
 		print("make new directory")
-		os.mkdir(file_location)
+		os.makedirs(file_location, exist_ok=True)
 			    
 	print("saving files")
 	file_loc = file_location + '/' + file.filename
@@ -336,7 +346,7 @@ async def upload_music(file: UploadFile = File(None), current_user: User = Depen
 
 @app.get("/get_music_list/{username}")
 async def get_music(username: str):
-	file_path = f"./music_file/{username}"
+	file_path = f"{MUSIC_FILE_PATH}/{username}"
 	files = os.listdir(file_path)
 	# Filtering only the files.
 	files = [f for f in files if os.path.isfile(file_path+'/'+f)]
@@ -350,7 +360,7 @@ async def get_music(username: str):
 
 @app.get("/get_music/{username}/{filename}")
 async def get_music(username: str, filename: str):
-	file_location = f'./music_file/{username}/{filename}'
+	file_location = f'{MUSIC_FILE_PATH}/{username}/{filename}'
 	if not os.path.exists(file_location):
 		raise HTTPException(status_code=415, detail= f"file not found: {file_location}")
 	
@@ -366,7 +376,7 @@ from os.path import isfile, join, isdir
 
 @app.get("/get_music_list")
 async def get_all_music_lists():
-    root_path = "./music_file"
+    root_path = MUSIC_FILE_PATH
     if not os.path.exists(root_path):
         return {"message": f"Root directory '{root_path}' not found"}
     user_music_lists = {}
