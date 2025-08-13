@@ -3,7 +3,7 @@
 # Python 相關
 __pycache__/
 *.pyc
-.env.example
+.env
 venv/
 *.egg-info/
 
@@ -23,4 +23,4 @@ db/
 # IDE 與作業系統產生的檔案
 .vscode/
 .idea/
-._.DS_Store
+.DS_Store

@@ -16,6 +16,7 @@ import { updateAutoRefresh } from "../redux/actions";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faRobot } from "@fortawesome/free-solid-svg-icons";
 import { set } from "lodash";
+import { API_ENDPOINTS } from "../config/api.js";
 
 function Home({ rgba, setRgba, setButtonState }) {
   const navigate = useNavigate();
@@ -81,7 +82,7 @@ function Home({ rgba, setRgba, setButtonState }) {
     console.log("-token- : ", BearerToken);
     let result = JSON.stringify(actionTable);
     // console.log("upload(raw) : ", JSON.stringify(result));
-    const response = await fetch("http://140.113.160.136:8000/upload_raw", {
+    const response = await fetch(API_ENDPOINTS.UPLOAD_RAW, {
       method: "POST",
       headers: {
         "Content-Type": "application/json", // 這是你後端需要的 Content-Type
@@ -223,7 +224,7 @@ function Home({ rgba, setRgba, setButtonState }) {
     // console.log(token);
     handleOutputString(BearerToken);
 
-    const response = await fetch("http://140.113.160.136:8000/upload_items", {
+    const response = await fetch(API_ENDPOINTS.UPLOAD_ITEMS, {
       method: "POST",
       headers: {
         "Content-Type": "application/json", // 這是你後端需要的 Content-Type

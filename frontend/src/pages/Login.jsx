@@ -9,6 +9,7 @@ import {
   updateUserName,
   updateAutoRefresh,
 } from "../redux/actions";
+import { API_ENDPOINTS } from "../config/api.js";
 
 const Login = () => {
   const [idNumber, setIdNumber] = useState("");
@@ -29,7 +30,7 @@ const Login = () => {
     formData.append("password", passwd);
     try {
       console.log("Logging in...");
-      const response = await fetch("http://140.113.160.136:8000/token", {
+      const response = await fetch(API_ENDPOINTS.LOGIN, {
         method: "POST",
         headers: {
           // "Content-Type": "application/json",

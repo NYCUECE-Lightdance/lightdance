@@ -1,56 +1,215 @@
-# Lightdance 專案
+# 🕺 LightDance Project
 
-這是一個全端網頁應用程式，提供一個平台來設計與控制光舞。它包含一個 React 前端、一個 FastAPI 後端，並使用 MongoDB 作為資料庫。整個專案透過 Docker Compose 進行容器化管理。
+Developed by students from the Department of Electrical Engineering, National Yang Ming Chiao Tung University.  
+A full-stack web application for designing and controlling light dance performances. 
 
-## 技術棧
+![Tech Stack](https://img.shields.io/badge/Tech-React%20%7C%20FastAPI%20%7C%20MongoDB-blue)
+![Docker](https://img.shields.io/badge/Docker-Compose%20Ready-2496ED?logo=docker)
+![Python](https://img.shields.io/badge/Python-3.10+-3776AB?logo=python)
+![React](https://img.shields.io/badge/React-18+-61DAFB?logo=react)
 
-*   **前端**: [React](https://reactjs.org/)
-*   **後端**: [FastAPI](https://fastapi.tiangolo.com/) (Python)
-*   **資料庫**: [MongoDB](https://www.mongodb.com/)
-*   **網頁伺服器**: [Nginx](https://www.nginx.com/)
-*   **資料庫管理**: [Mongo Express](https://github.com/mongo-express/mongo-express)
-*   **容器化**: [Docker](https://www.docker.com/) & [Docker Compose](https://docs.docker.com/compose/)
+## ✨ Features
 
-## 開始使用
+- 🎨 **Interactive Light Design**: Create stunning light choreography with an intuitive web interface
+- 🎵 **Music Integration**: Upload and sync music files with light patterns
+- 👥 **Multi-User Support**: User authentication and personal workspace management
+- 📱 **Real-time Preview**: Live preview of light sequences during design
+- 🔄 **Hot Reload Development**: Seamless development experience with automatic reloading
+- 🚀 **One-Click Deployment**: Automated deployment with Docker Compose
 
-請依照以下步驟來啟動並運行此專案。
+## 🛠 Tech Stack
 
-### 環境要求
+| Component | Technology | Purpose |
+|-----------|------------|---------|
+| **Frontend** | [React 18](https://reactjs.org/) | Interactive UI for light design |
+| **Backend** | [FastAPI](https://fastapi.tiangolo.com/) | High-performance Python API |
+| **Database** | [MongoDB](https://www.mongodb.com/) | Document storage for light patterns |
+| **Reverse Proxy** | [Nginx](https://www.nginx.com/) | Load balancing and static file serving |
+| **DB Management** | [Mongo Express](https://github.com/mongo-express/mongo-express) | Web-based MongoDB admin interface |
+| **Containerization** | [Docker Compose](https://docs.docker.com/compose/) | Multi-container orchestration |
 
-您只需要在您的電腦上安裝好 Docker 以及 Docker Compose。
-*   [安裝 Docker Desktop](https://www.docker.com/products/docker-desktop/)
+## 🚀 Quick Start
 
-### 安裝與運行
+### Prerequisites
 
-1.  **Clone 專案** (如果您是從 git repository 下載)
-    ```sh
-    git clone <your-repository-url>
-    cd lightdance
-    ```
+- [Docker](https://docs.docker.com/get-docker/) and [Docker Compose](https://docs.docker.com/compose/install/)
+- [Node.js](https://nodejs.org/) (v18+ for development)
+- [Git](https://git-scm.com/)
 
-2.  **執行部署腳本**
-    此腳本會自動停止舊容器、建立新的映像檔，並在背景啟動所有服務。
-    ```sh
-    sh deploy.sh
-    ```
+### Production Deployment
 
-## 如何使用
+1. **Clone the repository**
+   ```bash
+   git clone https://github.com/czl0706/lightdance.git
+   cd lightdance
+   ```
 
-當所有服務成功啟動後，您可以透過以下連結存取應用程式的不同部分：
+2. **Configure environment variables**
+   ```bash
+   cp .env.example .env
+   # Edit .env file with your preferred settings
+   ```
 
-*   **前端網頁**: [http://localhost](http://localhost)
-*   **後端 API**: [http://localhost:8000/docs](http://localhost:8000/docs) (FastAPI 自動產生的 API 文件)
-*   **Mongo Express 資料庫管理介面**: [http://localhost:8081](http://localhost:8081)
+3. **Deploy with one command**
+   ```bash
+   ./run-deploy.sh
+   ```
 
-## 專案結構
+### Development Setup
+
+For active development with hot reload:
+
+```bash
+./start-dev.sh
+```
+This will:
+- Start backend services (API + Database)
+- Launch frontend development server with hot reload
+- Set up automatic API endpoint detection
+- **Press Ctrl+C to stop all services**
+
+## 🌐 Service Access
+
+### Production Mode
+Once deployed, access the application at:
+
+| Service | URL | Description |
+|---------|-----|-------------|
+| **Frontend** | [http://localhost](http://localhost) | Main application interface |
+| **API Documentation** | [http://localhost:8000/api/docs](http://localhost:8000/api/docs) | Interactive API documentation |
+| **Database Admin** | [http://localhost:8081](http://localhost:8081) | MongoDB management interface |
+
+### Development Mode
+When using `./start-dev.sh`:
+
+| Service | URL | Description |
+|---------|-----|-------------|
+| **Frontend** | [http://localhost:3000](http://localhost:3000) | Development server with hot reload |
+| **API Documentation** | [http://localhost:8000/api/docs](http://localhost:8000/api/docs) | Interactive API documentation |
+| **Database Admin** | [http://localhost:8081](http://localhost:8081) | MongoDB management interface |
+
+## 📁 Project Structure
 
 ```
 lightdance/
-├── backend/         # FastAPI 後端應用程式
-├── frontend/        # React 前端應用程式
-├── mongo-init/      # MongoDB 初始化腳本
-├── nginx/           # Nginx 設定檔
-├── docker-compose.yml # 定義所有服務與它們的關係
-├── deploy.sh        # 部署專案的腳本
-└── README.md        # 您正在閱讀的檔案
+├── 🎨 frontend/                # React frontend application
+│   ├── src/
+│   │   ├── components/         # Reusable UI components
+│   │   ├── pages/             # Page components
+│   │   ├── config/            # API configuration
+│   │   └── redux/             # State management
+│   └── Dockerfile             # Frontend container config
+├── ⚡ backend/                 # FastAPI backend application
+│   ├── main.py                # Main application entry point
+│   ├── .env.local             # Local development config
+│   └── Dockerfile             # Backend container config
+├── 🗄️ mongo-init/              # MongoDB initialization scripts
+├── 🔀 nginx/                   # Nginx reverse proxy configuration
+├── 🎵 music_file/              # Uploaded music files storage
+├── 📊 db/                      # MongoDB data persistence
+├── ⚙️ Configuration Files
+│   ├── docker-compose.yml     # Multi-service orchestration
+│   ├── .env                   # Environment variables
+│   ├── .env.example           # Environment template
+│   └── .env.development       # Development overrides
+├── 🚀 Deployment Scripts
+│   ├── start-dev.sh           # Development environment (with auto-cleanup)
+│   └── run-deploy.sh          # Production deployment
+└── 📚 Documentation
+    ├── README.md              # This file
+    └── CONFIGURATION.md       # Complete configuration guide
+```
+
+## ⚙️ Configuration
+
+### Environment Variables
+
+The project uses a centralized environment configuration:
+
+- **`.env`**: Main configuration (production defaults)
+- **`.env.development`**: Development overrides
+- **`.env.example`**: Template for new deployments
+
+Key configuration options:
+
+```bash
+# Project settings
+PROJECT_PREFIX=lightdance
+DEV_MODE=false              # Set to 'true' for development
+
+# Database credentials
+MONGO_USERNAME=root
+MONGO_PASSWORD=nycuee
+
+# Port mappings
+NGINX_PORT=80
+API_PORT=8000
+MONGO_EXPRESS_PORT=8081
+
+# API endpoints (automatically configured)
+REACT_APP_API_BASE_URL_DEV=http://localhost:8000/api
+REACT_APP_API_BASE_URL_PROD=/api
+```
+
+### Development vs Production
+
+| Mode | Frontend | Backend | Database | Features |
+|------|----------|---------|----------|----------|
+| **Development** | `npm start` (port 3000) | Hot reload enabled | Exposed on 27017 | Live code updates, Ctrl+C to stop |
+| **Production** | Nginx served (port 80) | Optimized build | Internal only | Performance optimized |
+
+## 🔧 Advanced Usage
+
+### Custom Port Configuration
+
+Modify port mappings in `.env`:
+
+```bash
+NGINX_PORT=8080          # Frontend access port
+API_PORT=9000            # Backend API port
+MONGO_EXPRESS_PORT=8082  # Database admin port
+```
+
+### Development with Custom Backend
+
+For frontend-only development:
+
+```bash
+cd frontend
+npm install
+npm start
+# Frontend will auto-detect and connect to localhost:8000
+```
+
+### Database Management
+
+Access MongoDB directly:
+```bash
+# Connect to MongoDB container
+docker exec -it lightdance-mongo-czli mongosh -u root -p nycuee
+```
+
+## 🐛 Troubleshooting
+
+### Common Issues
+
+1. **Port conflicts**: Modify ports in `.env` file
+2. **Permission issues**: Ensure Docker has proper permissions
+3. **Database connection**: Check MongoDB credentials in `.env`
+4. **Frontend not loading**: Verify nginx configuration and build process
+
+### Useful Commands
+
+```bash
+# View service logs
+docker-compose logs -f [service-name]
+
+# Rebuild specific service
+docker-compose up --build [service-name]
+
+# Reset database
+docker-compose down -v && docker-compose up
+
+# View running containers
+docker ps
 ```
