@@ -9,7 +9,6 @@ venv/
 
 # Node.js 相關
 node_modules/
-build/
 dist/
 .npm/
 *.log
