@@ -1,5 +1,16 @@
 #!/bin/bash
 
+# =================================================================
+#     本地開發環境啟動腳本 (Local Development)
+# =================================================================
+#
+# 功能:
+#   - 檢查 Docker 是否正在運行
+#   - 使用 docker-compose.dev.yml 啟動所有本地開發服務
+#   - 監控服務狀態，並在啟動後顯示訪問位置
+#   - 設定 Ctrl+C 快捷鍵以方便地關閉所有服務
+#
+
 # --- Color Definitions ---
 GREEN='\033[0;32m'
 YELLOW='\033[0;33m'
@@ -8,18 +19,24 @@ RED='\033[0;31m'
 BOLD='\033[1m'
 NC='\033[0m' # No Color
 
+# --- Configuration ---
+COMPOSE_FILE="docker-compose.dev.yml"
+ENV_FILE=".env.development"
+
 # Function to wait for a service to be up
 wait_for_service() {
     local url=$1
     local service_name=$2
-    local timeout=30
+    # 增加 timeout 時間以應對較慢的啟動
+    local timeout=600
     local interval=2
     local end_time=$((SECONDS + timeout))
 
-    echo -e "⏳ ${YELLOW}正在等待 ${service_name} 啟動...${NC}"
+    echo -e "⏳ ${YELLOW}正在等待 ${service_name} 啟動 (最長 ${timeout} 秒)...${NC}"
     while [ $SECONDS -lt $end_time ]; do
-        status_code=$(curl -s -o /dev/null -w "%{http_code}" "$url")
-        if [[ "$status_code" -ge 200 && "$status_code" -lt 400 ]]; then
+        # 接受 2xx, 3xx, 4xx 的 HTTP 狀態碼，因為 404 也表示服務已啟動並在回應
+        status_code=$(curl -s -o /dev/null -w '%{http_code}' "$url")
+        if [[ "$status_code" -ge 200 && "$status_code" -lt 500 ]]; then
             echo -e "✅ ${GREEN}${service_name} 已在 ${BOLD}${url}${NC}${GREEN} 成功啟動！${NC}"
             return 0
         fi
@@ -27,78 +44,47 @@ wait_for_service() {
     done
 
     echo -e "❌ ${RED}錯誤：${service_name} 在 ${timeout} 秒內啟動失敗。${NC}"
+    echo -e "   請使用 ${BOLD}docker compose -f ${COMPOSE_FILE} logs${NC} 查看日誌。 "
     return 1
 }
 
 # Cleanup function to stop services when script exits
 cleanup() {
     echo ""
-    trap '' SIGINT SIGTERM EXIT # Ignore further signals to prevent re-entry
+    trap '' SIGINT SIGTERM EXIT # 避免重複觸發
     echo -e "🛑 ${YELLOW}正在停止開發環境...${NC}"
-    if [ ! -z "$FRONTEND_PID" ] && kill -0 "$FRONTEND_PID" 2>/dev/null; then
-        echo -e "🎨 ${BLUE}正在停止前端服務...${NC}"
-        kill "$FRONTEND_PID" 2>/dev/null
-    fi
-    echo -e "📦 ${BLUE}正在停止後端服務與資料庫...${NC}"
-    docker compose --env-file .env.development down
-    echo -e "✅ ${GREEN}所有服務已成功停止。${NC}"
+    docker compose -f ${COMPOSE_FILE} --env-file ${ENV_FILE} down
+    echo -e "✅ ${GREEN}所有開發服務已成功停止。${NC}"
     exit 0
 }
 
-# Set up signal handlers
-trap cleanup SIGINT SIGTERM EXIT
+# 設定 Ctrl+C 的中斷處理
+trap cleanup SIGINT SIGTERM
 
-echo -e "🚀 ${BOLD}正在啟動 LightDance 開發環境...${NC}"
+# --- Main Script ---
+echo -e "🚀 ${BOLD}正在啟動 LightDance 本地開發環境...${NC}"
+echo -e "   - 使用設定檔: ${BOLD}${COMPOSE_FILE}${NC}"
 
-# Check if Docker is running
+if [ -f "$ENV_FILE" ]; then
+    echo -e "   - 使用環境變數檔: ${BOLD}${ENV_FILE}${NC}"
+fi
+echo ""
+
+# 1. 檢查 Docker 是否正在運行
 if ! docker info > /dev/null 2>&1; then
     echo -e "❌ ${RED}Docker 未在運行中，請先啟動 Docker。${NC}"
     exit 1
 fi
 
-echo -e "📦 ${BLUE}正在建置並啟動後端服務與資料庫...${NC}"
-# Build quietly first, then start the services
-echo -e "🤫 ${YELLOW}簡化建置日誌，僅顯示錯誤...${NC}"
-docker compose --env-file .env.development build --quiet backend
-docker compose --env-file .env.development up -d backend mongo mongo-express
+# 2. 使用 docker-compose.dev.yml 建置並啟動所有服務
+echo -e "📦 ${BLUE}正在建置並啟動所有開發服務 (in background)...${NC}"
+docker compose -f ${COMPOSE_FILE} --env-file ${ENV_FILE} up --build -d
 
-# Wait for the backend API to be ready
+# 3. 等待後端與前端服務啟動
 wait_for_service http://localhost:8000/api "Backend API" || cleanup
-
-echo ""
-echo -e "🎨 ${BLUE}準備啟動前端開發伺服器...${NC}"
-echo "前端開發伺服器將在背景啟動 (port 3000)"
-
-# Check if frontend/package.json exists
-if [ ! -f "frontend/package.json" ]; then
-    echo -e "❌ ${RED}找不到 frontend/package.json，請確認您在正確的專案根目錄。${NC}"
-    exit 1
-fi
-
-# Check if dependencies are installed
-if [ ! -d "frontend/node_modules" ]; then
-    echo -e "📦 ${YELLOW}未偵測到前端依賴套件，正在自動安裝...${NC}"
-    (cd frontend && npm install > ../frontend-install.log 2>&1)
-    echo -e "✅ ${GREEN}依賴套件安裝完成。${NC} (日誌位於 frontend-install.log)"
-fi
-
-# Start frontend in background, redirecting output to log file
-echo -e "🚀 ${BLUE}正在啟動前端服務...${NC}"
-# We start it in a subshell to capture its PID
-(cd frontend && exec npm start > ../frontend-dev.log 2>&1 &)
-NPM_PID=$! # This is the PID of the npm process
-
-# Wait for the frontend service to be ready
 wait_for_service http://localhost:3000 "Frontend" || cleanup
 
-# After the service is up, find the actual server PID listening on the port.
-# This is more reliable for display and for the cleanup function.
-FRONTEND_PID=$(lsof -t -i:3000 2>/dev/null)
-if [ -z "$FRONTEND_PID" ]; then
-    echo -e "⚠️ ${YELLOW}無法透過 lsof 偵測到前端進程的 PID，將使用備用 PID。${NC}"
-    FRONTEND_PID=$NPM_PID # Fallback to the original PID
-fi
-
+# 4. 顯示成功訊息與訪問位置
 echo -e "\n🎉 ${GREEN}${BOLD}全端開發環境已成功啟動！${NC}"
 echo ""
 echo -e "📍 ${BOLD}服務存取位置:${NC}"
@@ -107,12 +93,12 @@ echo -e "   - ${BOLD}後端 API (Backend):${NC}    ${GREEN}http://localhost:8000
 echo -e "   - ${BOLD}資料庫管理 (Mongo):${NC} ${GREEN}http://localhost:8081${NC}"
 echo ""
 echo -e "📋 ${BOLD}常用管理指令:${NC}"
-echo -e "   - 查看前端日誌: ${BOLD}tail -f frontend-dev.log${NC}"
+echo -e "   - 查看所有服務日誌: ${BOLD}docker compose -f ${COMPOSE_FILE} logs -f${NC}"
+echo -e "   - 查看前端日誌:     ${BOLD}docker compose -f ${COMPOSE_FILE} logs -f frontend-dev${NC}"
 echo -e "   - ${RED}按下 Ctrl+C 來停止所有服務${NC}"
-echo ""
-echo -e "🔧 ${YELLOW}前端進程 PID: ${FRONTEND_PID}${NC}"
 echo ""
 echo -e "🎯 ${GREEN}開發環境運行中...${NC}"
 
-# Wait for the frontend process to exit. The 'trap' will handle cleanup.
-wait $NPM_PID
+# 保持腳本運行以接收 Ctrl+C 指令
+# 所有服務都在背景的 Docker 容器中運行
+tail -f /dev/null
