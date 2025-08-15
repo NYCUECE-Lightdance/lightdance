@@ -1,5 +1,3 @@
-version: '3.8'
-
 # =================================================================
 #     本地開發專用 Docker Compose 設定 (Local Development)
 # =================================================================
@@ -18,9 +16,9 @@ services:
   # ------------------ 前端開發服務 (React Dev Server) ------------------
   frontend-dev:
     image: node:18-alpine
-    container_name: ${PROJECT_PREFIX:-lightdance}-frontend-dev-${USER:-jasonyen}
+    container_name: ${PROJECT_PREFIX:-lightdance}-frontend-dev-${USER:-user}
     ports:
-      - "3000:3000"
+      - "${FRONTEND_PORT:-3000}:3000"
     working_dir: /app
     volumes:
       # 將本地 frontend 資料夾同步到容器中，實現熱修改
@@ -35,7 +33,7 @@ services:
   # ------------------ 後端服務 (FastAPI) ------------------
   backend:
     build: ./backend
-    container_name: ${PROJECT_PREFIX:-lightdance}-backend-dev-${USER:-jasonyen}
+    container_name: ${PROJECT_PREFIX:-lightdance}-backend-dev-${USER:-user}
     ports:
       - ${API_PORT:-8000}:8000
     volumes:
@@ -59,7 +57,7 @@ services:
   # ------------------ 本地資料庫 (MongoDB) ------------------
   mongo:
     image: mongo
-    container_name: ${PROJECT_PREFIX:-lightdance}-mongo-dev-${USER:-jasonyen}
+    container_name: ${PROJECT_PREFIX:-lightdance}-mongo-dev-${USER:-user}
     restart: always
     environment:
       MONGO_INITDB_ROOT_USERNAME: ${MONGO_USERNAME:-user}
@@ -76,7 +74,7 @@ services:
   # ------------------ 資料庫管理介面 (Mongo Express) ------------------
   mongo-express:
     image: mongo-express
-    container_name: ${PROJECT_PREFIX:-lightdance}-express-dev-${USER:-jasonyen}
+    container_name: ${PROJECT_PREFIX:-lightdance}-express-dev-${USER:-user}
     restart: always
     ports:
       - ${MONGO_EXPRESS_PORT:-8081}:8081
@@ -100,7 +98,7 @@ services:
 networks:
   app-network:
     driver: bridge
-    name: ${PROJECT_PREFIX:-lightdance}-network-dev-${USER:-jasonyen}
+    name: ${PROJECT_PREFIX:-lightdance}-network-dev-${USER:-user}
 
 # ------------------ 共用 Volume ------------------
 volumes:

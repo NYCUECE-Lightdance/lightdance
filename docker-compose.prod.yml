@@ -1,5 +1,3 @@
-
-
 # =================================================================
 #     生產環境專用 Docker Compose 設定 (Production)
 # =================================================================
@@ -19,7 +17,7 @@ services:
   nginx:
     build: 
       context: ./frontend
-    container_name: ${PROJECT_PREFIX:-lightdance}-nginx-prod-${USER:-jasonyen}
+    container_name: ${PROJECT_PREFIX:-lightdance}-nginx-prod-${USER:-user}
     ports:
       - ${NGINX_PORT:-80}:80
     volumes:
@@ -34,7 +32,7 @@ services:
   # ------------------ 後端服務 (FastAPI) ------------------
   backend:
     build: ./backend
-    container_name: ${PROJECT_PREFIX:-lightdance}-backend-prod-${USER:-jasonyen}
+    container_name: ${PROJECT_PREFIX:-lightdance}-backend-prod-${USER:-user}
     # 在生產環境中，後端 API 通常不需要直接對外暴露，只由 Nginx 代理
     # 為了方便除錯，暫時保留 port 映射
     ports:
@@ -59,7 +57,7 @@ services:
   # ------------------ 本地資料庫 (MongoDB) ------------------
   mongo:
     image: mongo
-    container_name: ${PROJECT_PREFIX:-lightdance}-mongo-prod-${USER:-jasonyen}
+    container_name: ${PROJECT_PREFIX:-lightdance}-mongo-prod-${USER:-user}
     restart: always
     environment:
       MONGO_INITDB_ROOT_USERNAME: ${MONGO_USERNAME:-user}
@@ -67,7 +65,7 @@ services:
     volumes:
       # 將資料庫檔案保存在本地的 ./db 資料夾
       # 確保開發和生產環境使用不同的資料庫檔案，或做好備份策略
-      - ./db_prod:/data/db 
+      - ./db:/data/db 
       - ./mongo-init:/docker-entrypoint-initdb.d
     networks:
       app-network:
@@ -101,4 +99,4 @@ services:
 networks:
   app-network:
     driver: bridge
-    name: ${PROJECT_PREFIX:-lightdance}-network-prod-${USER:-jasonyen}
+    name: ${PROJECT_PREFIX:-lightdance}-network-prod-${USER:-user}

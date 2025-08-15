@@ -6,6 +6,8 @@
 #
 # 功能:
 #   - 檢查 Docker 是否正在運行
+#   - 停止可能正在運行的舊容器
+#   - 從 .env.development 讀取環境變數
 #   - 使用 docker-compose.dev.yml 啟動所有本地開發服務
 #   - 監控服務狀態，並在啟動後顯示訪問位置
 #   - 設定 Ctrl+C 快捷鍵以方便地關閉所有服務
@@ -22,6 +24,20 @@ NC='\033[0m' # No Color
 # --- Configuration ---
 COMPOSE_FILE="docker-compose.dev.yml"
 ENV_FILE=".env.development"
+
+# --- Load Environment Variables ---
+if [ -f "$ENV_FILE" ]; then
+    # Use grep to find the FRONTEND_PORT and cut to get the value
+    # Also remove any potential carriage returns
+    FRONTEND_PORT_VALUE=$(grep -E '^FRONTEND_PORT=' "$ENV_FILE" | cut -d '=' -f2- | tr -d '[:space:]')
+    API_PORT_VALUE=$(grep -E '^API_PORT=' "$ENV_FILE" | cut -d '=' -f2- | tr -d '[:space:]')
+    MONGO_EXPRESS_PORT_VALUE=$(grep -E '^MONGO_EXPRESS_PORT=' "$ENV_FILE" | cut -d '=' -f2- | tr -d '[:space:]')
+fi
+# Set default values if not found
+FRONTEND_PORT=${FRONTEND_PORT_VALUE:-3000}
+API_PORT=${API_PORT_VALUE:-8000}
+MONGO_EXPRESS_PORT=${MONGO_EXPRESS_PORT_VALUE:-8081}
+
 
 # Function to wait for a service to be up
 wait_for_service() {
@@ -76,21 +92,32 @@ if ! docker info > /dev/null 2>&1; then
     exit 1
 fi
 
-# 2. 使用 docker-compose.dev.yml 建置並啟動所有服務
+# 2. 停止所有正在運行的 Docker 容器，並移除舊的服務
+echo -e "🛑 ${YELLOW}正在停止所有正在運行的 Docker 容器...${NC}"
+if [ -n "$(docker ps -q)" ]; then
+    docker stop $(docker ps -q)
+    echo -e "✅ ${GREEN}所有容器已成功停止。${NC}"
+    echo -e "📦 ${BLUE}正在停止並移除舊的服務...${NC}"
+    docker compose -f ${COMPOSE_FILE} ${ENV_FLAG} down
+else
+    echo -e "✅ ${GREEN}沒有正在運行的容器。${NC}"
+fi
+
+# 3. 使用 docker-compose.dev.yml 建置並啟動所有服務
 echo -e "📦 ${BLUE}正在建置並啟動所有開發服務 (in background)...${NC}"
 docker compose -f ${COMPOSE_FILE} --env-file ${ENV_FILE} up --build -d
 
-# 3. 等待後端與前端服務啟動
-wait_for_service http://localhost:8000/api "Backend API" || cleanup
-wait_for_service http://localhost:3000 "Frontend" || cleanup
+# 4. 等待後端與前端服務啟動
+wait_for_service http://localhost:${API_PORT}/api "Backend API" || cleanup
+wait_for_service http://localhost:${FRONTEND_PORT} "Frontend" || cleanup
 
-# 4. 顯示成功訊息與訪問位置
+# 5. 顯示成功訊息與訪問位置
 echo -e "\n🎉 ${GREEN}${BOLD}全端開發環境已成功啟動！${NC}"
 echo ""
 echo -e "📍 ${BOLD}服務存取位置:${NC}"
-echo -e "   - ${BOLD}前端 (Frontend):${NC}      ${GREEN}http://localhost:3000${NC} (支援熱重載)"
-echo -e "   - ${BOLD}後端 API (Backend):${NC}    ${GREEN}http://localhost:8000/api${NC}"
-echo -e "   - ${BOLD}資料庫管理 (Mongo):${NC} ${GREEN}http://localhost:8081${NC}"
+echo -e "   - ${BOLD}前端 (Frontend):${NC}      ${GREEN}http://localhost:${FRONTEND_PORT}${NC} (支援熱重載)"
+echo -e "   - ${BOLD}後端 API (Backend):${NC}    ${GREEN}http://localhost:${API_PORT}/api${NC}"
+echo -e "   - ${BOLD}資料庫管理 (Mongo):${NC} ${GREEN}http://localhost:${MONGO_EXPRESS_PORT}${NC}"
 echo ""
 echo -e "📋 ${BOLD}常用管理指令:${NC}"
 echo -e "   - 查看所有服務日誌: ${BOLD}docker compose -f ${COMPOSE_FILE} logs -f${NC}"

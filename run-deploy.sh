@@ -25,7 +25,7 @@ NC='\033[0m' # No Color
 # --- 設定 ---
 COMPOSE_FILE="docker-compose.prod.yml"
 # 建議為生產環境建立一個獨立的 .env 檔案
-ENV_FILE=".env.production"
+ENV_FILE=".env.deployment"
 
 # --- 主腳本 ---
 echo -e "🚀 ${BOLD}正在啟動 LightDance 生產環境部署...${NC}"
