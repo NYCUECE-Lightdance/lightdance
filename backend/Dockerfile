@@ -24,6 +24,9 @@ RUN uv venv /opt/venv && \
 #### Stage 2. Create a minimal, secure runtime image ####
 FROM python:3.11-alpine AS runtime
 
+# Install curl for healthchecks
+RUN apk update && apk add --no-cache curl
+
 # Copy the virtual environment with all dependencies from the builder stage
 COPY --from=builder /opt/venv /opt/venv
 

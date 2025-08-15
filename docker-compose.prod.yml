@@ -23,7 +23,8 @@ services:
     volumes:
       - ./nginx/:/etc/nginx/conf.d
     depends_on:
-      - backend
+      backend:
+        condition: service_healthy
     networks:
       app-network:
         aliases:
@@ -33,6 +34,12 @@ services:
   backend:
     build: ./backend
     container_name: ${PROJECT_PREFIX:-lightdance}-backend-prod-${USER:-user}
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
     # 在生產環境中，後端 API 通常不需要直接對外暴露，只由 Nginx 代理
     # 為了方便除錯，暫時保留 port 映射
     ports:
