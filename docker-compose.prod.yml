@@ -1,0 +1,109 @@
+# =================================================================
+#     生產環境專用 Docker Compose 設定 (Production)
+# =================================================================
+#
+# 使用此檔案來部署一個生產級的應用程式，包含：
+#   - nginx:   高效能的前端伺服器，提供靜態檔案
+#   - backend: 後端 API 伺服器
+#   - mongo:   本地 MongoDB 資料庫
+#   - mongo-express: 資料庫管理介面
+#
+# 如何使用:
+#   docker compose -f docker-compose.prod.yml up -d --build
+#
+
+services:
+  # ------------------ Nginx 服務 (Production Frontend) ------------------
+  nginx:
+    build: 
+      context: ./frontend
+    container_name: ${PROJECT_PREFIX:-lightdance}-nginx-prod-${USER:-user}
+    ports:
+      - ${NGINX_PORT:-80}:80
+    volumes:
+      - ./nginx/:/etc/nginx/conf.d
+    depends_on:
+      backend:
+        condition: service_healthy
+    networks:
+      app-network:
+        aliases:
+          - nginx
+
+  # ------------------ 後端服務 (FastAPI) ------------------
+  backend:
+    build: ./backend
+    container_name: ${PROJECT_PREFIX:-lightdance}-backend-prod-${USER:-user}
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    # 在生產環境中，後端 API 通常不需要直接對外暴露，只由 Nginx 代理
+    # 為了方便除錯，暫時保留 port 映射
+    ports:
+      - ${API_PORT:-8000}:8000
+    volumes:
+      # 掛載音樂檔案目錄
+      - ./music_file:/music
+    restart: unless-stopped
+    depends_on:
+      - mongo
+    environment:
+      # 連接到此檔案中定義的本地 mongo 服務
+      - MONGO_CONNECT_URI=mongodb://${MONGO_USERNAME:-user}:${MONGO_PASSWORD:-password}@mongo:27017
+      # 生產環境關閉熱重載
+      - APP_RELOAD=false
+      - MUSIC_FILE_PATH=/music
+    networks:
+      app-network:
+        aliases:
+          - backend
+
+  # ------------------ 本地資料庫 (MongoDB) ------------------
+  mongo:
+    image: mongo
+    container_name: ${PROJECT_PREFIX:-lightdance}-mongo-prod-${USER:-user}
+    restart: always
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: ${MONGO_USERNAME:-user}
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_PASSWORD:-password}
+    volumes:
+      # 將資料庫檔案保存在本地的 ./db 資料夾
+      # 確保開發和生產環境使用不同的資料庫檔案，或做好備份策略
+      - ./db:/data/db 
+      - ./mongo-init:/docker-entrypoint-initdb.d
+    networks:
+      app-network:
+        aliases:
+          - mongo
+
+  # ------------------ 資料庫管理介面 (Mongo Express) ------------------
+  mongo-express:
+    image: mongo-express
+    container_name: ${PROJECT_PREFIX:-lightdance}-express-prod-${USER:-user}
+    restart: always
+    ports:
+      - ${MONGO_EXPRESS_PORT:-8081}:8081
+    environment:
+      ME_CONFIG_MONGODB_ADMINUSERNAME: ${MONGO_USERNAME:-user}
+      ME_CONFIG_MONGODB_ADMINPASSWORD: ${MONGO_PASSWORD:-password}
+      ME_CONFIG_MONGODB_URL: mongodb://${MONGO_USERNAME:-user}:${MONGO_PASSWORD:-password}@mongo:27017/
+      ME_CONFIG_BASICAUTH: false
+    depends_on:
+      - mongo
+    networks:
+      app-network:
+        aliases:
+          - mongo-express
+
+# =================================================================
+#     共用定義 (Common Definitions)
+# =================================================================
+
+# ------------------ 共用網路 ------------------
+networks:
+  app-network:
+    driver: bridge
+    name: ${PROJECT_PREFIX:-lightdance}-network-prod-${USER:-user}
