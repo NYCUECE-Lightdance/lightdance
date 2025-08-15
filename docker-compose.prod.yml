@@ -82,7 +82,7 @@ services:
   # ------------------ 資料庫管理介面 (Mongo Express) ------------------
   mongo-express:
     image: mongo-express
-    container_name: ${PROJECT_PREFIX:-lightdance}-express-prod-${USER:-jasonyen}
+    container_name: ${PROJECT_PREFIX:-lightdance}-express-prod-${USER:-user}
     restart: always
     ports:
       - ${MONGO_EXPRESS_PORT:-8081}:8081

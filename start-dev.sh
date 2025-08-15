@@ -95,10 +95,12 @@ fi
 # 2. 停止所有正在運行的 Docker 容器，並移除舊的服務
 echo -e "🛑 ${YELLOW}正在停止所有正在運行的 Docker 容器...${NC}"
 if [ -n "$(docker ps -q)" ]; then
-    docker stop $(docker ps -q)
+    if [ -n "$(docker ps -q)" ]; then
+        docker stop $(docker ps -q)
+    fi
     echo -e "✅ ${GREEN}所有容器已成功停止。${NC}"
     echo -e "📦 ${BLUE}正在停止並移除舊的服務...${NC}"
-    docker compose -f ${COMPOSE_FILE} ${ENV_FLAG} down
+    docker compose -f ${COMPOSE_FILE} --env-file ${ENV_FILE} down
 else
     echo -e "✅ ${GREEN}沒有正在運行的容器。${NC}"
 fi

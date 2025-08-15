@@ -25,7 +25,7 @@ RUN uv venv /opt/venv && \
 FROM python:3.11-alpine AS runtime
 
 # Install curl for healthchecks
-RUN apk update && apk add --no-cache curl
+RUN apk update && apk add --no-cache curl && rm -rf /var/cache/apk/*
 
 # Copy the virtual environment with all dependencies from the builder stage
 COPY --from=builder /opt/venv /opt/venv
