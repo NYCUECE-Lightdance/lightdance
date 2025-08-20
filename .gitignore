@@ -21,6 +21,7 @@ dist/
 # 執行期間產生的資料 (絕不納入版本控制)
 music_file/
 db/
+logs/
 
 # IDE 與作業系統產生的檔案
 .vscode/
