@@ -26,8 +26,38 @@ jobs:
           password: ${{ secrets.SSH_PRIVATE_KEY }}
           port: ${{ secrets.SSH_PORT }}
           script: |
+            echo "🚀 開始部署 LightDance 專案..."
+            
+            # 切換到專案目錄
             cd /home/user/lightdance
-            git pull
-            docker compose down
-            docker compose up -d --build
+            
+            # 確保從 main 分支拉取最新版本
+            echo "📦 正在從 main 分支拉取最新程式碼..."
+            git fetch origin
+            git checkout main
+            git pull origin main
+            
+            # 執行停用腳本，清理舊的部署環境
+            echo "🛑 正在停用舊的部署環境..."
+            chmod +x ./disable-deploy.sh
+            ./disable-deploy.sh
+            
+            # 等待容器完全停止
+            echo "⏳ 等待容器完全停止..."
+            sleep 5
+            
+            # 執行部署腳本
+            echo "🚀 正在執行新的部署..."
+            chmod +x ./run-deploy.sh
+            ./run-deploy.sh
+            
+            # 等待服務啟動並檢查狀態
+            echo "🔍 檢查部署狀態..."
+            sleep 10
+            docker compose -f docker-compose.prod.yml ps
+            
+            # 清理未使用的 Docker 映像以節省空間
+            echo "🧹 清理未使用的 Docker 映像..."
             docker image prune -a -f
+            
+            echo "✅ 部署完成！"
