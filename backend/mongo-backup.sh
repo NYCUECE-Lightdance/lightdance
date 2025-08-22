@@ -62,17 +62,34 @@ log() {
 
 # 檢查 Docker 容器狀態
 check_mongo_container() {
-    local container_id=$(docker ps --format "table {{.ID}}\t{{.Names}}" | grep -i mongo | head -1 | awk '{print $1}')
+    # 優先搜尋真正的 MongoDB 容器（排除 mongo-express）
+    local container_id=$(docker ps --format "table {{.ID}}\t{{.Names}}" | grep -E "(^|\s)mongo-dev(\s|$)" | head -1 | awk '{print $1}')
+    
+    # 如果沒找到 mongo-dev，則搜尋其他包含 mongo 但非 mongo-express 的容器
+    if [ -z "$container_id" ]; then
+        container_id=$(docker ps --format "table {{.ID}}\t{{.Names}}" | grep -i mongo | grep -v "mongo-express" | head -1 | awk '{print $1}')
+    fi
     
     if [ -z "$container_id" ]; then
         log "ERROR" "找不到運行中的 MongoDB 容器"
         log "INFO" "請確保 MongoDB 容器正在運行: docker compose up -d"
+        log "INFO" "可用的容器："
+        docker ps --format "table {{.Names}}\t{{.Image}}\t{{.Status}}" | grep -i mongo
         return 1
     fi
     
     MONGO_CONTAINER_ID=$container_id
     local container_name=$(docker ps --format "table {{.ID}}\t{{.Names}}" | grep "$container_id" | awk '{print $2}')
+    
+    # 驗證容器是否有 mongodump 命令
+    if ! docker exec "$MONGO_CONTAINER_ID" which mongodump > /dev/null 2>&1; then
+        log "ERROR" "容器 $container_name 中沒有 mongodump 命令"
+        log "INFO" "請確認選擇的是正確的 MongoDB 容器，而非 mongo-express"
+        return 1
+    fi
+    
     log "INFO" "找到 MongoDB 容器: $container_name ($container_id)"
+    log "INFO" "驗證 mongodump 命令存在: ✓"
     return 0
 }
 
