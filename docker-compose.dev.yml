@@ -16,7 +16,7 @@ services:
   # ------------------ 前端開發服務 (React Dev Server) ------------------
   frontend-dev:
     image: node:18-alpine
-    container_name: ${PROJECT_PREFIX:-lightdance}-frontend-dev-${USER:-user}
+    container_name: frontend-dev
     ports:
       - "${FRONTEND_PORT:-3000}:3000"
     working_dir: /app
@@ -36,7 +36,7 @@ services:
   # ------------------ 後端服務 (FastAPI) ------------------
   backend:
     build: ./backend
-    container_name: ${PROJECT_PREFIX:-lightdance}-backend-dev-${USER:-user}
+    container_name: backend-dev
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/"]
       interval: 10s
@@ -66,7 +66,7 @@ services:
   # ------------------ 本地資料庫 (MongoDB) ------------------
   mongo:
     image: mongo
-    container_name: ${PROJECT_PREFIX:-lightdance}-mongo-dev-${USER:-user}
+    container_name: mongo-dev
     restart: always
     environment:
       MONGO_INITDB_ROOT_USERNAME: ${MONGO_USERNAME:-user}
@@ -83,7 +83,7 @@ services:
   # ------------------ 資料庫管理介面 (Mongo Express) ------------------
   mongo-express:
     image: mongo-express
-    container_name: ${PROJECT_PREFIX:-lightdance}-express-dev-${USER:-user}
+    container_name: mongo-express-dev
     restart: always
     ports:
       - ${MONGO_EXPRESS_PORT:-8081}:8081
@@ -107,7 +107,7 @@ services:
 networks:
   app-network:
     driver: bridge
-    name: ${PROJECT_PREFIX:-lightdance}-network-dev-${USER:-user}
+    name: lightdance-dev-network
 
 # ------------------ 共用 Volume ------------------
 volumes:

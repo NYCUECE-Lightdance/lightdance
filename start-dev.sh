@@ -105,7 +105,7 @@ else
     echo -e "✅ ${GREEN}沒有正在運行的容器。${NC}"
 fi
 
-# 3. 使用 docker-compose.dev.yml 建置並啟動所有服務
+# 3. 使用 docker compose 建置並啟動所有服務
 echo -e "📦 ${BLUE}正在建置並啟動所有開發服務 (in background)...${NC}"
 docker compose -f ${COMPOSE_FILE} --env-file ${ENV_FILE} up --build -d
 
@@ -124,7 +124,12 @@ echo ""
 echo -e "📋 ${BOLD}常用管理指令:${NC}"
 echo -e "   - 查看所有服務日誌: ${BOLD}docker compose -f ${COMPOSE_FILE} logs -f${NC}"
 echo -e "   - 查看前端日誌:     ${BOLD}docker compose -f ${COMPOSE_FILE} logs -f frontend-dev${NC}"
+echo -e "   - 查看後端日誌:     ${BOLD}docker compose -f ${COMPOSE_FILE} logs -f backend-dev${NC}"
 echo -e "   - ${RED}按下 Ctrl+C 來停止所有服務${NC}"
+echo ""
+echo -e "🐳 ${BOLD}容器名稱:${NC}"
+echo -e "   - 前端: ${BOLD}frontend-dev${NC}, 後端: ${BOLD}backend-dev${NC}"
+echo -e "   - 資料庫: ${BOLD}mongo-dev${NC}, 管理介面: ${BOLD}mongo-express-dev${NC}"
 echo ""
 echo -e "🎯 ${GREEN}開發環境運行中...${NC}"
 

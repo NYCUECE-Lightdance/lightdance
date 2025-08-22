@@ -52,4 +52,5 @@ docker compose -f ${COMPOSE_FILE} ${ENV_FLAG} up --build -d
 
 echo ""
 echo -e "✅ ${GREEN}${BOLD}部署完成！${NC}"
+echo -e "   容器名稱: ${BOLD}frontend, backend, mongo, mongo-express${NC}"
 echo -e "   請使用 ${BOLD}docker compose -f ${COMPOSE_FILE} logs -f${NC} 來查看服務日誌。"
