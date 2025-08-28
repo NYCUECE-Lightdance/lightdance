@@ -1,13 +1,13 @@
 import React, { useRef, useState, useEffect, createRef } from "react";
-import { store } from "../../redux/store"; // 確保引入你的 Redux store
+import { store } from "../../redux/store.js"; // 確保引入你的 Redux store
 import { useSelector, useDispatch } from "react-redux";
 import {
   updateActionTable,
   updateSelectedBlock,
-} from "../../redux/actions";
+} from "../../redux/actions.js";
 import "./audioplayer.css";
-import Waveform from "./waveform.js";
-import Timeline from "./Timeline.js";
+import Waveform from "./waveform.jsx";
+import Timeline from "./Timeline.jsx";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import {
   faTrash,

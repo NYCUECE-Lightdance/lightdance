@@ -1,7 +1,7 @@
 import React, { useEffect } from "react";
-import Armor from "./Armor.js";
+import Armor from "./Armor.jsx";
 import { useDispatch, useSelector } from "react-redux";
-import { updateActionTable } from "../redux/actions";
+import { updateActionTable } from "../redux/actions.js";
 
 function People() {
   const components = Array(5).fill(null);

@@ -38,7 +38,6 @@ const Login = () => {
         },
         // body: JSON.stringify({ username: idNumber, password: passwd }),
         body: formData,
-        mode: "cors",
       });
 
       if (!response.ok) {
