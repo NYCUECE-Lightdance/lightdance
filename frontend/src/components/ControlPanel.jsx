@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, act } from "react";
 import { useDispatch, useSelector } from "react-redux";
-import AudioPlayer from "./audio/audioplayer.js";
+import AudioPlayer from "./audio/audioplayer.jsx";
 import "./ControlPanel.css";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import {

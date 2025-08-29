@@ -3,7 +3,7 @@ import "bootstrap/dist/js/bootstrap.bundle.min.js";
 import "bootstrap/dist/css/bootstrap.min.css";
 import { MdInput } from "react-icons/md";
 import { useDispatch, useSelector } from "react-redux";
-import { updateActionTable } from "../redux/actions";
+import { updateActionTable } from "../redux/actions.js";
 import { API_ENDPOINTS } from "../config/api.js";
 
 function Dropdown({ userName, setIsDirty, isDirty, setIsLoaded, isLoaded }) {

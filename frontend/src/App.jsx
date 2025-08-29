@@ -1,8 +1,8 @@
 import "./App.css";
-import ModelViewerComponent from "./pages/model.js";
+import ModelViewerComponent from "./pages/model.jsx";
 import "typeface-kanit";
-import EditActionTable from "./pages/EditActionTable.js";
-import Home from "./pages/Home.js";
+import EditActionTable from "./pages/EditActionTable.jsx";
+import Home from "./pages/Home.jsx";
 import { BrowserRouter as Router, Route, Routes } from "react-router-dom";
 import { useState, useEffect } from "react";
 import Welcome from "./pages/Welcome.jsx";

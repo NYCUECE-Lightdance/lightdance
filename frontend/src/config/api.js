@@ -1,44 +1,7 @@
-// API configuration with smart detection
-const getApiBaseUrl = () => {
-  // 如果有環境變量設定，優先使用
-  if (process.env.REACT_APP_API_BASE_URL) {
-    console.log('🔧 使用環境變量 API URL:', process.env.REACT_APP_API_BASE_URL);
-    return process.env.REACT_APP_API_BASE_URL;
-  }
-  
-  // 自動檢測開發模式
-  if (process.env.NODE_ENV === 'development') {
-    const hostname = window.location.hostname;
-    const port = window.location.port;
-    
-    console.log('🔍 檢測到開發模式');
-    console.log('📍 當前頁面 hostname:', hostname);
-    console.log('📍 當前頁面 port:', port);
-    
-    // 如果是在 npm start (通常是 localhost:3000)
-    if ((hostname === 'localhost' || hostname === '127.0.0.1') && port === '3000') {
-      console.log('🏠 檢測到 npm start 開發模式，連接到 localhost:8000');
-      return 'http://localhost:8000/api';
-    }
-    
-    // 如果是其他IP (例如: 192.168.x.x 或你的實際IP)
-    if (hostname !== 'localhost' && hostname !== '127.0.0.1') {
-      const apiUrl = `http://${hostname}:8000/api`;
-      console.log('🌐 檢測到外部IP，使用:', apiUrl);
-      return apiUrl;
-    }
-    
-    // 預設開發模式
-    console.log('🔄 使用預設開發API: localhost:8000');
-    return 'http://localhost:8000/api';
-  }
-  
-  // 生產模式使用相對路徑
-  console.log('🏭 生產模式，使用相對路徑');
-  return '/api';
-};
-
-const API_BASE_URL = getApiBaseUrl();
+// 在開發模式下，Vite 的代理伺服器 (在 vite.config.js 中設定) 會將 /api 的請求轉發到後端。
+// 在生產模式下，Nginx 或其他反向代理會處理這個轉發。
+// 因此，我們只需要使用相對路徑即可，這樣最為簡潔且可靠。
+const API_BASE_URL = "/api";
 
 // API endpoints
 export const API_ENDPOINTS = {
@@ -57,10 +20,11 @@ export const API_ENDPOINTS = {
 };
 
 // 顯示當前配置
-console.group('🔗 API 配置資訊');
-console.log('Base URL:', API_BASE_URL);
-console.log('環境:', process.env.NODE_ENV);
-console.log('頁面位置:', window.location.href);
+console.group("🔗 API 配置資訊");
+console.log("Base URL:", API_BASE_URL);
+// 在 Vite 中，使用 import.meta.env.MODE 來獲取環境模式
+console.log("環境:", import.meta.env.MODE);
+console.log("頁面位置:", window.location.href);
 console.groupEnd();
 
 export default API_ENDPOINTS;

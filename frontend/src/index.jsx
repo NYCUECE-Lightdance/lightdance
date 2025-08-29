@@ -3,7 +3,7 @@ import ReactDOM from "react-dom/client";
 import { Provider } from "react-redux"; // 引入 Redux Provider
 import { PersistGate } from "redux-persist/integration/react"; // 引入 PersistGate
 import { store, persistor } from "./redux/store"; // 引入 store 和 persistor
-import App from "./App";
+import App from "./App.jsx";
 import reportWebVitals from "./reportWebVitals";
 
 const root = ReactDOM.createRoot(document.getElementById("root"));

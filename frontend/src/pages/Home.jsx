@@ -1,15 +1,15 @@
 import { useNavigate } from "react-router-dom";
 import "./Home.css";
-import ControlPanel from "../components/ControlPanel.js";
-import Palette from "../components/Palette.js";
-import People from "../components/People.js";
+import ControlPanel from "../components/ControlPanel.jsx";
+import Palette from "../components/Palette.jsx";
+import People from "../components/People.jsx";
 import { MdOutput, MdInput } from "react-icons/md";
 import { FiEdit } from "react-icons/fi";
 import { useEffect, useState } from "react";
 import { FaSignOutAlt } from "react-icons/fa";
 import { useDispatch, useSelector } from "react-redux";
-import { persistor } from "../redux/store.js"; // Assuming you have a persistor configured
-import Dropdown from "../components/LoadData.js";
+import { persistor } from "../redux/store.js";
+import Dropdown from "../components/LoadData.jsx";
 import "bootstrap/dist/js/bootstrap.bundle.min.js";
 import "bootstrap/dist/css/bootstrap.min.css";
 import { updateAutoRefresh } from "../redux/actions";
