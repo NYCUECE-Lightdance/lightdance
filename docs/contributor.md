@@ -1,2 +1,1 @@
-    yap
-yeeeee
+nanashi到此一遊
