@@ -92,7 +92,7 @@ const Login = () => {
     >
       <Form>
         <Form.Group className="mb-3">
-          <Form.Label>帳號</Form.Label>
+          <Form.Label>終於成功了QAQ</Form.Label>
           <Form.Control
             type="text"
             onChange={(e) => setIdNumber(e.target.value)}
