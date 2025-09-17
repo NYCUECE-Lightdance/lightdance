@@ -102,7 +102,7 @@ const Login = () => {
         </Form.Group>
 
         <Form.Group className="mb-4">
-          <Form.Label>密碼</Form.Label>
+          <Form.Label>密碼/再試一次commit</Form.Label>
           <Form.Control
             type="password"
             onChange={(e) => setPasswd(e.target.value)}
