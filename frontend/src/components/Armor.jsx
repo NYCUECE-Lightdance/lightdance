@@ -25,76 +25,54 @@ const PART_NAMES = [
   "board",         // 14:板子
 ];
 
-const Armor = (props) => {
-  const dispatch = useDispatch();
-  const actionTable = useSelector((state) => state.profiles.actionTable);
-  const time = useSelector((state) => state.profiles.currentTime);
-  const duration = useSelector((state) => state.profiles.duration);
-  const chosenColor = useSelector((state) => state.profiles.chosenColor);
-  const selectedBlock = useSelector((state) => state.profiles.selectedBlock);
-  const myId = props.index;
-  const blackthreshold = 10;
+  // 根據部位名稱和當前時間計算顏色
+  const getColorForPart = (part) => {
+    const partData = actionTable?.[myId]?.[part] || [];
+    const timeIndex = binarySearchFirstGreater(partData, time);
+    const prevData = partData?.[timeIndex - 1];
+    const nextData = partData?.[timeIndex];
 
-  useEffect(() => {
-    console.log("actionTable: ", actionTable);
-  }, [actionTable]);
+    if (prevData && prevData.linear === 1 && nextData) {
+      const afterNextData = partData?.[timeIndex + 1];
 
-  // 使用 useMemo 確保在 time 或 actionTable 變化時重新計算顏色
-  const colors = useMemo(() => {
-    console.log(`[Armor ${myId}] Recalculating colors, time=${time}`);
+      const startTime = prevData.time;
+      const endTime = nextData.time;
+      const currentTime = time;
 
-    // 根據部位索引和當前時間計算顏色（支援時間漸變）
-    const getColorForPart = (part) => {
-      const partData = actionTable?.[myId]?.[part] || [];
-      const timeIndex = binarySearchFirstGreater(partData, time);
-      const currentBlock = partData?.[timeIndex - 1];
+      const startColor = prevData.color;
+      const endColor = afterNextData?.color || { R: 0, G: 0, B: 0, A: 1 };
 
-      if (!currentBlock) {
-        return `rgba(0, 0, 0, 1)`;
+      if (endTime > startTime) {
+        const ratio = (currentTime - startTime) / (endTime - startTime);
+        const r = Math.round(
+          startColor.R * (1 - ratio) + endColor.R * ratio
+        );
+        const g = Math.round(
+          startColor.G * (1 - ratio) + endColor.G * ratio
+        );
+        const b = Math.round(
+          startColor.B * (1 - ratio) + endColor.B * ratio
+        );
+        const startA = startColor.A ?? 1;
+        const endA = endColor.A ?? 1;
+        const a = startA * (1 - ratio) + endA * ratio;
+        return `rgba(${r}, ${g}, ${b}, ${a})`;
       }
+    }
 
-      const color = currentBlock.color || { R: 0, G: 0, B: 0, A: 1 };
-
-      // 如果當前光塊沒有啟用漸變，直接回傳顏色
-      if (currentBlock.linear !== 1) {
-        return `rgba(${color.R}, ${color.G}, ${color.B}, ${color.A})`;
-      }
-
-      // 漸變模式：計算隨時間變化的顏色
-      const nextBlock = partData?.[timeIndex];
-      const isBlack = (c) => c && c.R === 0 && c.G === 0 && c.B === 0;
-
-      // 尋找下一個非黑色光塊作為結束顏色
-      let endColor = { R: 0, G: 0, B: 0, A: 1 };
-      if (nextBlock && !isBlack(nextBlock.color)) {
-        endColor = nextBlock.color;
-      } else if (partData[timeIndex + 1] && !isBlack(partData[timeIndex + 1].color)) {
-        endColor = partData[timeIndex + 1].color;
-      }
-
-      // 計算當前時間在光塊中的進度比例 (0 到 1)
-      const startTime = currentBlock.time;
-      const endTime = nextBlock ? nextBlock.time : (startTime + 1000);
-      const progress = Math.min(Math.max((time - startTime) / (endTime - startTime), 0), 1);
-
-      // 線性插值計算當前時間對應的顏色
-      const interpolatedR = Math.round(color.R + (endColor.R - color.R) * progress);
-      const interpolatedG = Math.round(color.G + (endColor.G - color.G) * progress);
-      const interpolatedB = Math.round(color.B + (endColor.B - color.B) * progress);
-      const interpolatedA = color.A + (endColor.A - color.A) * progress;
-
-      // 除錯：顯示漸變資訊
-      if (part === 6 && currentBlock.linear === 1) { // 領帶
-        console.log(`[Armor ${myId}] 🎨 Part ${part} gradient: progress=${progress.toFixed(2)}, color=(${interpolatedR},${interpolatedG},${interpolatedB})`);
-      }
-
-      return `rgba(${interpolatedR}, ${interpolatedG}, ${interpolatedB}, ${interpolatedA})`;
+    const colorData = prevData?.color || {
+      R: 0,
+      G: 0,
+      B: 0,
+      A: 1,
     };
+    
+    return `rgba(${colorData.R}, ${colorData.G}, ${colorData.B}, ${colorData.A})`;
+  };
 
-    return Object.fromEntries(
-      PART_NAMES.map((name, index) => [name, getColorForPart(index)])
-    );
-  }, [time, actionTable, myId]);
+  const colors = Object.fromEntries(
+    partNames.map((name, index) => [name, getColorForPart(index)])
+  );
 
   function insertArray(part) {
     const partData = actionTable?.[myId]?.[part] || [];
