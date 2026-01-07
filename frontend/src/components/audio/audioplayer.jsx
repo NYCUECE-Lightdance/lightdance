@@ -220,6 +220,11 @@ function AudioPlayer({ setButtonState, timelineRef }) {
       event.preventDefault();
       handleCut();
     }
+    if (event.key === "L" || event.key === "l") { // Add shortcut for 'L' key
+      event.preventDefault();
+      console.log("L key pressed. Toggling linear property.");
+      handleSetLinear();
+    }
 
     if (["1", "2", "3", "4", "5", "6", "7", "8"].includes(event.key)) {
       console.log("Number key pressed.");
