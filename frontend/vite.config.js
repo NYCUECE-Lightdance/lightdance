@@ -13,6 +13,11 @@ export default defineConfig(({ command }) => ({
     host: true,
     // 指定開發伺服器運行的端口，與 docker-compose.dev.yml 保持一致
     port: 3000,
+    // 在 Docker/Windows 環境下啟用輪詢以確保檔案變更能被偵測
+    watch: {
+      usePolling: true,
+      interval: 1000, // 每秒檢查一次檔案變更
+    },
     proxy: {
       // 將 /api 的請求代理到後端 Docker 服務
       "/api": {

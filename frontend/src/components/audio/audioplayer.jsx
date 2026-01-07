@@ -48,6 +48,7 @@ function AudioPlayer({ setButtonState, timelineRef }) {
     (state) => state.profiles.isColorChangeActive
   );
   const clipboard = useSelector((state) => state.profiles.clipboard);
+  const playbackRate = useSelector((state) => state.profiles.playbackRate);
 
   const audioRef = useRef(null); // 音檔的引用
   const scrollRef = useRef(null); // 滾動條的容器
@@ -1248,15 +1249,14 @@ function AudioPlayer({ setButtonState, timelineRef }) {
           <select
             id="speed-select"
             className="dropdown-select"
+            value={playbackRate || 1}
             onChange={(e) => handleSpeedChange(e.target.value)}
             style={{ marginLeft: "10px" }}
           >
             <option value="0.5">0.5x</option>
-            <option value="0.75">0.75</option>
-            <option value="1" selected>
-              1x
-            </option>
-            <option value="1.25">1.25</option>
+            <option value="0.75">0.75x</option>
+            <option value="1">1x</option>
+            <option value="1.25">1.25x</option>
             <option value="1.5">1.5x</option>
             <option value="2">2x</option>
           </select>

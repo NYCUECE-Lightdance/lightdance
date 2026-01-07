@@ -120,7 +120,7 @@ const AudioWaveform = ({
       const newSource = audioContext.createBufferSource();
       const gainNode = audioContext.createGain();
       newSource.buffer = audioBuffer;
-      newSource.playbackRate.value = 1;
+      newSource.playbackRate.value = playbackRate || 1;
       gainNode.gain.value = volume;
       gainNodeRef.current = gainNode;
 
@@ -148,6 +148,19 @@ const AudioWaveform = ({
       gainNodeRef.current.gain.value = volume;
     }
   }, [volume]);
+
+  // 更新播放速度
+  useEffect(() => {
+    if (sourceNode && isPlaying) {
+      sourceNode.playbackRate.value = playbackRate || 1;
+      // 重新計算 startTime 以配合新的播放速度
+      // 當前音訊位置 (毫秒) = currentTime
+      // 實際經過時間 (秒) = audioContext.currentTime
+      // 新的 startTime = 現在時間 - (當前音訊位置 / 新播放速度)
+      const now = audioContext.currentTime;
+      setStartTime(now - (currentTime / 1000) / (playbackRate || 1));
+    }
+  }, [playbackRate]);
 
   useEffect(() => {
     if (scrollRef?.current && duration > 0) {
@@ -210,7 +223,7 @@ const AudioWaveform = ({
 
   const updateProgress = () => {
     if (isPlaying && audioBuffer) {
-      const elapsed = (audioContext.currentTime - startTime) * 1000;
+      const elapsed = (audioContext.currentTime - startTime) * (playbackRate || 1) * 1000;
       dispatch(updateCurrentTime(elapsed));
       animationRef.current = requestAnimationFrame(updateProgress);
     }
