@@ -323,7 +323,7 @@ function Home({ rgba, setRgba, setButtonState }) {
           <button className="device-info-button">
             <FontAwesomeIcon icon={faRobot} size="lg" />
           </button>
-          <h1 className="title">NYCUEE Light Dance</h1>
+          <button type="button" className="title" onClick={handleLogout} style={{ backgroundColor: 'black', color: 'white' }}>NYCUEE Light Dance</button>
           {listitem}
           <div className="people-container">
             <People />
