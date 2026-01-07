@@ -1,4 +1,4 @@
-import { useEffect, useMemo } from "react";
+import { useEffect } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import "./Armor.css";
 import {
@@ -6,24 +6,38 @@ import {
   updateCurrentTime,
 } from "../redux/actions";
 
-// 部位名稱常數（對應 Home.jsx 的輸出映射）
-const PART_NAMES = [
-  "hat",           // 0:帽子
-  "face",          // 1:臉部
-  "chestL",        // 2:左胸
-  "chestR",        // 3:右胸
-  "armL",          // 4:左手臂
-  "armR",          // 5:右手臂
-  "tie",           // 6:領帶
-  "belt",          // 7:腰帶
-  "gloveL",        // 8:左手套
-  "gloveR",        // 9:右手套
-  "legL",          // 10:左腿
-  "legR",          // 11:右腿
-  "shoeL",         // 12:左鞋
-  "shoeR",         // 13:右鞋
-  "board",         // 14:板子
-];
+const Armor = (props) => {
+  const dispatch = useDispatch();
+  const actionTable = useSelector((state) => state.profiles.actionTable);
+  const time = useSelector((state) => state.profiles.currentTime);
+  const duration = useSelector((state) => state.profiles.duration);
+  const chosenColor = useSelector((state) => state.profiles.chosenColor);
+  const selectedBlock = useSelector((state) => state.profiles.selectedBlock);
+  const myId = props.index;
+  const blackthreshold = 10;
+
+  useEffect(() => {
+    console.log("actionTable: ", actionTable);
+  }, [actionTable]);
+
+  // 新的部位名稱（對應 Home.jsx 的輸出映射）
+  const partNames = [
+    "hat",           // 0:帽子
+    "face",          // 1:臉部
+    "chestL",        // 2:左胸
+    "chestR",        // 3:右胸
+    "armL",          // 4:左手臂
+    "armR",          // 5:右手臂
+    "tie",           // 6:領帶
+    "belt",          // 7:腰帶
+    "gloveL",        // 8:左手套
+    "gloveR",        // 9:右手套
+    "legL",          // 10:左腿
+    "legR",          // 11:右腿
+    "shoeL",         // 12:左鞋
+    "shoeR",         // 13:右鞋
+    "board",         // 14:板子
+  ];
 
   // 根據部位名稱和當前時間計算顏色
   const getColorForPart = (part) => {
