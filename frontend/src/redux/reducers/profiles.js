@@ -5,6 +5,7 @@ const initialState = {
   actionTable: [],
   timelineBlocks: {},
   selectedBlock: {},
+  multiSelectedBlocks: [],
   chosenColor: { R: 5, G: 5, B: 5, A: 1 },
   currentTime: 0,
   accessToken: "",
@@ -175,6 +176,8 @@ export const profiles = (state = initialState, action) => {
       return { ...state, dancerVisibility: action.payload };
     case "UPDATECLIPBOARD":
       return { ...state, clipboard: action.payload };
+    case "UPDATE_MULTI_SELECTED_BLOCKS":
+      return { ...state, multiSelectedBlocks: action.payload };
     case "REFRESH":
       return initialState;
     default:

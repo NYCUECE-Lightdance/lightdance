@@ -126,3 +126,10 @@ export const updateClipboard = (value) => ({
   type: UPDATECLIPBOARD,
   payload: value,
 });
+
+export const UPDATE_MULTI_SELECTED_BLOCKS = "UPDATE_MULTI_SELECTED_BLOCKS";
+
+export const updateMultiSelectedBlocks = (blocks) => ({
+  type: UPDATE_MULTI_SELECTED_BLOCKS,
+  payload: blocks,
+});
