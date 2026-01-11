@@ -6,6 +6,7 @@ import {
   updateSelectedBlock,
   updateTempActionTable,
   updateIsColorChangeActive,
+  updateMultiSelectedBlocks,
 } from "../../redux/actions";
 import cloneDeep from "lodash/cloneDeep";
 import { produce } from "immer";
@@ -47,6 +48,7 @@ const Timeline = forwardRef(
     ); // 臨時動作表
     const duration = useSelector((state) => state.profiles.duration); // 總時長
     const selectedBlock = useSelector((state) => state.profiles.selectedBlock); // 全局選中方塊
+    const multiSelectedBlocks = useSelector((state) => state.profiles.multiSelectedBlocks); // 全局多選中方塊
     const blackthreshold = 10;
 
     // 左、右箭頭的樣式
@@ -101,6 +103,7 @@ const Timeline = forwardRef(
         ) {
           console.log("click outside");
           dispatch(updateSelectedBlock({})); // 更新 Redux
+          dispatch(updateMultiSelectedBlocks([])); // 清除多選
           dispatch(updateIsColorChangeActive(false)); // 更新 Redux
         }
       };
@@ -184,19 +187,44 @@ const Timeline = forwardRef(
       e.stopPropagation();
 
       const block = timelineBlocks[index];
+      // If a black block is clicked, clear all selections.
       if (block.color.R === 0 && block.color.G === 0 && block.color.B === 0) {
-        dispatch(updateSelectedBlock({})); // 更新 Redux
+        dispatch(updateSelectedBlock({}));
+        dispatch(updateMultiSelectedBlocks([]));
         return;
       }
 
-      setDragging(true);
-      setDraggedBlockIndex(index);
-      setDragStartpoint(e.clientX); // 記錄鼠標按下的位置
+      // Shift-click multi-selection logic
+      if (e.shiftKey && selectedBlock && selectedBlock.armorIndex === armorIndex && selectedBlock.partIndex === partIndex) {
+        const startIdx = selectedBlock.blockIndex;
+        const endIdx = index;
 
-      // 通知父组件更新全局选中状态
-      dispatch(
-        updateSelectedBlock({ armorIndex, partIndex, blockIndex: index })
-      );
+        const selectionStart = Math.min(startIdx, endIdx);
+        const selectionEnd = Math.max(startIdx, endIdx);
+
+        const newMultiSelected = [];
+        for (let i = selectionStart; i <= selectionEnd; i++) {
+          const currentBlock = timelineBlocks[i];
+          // Filter out black blocks (transition blocks)
+          const isBlackTransition = currentBlock.color.R === 0 && currentBlock.color.G === 0 && currentBlock.color.B === 0;
+          if (!isBlackTransition) {
+            newMultiSelected.push({ armorIndex, partIndex, blockIndex: i });
+          }
+        }
+        dispatch(updateMultiSelectedBlocks(newMultiSelected));
+
+      } else {
+        // Single-select logic
+        dispatch(updateMultiSelectedBlocks([])); // Clear multi-selection
+        setDragging(true);
+        setDraggedBlockIndex(index);
+        setDragStartpoint(e.clientX);
+
+        // Notify parent component to update global selected state
+        dispatch(
+          updateSelectedBlock({ armorIndex, partIndex, blockIndex: index })
+        );
+      }
     };
 
     // 處理鼠標放開事件
@@ -443,6 +471,12 @@ const Timeline = forwardRef(
             selectedBlock?.partIndex === partIndex &&
             selectedBlock?.blockIndex === index;
 
+          const isMultiSelected = multiSelectedBlocks.some(b => 
+              b.armorIndex === armorIndex && 
+              b.partIndex === partIndex && 
+              b.blockIndex === index
+          );
+
           // 計算顏色距離的函式
           const colorDistance = (color1, color2) => {
             return Math.sqrt(
@@ -495,7 +529,7 @@ const Timeline = forwardRef(
             height: "90%",
             position: "relative",
             borderRadius: "7px",
-            border: isSelected ? `3px solid ${selectionBorderColor}` : "none",
+            border: isSelected || isMultiSelected ? `3px solid ${selectionBorderColor}` : "none",
             boxSizing: "border-box",
             zIndex: 1,
           };

@@ -5,6 +5,7 @@ import {
   updateActionTable,
   updateSelectedBlock,
   updateClipboard,
+  updateMultiSelectedBlocks,
 } from "../../redux/actions.js";
 import "./audioplayer.css";
 import Waveform from "./waveform.jsx";
@@ -48,6 +49,7 @@ function AudioPlayer({ setButtonState, timelineRef }) {
     (state) => state.profiles.isColorChangeActive
   );
   const clipboard = useSelector((state) => state.profiles.clipboard);
+  const multiSelectedBlocks = useSelector((state) => state.profiles.multiSelectedBlocks);
   const playbackRate = useSelector((state) => state.profiles.playbackRate);
 
   const audioRef = useRef(null); // 音檔的引用
@@ -106,6 +108,10 @@ function AudioPlayer({ setButtonState, timelineRef }) {
   useEffect(() => {
     setButtonState(isPlaying);
   }, [isPlaying, setButtonState]);
+
+  useEffect(() => {
+    console.log("multiSelectedBlocks for debugging:", multiSelectedBlocks);
+  }, [multiSelectedBlocks]);
 
   useEffect(() => {
     elRefs.current = showPart.map((_, i) => elRefs.current[i] || createRef());
@@ -253,8 +259,7 @@ function AudioPlayer({ setButtonState, timelineRef }) {
         handleAlphaChoose(1.0);
       }
     }
-    if (
-      event.shiftKey &&
+    if (event.shiftKey &&
       ["1", "2", "3", "4", "5", "6", "7", "8"].includes(event.key)
     ) {
       event.preventDefault();
@@ -263,8 +268,12 @@ function AudioPlayer({ setButtonState, timelineRef }) {
     }
     if (event.key === "Delete" || event.key === "Backspace") {
       event.preventDefault();
-      console.log("Delete or Backspace pressed.");
-      ClickedDelete();
+      if (multiSelectedBlocks && multiSelectedBlocks.length > 0) {
+        handleMultiDelete();
+      } else {
+        console.log("Delete or Backspace pressed for single block.");
+        ClickedDelete();
+      }
     }
 
     if (event.key === " ") {
@@ -280,7 +289,7 @@ function AudioPlayer({ setButtonState, timelineRef }) {
     return () => {
       document.removeEventListener("keydown", handleKeyDown);
     };
-  }, [selectedBlock, currentTime]); // 依賴 selectedBlock，確保每次變化時都重新綁定事件處理器
+  }, [selectedBlock, currentTime, multiSelectedBlocks]); // 依賴 selectedBlock，確保每次變化時都重新綁定事件處理器
 
   const handleFavoriteColorInsert = (colorIndex) => {
     const row = Math.floor(colorIndex / favoriteColor[0].length); // 計算第幾列
@@ -537,6 +546,68 @@ function AudioPlayer({ setButtonState, timelineRef }) {
       setIsPlaying(false);
     }
     setVolume(newVolume);
+  };
+
+  const handleMultiDelete = () => {
+    console.log("Blacking out multiple blocks:", multiSelectedBlocks);
+  
+    const groupedByPart = multiSelectedBlocks.reduce((acc, block) => {
+      const key = `${block.armorIndex}-${block.partIndex}`;
+      if (!acc[key]) {
+        acc[key] = [];
+      }
+      acc[key].push(block.blockIndex);
+      return acc;
+    }, {});
+  
+    const updatedActionTable = produce(actionTable, (draft) => {
+      Object.keys(groupedByPart).forEach(key => {
+        const [armorIndexStr, partIndexStr] = key.split('-');
+        const armorIndex = parseInt(armorIndexStr, 10);
+        const partIndex = parseInt(partIndexStr, 10);
+        const blockIndexes = groupedByPart[key];
+  
+        const minBlockIndex = Math.min(...blockIndexes);
+        const maxBlockIndex = Math.max(...blockIndexes);
+  
+        const partTimelineFromView = timelineBlocks[armorIndex]?.[partIndex];
+        const partTimelineFromActionTable = draft[armorIndex]?.[partIndex];
+        
+        if (!partTimelineFromView || !partTimelineFromActionTable) return;
+  
+        const firstTimelineBlock = partTimelineFromView[minBlockIndex];
+        const lastTimelineBlock = partTimelineFromView[maxBlockIndex];
+  
+        if (!firstTimelineBlock || !lastTimelineBlock) return;
+  
+        const selectionStartTime = firstTimelineBlock.startTime;
+        const selectionEndTime = lastTimelineBlock.startTime + lastTimelineBlock.durationTime;
+  
+        const startIndexToActionTable = partTimelineFromActionTable.findIndex(entry => entry.time === selectionStartTime);
+        
+        if (startIndexToActionTable === -1) return;
+  
+        partTimelineFromActionTable[startIndexToActionTable].color = { R: 0, G: 0, B: 0, A: 1 };
+        partTimelineFromActionTable[startIndexToActionTable].linear = 0;
+  
+        let deleteStartIndex = startIndexToActionTable + 1;
+        let deleteCount = 0;
+        while (deleteStartIndex + deleteCount < partTimelineFromActionTable.length &&
+               partTimelineFromActionTable[deleteStartIndex + deleteCount].time < selectionEndTime) {
+          deleteCount++;
+        }
+  
+        if (deleteCount > 0) {
+          partTimelineFromActionTable.splice(deleteStartIndex, deleteCount);
+        }
+      });
+    });
+  
+    const cleanedActionTable = removeDuplicateBlackBlocks(updatedActionTable);
+  
+    dispatch(updateActionTable(cleanedActionTable));
+    dispatch(updateSelectedBlock({}));
+    dispatch(updateMultiSelectedBlocks([]));
   };
 
   const ClickedDelete = () => {
@@ -1122,7 +1193,7 @@ function AudioPlayer({ setButtonState, timelineRef }) {
                   setEffectMenuVisible(false);
                 }}
               >
-                漸變
+                漸變 (L)
               </div>
             </div>
           )}
