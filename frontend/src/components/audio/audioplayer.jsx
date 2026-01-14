@@ -907,58 +907,59 @@ function AudioPlayer({ setButtonState, timelineRef }) {
       console.warn("No block selected or invalid block index.");
       return;
     }
-
+    
     const { armorIndex, partIndex, blockIndex } = selectedBlock;
-
-    const block = actionTable?.[armorIndex]?.[partIndex]?.[blockIndex];
-    if (!block) {
-      console.warn("Selected block not found in the actionTable.");
-      return;
-    }
-    if (block.time >= currentTime) {
-      console.warn("Selected block is in the future.");
-      return;
-    }
-    if (
-      actionTable?.[armorIndex]?.[partIndex]?.[blockIndex + 1].time <
-      currentTime
-    ) {
-      console.warn("Selected block is in the past.");
-      return;
-    }
-
-    // 插入新的 block
+    
     const updatedActionTable = produce(actionTable, (draft) => {
-      const timeline = draft[armorIndex][partIndex];
-      if (!timeline) return;
-
-      const originalBlock = timeline[blockIndex];
-      if (!originalBlock || !originalBlock.time) return;
-
-      // 新的 block 时间为原始 block 的时间加上一半的持续时间
-
-      // 插入新的 block
-      const newBlock = {
-        ...originalBlock,
-        time: currentTime,
-      };
-
+      const timeline = draft[armorIndex]?.[partIndex];
+      const originalBlock = timeline?.[blockIndex];
+      const nextBlock = timeline?.[blockIndex + 1];
+      
+      if (!originalBlock || !nextBlock || currentTime <= originalBlock.time || currentTime >= nextBlock.time) {
+        console.warn("Cut operation is not valid at the current time.");
+        return;
+      }
+  
+      let newBlockColor = originalBlock.color;
+      const isOriginalLinear = originalBlock.linear === 1;
+  
+      if (isOriginalLinear) {
+        const gradientTargetBlock = timeline[blockIndex + 2];
+        const startColor = originalBlock.color;
+        const endColor = gradientTargetBlock?.color || { R: 0, G: 0, B: 0, A: 1 };
+        const startTime = originalBlock.time;
+        const endTime = nextBlock.time;
+  
+        if (endTime > startTime) {
+          const ratio = (currentTime - startTime) / (endTime - startTime);
+          newBlockColor = {
+            R: Math.round(startColor.R * (1 - ratio) + endColor.R * ratio),
+            G: Math.round(startColor.G * (1 - ratio) + endColor.G * ratio),
+            B: Math.round(startColor.B * (1 - ratio) + endColor.B * ratio),
+            A: ((startColor.A ?? 1) * (1 - ratio) + (endColor.A ?? 1) * ratio),
+          };
+        }
+        originalBlock.linear = 1;
+      }
+      
       const newBlackBlock = {
         time: currentTime - blackthreshold,
         color: { R: 0, G: 0, B: 0, A: 1 },
         linear: 0,
       };
-
-      timeline.splice(blockIndex + 1, 0, newBlock, newBlackBlock);
-
-      // 确保时间线保持排序
+      
+      const newBlock = {
+        time: currentTime,
+        color: newBlockColor,
+        linear: isOriginalLinear ? 1 : 0,
+      };
+  
+      timeline.splice(blockIndex + 1, 0, newBlackBlock, newBlock);
       timeline.sort((a, b) => a.time - b.time);
     });
-
+  
     dispatch(updateActionTable(updatedActionTable));
-    console.log("Action table after cut:", updatedActionTable);
-
-    // 更新 selectedBlock，讓 blockIndex 增加 1
+    
     dispatch(
       updateSelectedBlock({
         armorIndex,
@@ -1207,7 +1208,7 @@ function AudioPlayer({ setButtonState, timelineRef }) {
                 className="dropdown-select"
                 value={startBrightness}
                 onChange={(e) => setStartBrightness(Number(e.target.value))}
-              >
+              > 
                 {[...Array(10)].map((_, i) => {
                   const v = (i + 1) * 10;
                   return (
