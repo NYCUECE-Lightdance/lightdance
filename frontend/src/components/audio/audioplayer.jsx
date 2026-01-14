@@ -1208,7 +1208,7 @@ function AudioPlayer({ setButtonState, timelineRef }) {
                 className="dropdown-select"
                 value={startBrightness}
                 onChange={(e) => setStartBrightness(Number(e.target.value))}
-              >
+              > 
                 {[...Array(10)].map((_, i) => {
                   const v = (i + 1) * 10;
                   return (
