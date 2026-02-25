@@ -8,7 +8,7 @@ import {
   updateMultiSelectedBlocks,
 } from "../../redux/actions.js";
 import "./audioplayer.css";
-import Waveform from "./waveform.jsx";
+import Waveform, { musicNames } from "./waveform.jsx";
 import Timeline from "./Timeline.jsx";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import {
@@ -36,6 +36,7 @@ import { set } from "lodash";
 const MAXZOOMVALUE = 100;
 
 function AudioPlayer({ setButtonState, timelineRef }) {
+  const [musicIndex, setMusicIndex] = useState(0);
   const dispatch = useDispatch();
   const showPart = useSelector((state) => state.profiles.showPart);
   const currentTime = useSelector((state) => state.profiles.currentTime);
@@ -1178,6 +1179,22 @@ function AudioPlayer({ setButtonState, timelineRef }) {
           <FontAwesomeIcon icon={faWandMagicSparkles} size="lg" />
           <span className="tooltip">Effect</span>
         </button>*/}
+        {/* 3. 新增：音軌選擇選單 (放在 Effect 按鈕左邊) */}
+        <div className="dropdown" style={{ marginRight: "10px" }}>
+          <select
+            className="dropdown-select"
+            value={musicIndex}
+            onChange={(e) => setMusicIndex(Number(e.target.value))}
+            style={{ minWidth: "120px" }}
+          >
+            {musicNames.map((name, index) => (
+              <option key={index} value={index}>
+                {index}. {name}
+              </option>
+            ))}
+          </select>
+          <span className="tooltip">Select Track</span>
+        </div>
         <div className="effect-wrapper">
           <button className="effect-button" onClick={handleEffect}>
             <FontAwesomeIcon icon={faWandMagicSparkles} size="lg" />
@@ -1416,6 +1433,7 @@ function AudioPlayer({ setButtonState, timelineRef }) {
               zoomValue={zoomLevel}
               containerRef={containerRef}
               volume={volume}
+              musicIndex={musicIndex}
             />
           </div>
         </div>
