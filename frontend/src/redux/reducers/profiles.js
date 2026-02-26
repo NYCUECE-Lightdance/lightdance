@@ -3,7 +3,7 @@ const initialState = {
   fullPeaks: [],
   duration: 0,
   data: {
-    music_index: 2,
+    music_index: 0,
     actionTable: [],
   },
   timelineBlocks: {},

@@ -223,11 +223,11 @@ const AudioWaveform = ({
       const peaks = getPeaks(buffer);
       setAudioBuffer(buffer);
       dispatch(updateDuration(buffer.duration * 1000));
-      if (fullPeaks && fullPeaks.length > 0) return;
+      // if (fullPeaks && fullPeaks.length > 0) return;
       dispatch(updateFullpeaks(peaks));
-      // dispatch(updateCurrentTime(0));
+      dispatch(updateCurrentTime(0));
     });
-  }, [url, audioContext, fullPeaks, dispatch]);
+  }, [url, audioContext, dispatch]);
 
   // 根據 zoomValue 重繪波形
   // useEffect(() => {
@@ -241,7 +241,7 @@ const AudioWaveform = ({
 
   // 根據當前播放時間更新波形進度
   useEffect(() => {
-    if (currentTime && fullPeaks && fullPeaks.length > 0) {
+    if (fullPeaks && fullPeaks.length > 0) {
       const canvas = canvasRef.current;
       // const targetBarCount = 3000;
       // const displayPeaks = resamplePeaks(fullPeaks, targetBarCount);
@@ -288,6 +288,9 @@ const AudioWaveform = ({
   function drawWaveforms(canvas) {
     const context = canvas.getContext("2d");
     const height = canvas.height;
+    const width = canvas.width;
+    context.clearRect(0, 0, width, height);
+
     const container = containerRef.current;
     context.clearRect(0, 0, scrollRef.current.clientWidth, height); // 清空畫布
     context.fillStyle = "#dbf0e4"; // 設置波形顏色
