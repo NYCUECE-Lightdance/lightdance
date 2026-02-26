@@ -480,12 +480,12 @@ function Wave({
   containerRef,
   sourceNode,
   setSourceNode,
-  musicIndex = 0,
   volume,
 }) {
   // useEffect(() => {
   //   audioRef.current.volume = volume;
   // }, [volume, audioRef]);
+  const musicIndex = useSelector((state) => state.profiles.data?.music_index ?? 2);
 
   return (
     <div>

@@ -7,7 +7,7 @@ import WaveSurferPlayer from "../components/audio/WaveSurferplayer"; // 🔹 引
 function EditActionTable() {
   const dispatch = useDispatch();
   const navigate = useNavigate(); // 🔹 用來做頁面跳轉
-  const actionTable = useSelector((state) => state.profiles.actionTable);
+  const actionTable = useSelector((state) => state.profiles.data?.actionTable || []);
 
   const partName = [
     "帽子",      // 0

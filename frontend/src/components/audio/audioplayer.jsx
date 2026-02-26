@@ -6,6 +6,7 @@ import {
   updateSelectedBlock,
   updateClipboard,
   updateMultiSelectedBlocks,
+  updateMusicIndex,
 } from "../../redux/actions.js";
 import "./audioplayer.css";
 import Waveform, { musicNames } from "./waveform.jsx";
@@ -36,12 +37,13 @@ import { set } from "lodash";
 const MAXZOOMVALUE = 100;
 
 function AudioPlayer({ setButtonState, timelineRef }) {
-  const [musicIndex, setMusicIndex] = useState(0);
   const dispatch = useDispatch();
+  const data = useSelector((state) => state.profiles.data);
+  const musicIndex = data?.music_index ?? 2;
   const showPart = useSelector((state) => state.profiles.showPart);
   const currentTime = useSelector((state) => state.profiles.currentTime);
   const duration = useSelector((state) => state.profiles.duration); // 音樂總長度
-  const actionTable = useSelector((state) => state.profiles.actionTable); // Redux 狀態中的動作表
+  const actionTable = data?.actionTable || []; // Redux 狀態中的動作表
   const timelineBlocks = useSelector((state) => state.profiles.timelineBlocks); // Redux 狀態中的時間軸區塊
   const chosenColor = useSelector((state) => state.profiles.chosenColor);
   const selectedBlock = useSelector((state) => state.profiles.selectedBlock);
@@ -1184,7 +1186,7 @@ function AudioPlayer({ setButtonState, timelineRef }) {
           <select
             className="dropdown-select"
             value={musicIndex}
-            onChange={(e) => setMusicIndex(Number(e.target.value))}
+            onChange={(e) => dispatch(updateMusicIndex(Number(e.target.value)))}
             style={{ minWidth: "120px" }}
           >
             {musicNames.map((name, index) => (
@@ -1370,9 +1372,12 @@ function AudioPlayer({ setButtonState, timelineRef }) {
               </>
             )}
           </button>
-          <div className="time-display">
+          <span className="current-time-box">{formatTime(currentTime)}</span>
+          <span className="time-separator">/</span>
+          <span className="duration-box">{formatTime(duration)}</span>
+          {/* <div className="time-display">
             {formatTime(currentTime)} / {formatTime(duration)}
-          </div>
+          </div> */}
         </div>
         <div className="zoom-controls">
           <button onClick={handleminuszoom} disabled={zoomLevel < 1}>
@@ -1433,7 +1438,6 @@ function AudioPlayer({ setButtonState, timelineRef }) {
               zoomValue={zoomLevel}
               containerRef={containerRef}
               volume={volume}
-              musicIndex={musicIndex}
             />
           </div>
         </div>
