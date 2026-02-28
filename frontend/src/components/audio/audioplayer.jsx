@@ -218,7 +218,7 @@ function AudioPlayer({ setButtonState, timelineRef }) {
       console.log("Shift + ArrowLeft pressed. Moving left.");
       handleGoLeft();
     }
-    if (event.key === "m") {
+    if (event.key === "p") {
       event.preventDefault();
       ClickedColorChange();
     }

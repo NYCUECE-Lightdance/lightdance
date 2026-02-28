@@ -15,7 +15,8 @@ This document lists the available keyboard shortcuts for the Light Dance applica
 -   **Delete / Backspace**: If multiple blocks are selected, turn the entire selected region into a single black block. If only a single block is selected, delete that block.
 -   **C**: Cut the selected block at the current time, creating a new block.
 -   **L**: Toggle the `linear` (gradient) property for the selected block.
--   **M**: Open the color picker to change the color of the selected block.
+-   **P**: Open the color picker to change the color of the selected block.
+-   **M**: Press 'm' to toggle **Move Mode**. In Move Mode: click a colored block to select it and it will follow the mouse left/right (stopping at neighboring blocks); click the selected block again, click elsewhere, or press **M** / click the Move Mode button to commit the position and exit.
 
 ## Color and Brightness
 

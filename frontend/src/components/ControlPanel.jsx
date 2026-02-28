@@ -14,12 +14,14 @@ import {
   faAngleDown,
   faEyeSlash,
   faEye,
+  faUpDownLeftRight,
 } from "@fortawesome/free-solid-svg-icons";
 import {
   updateRedo,
   updateUndo,
   updateShowPart,
   updateSelectedBlock,
+  toggleMoveMode,
 } from "../redux/actions.js";
 
 function ControlPanel({ setButtonState }) {
@@ -33,6 +35,7 @@ function ControlPanel({ setButtonState }) {
   const actionTable = useSelector((state) => state.profiles.actionTable);
   const currentTime = useSelector((state) => state.profiles.currentTime);
   const showPart = useSelector((state) => state.profiles.showPart);
+  const moveMode = useSelector((state) => state.profiles.moveMode);
   const dispatch = useDispatch();
   const partName = [
     "帽子",      // 0
@@ -86,13 +89,17 @@ function ControlPanel({ setButtonState }) {
       event.preventDefault();
       moveSelectedBlockDown();
     }
+    if (event.key === "m") {
+      event.preventDefault();
+      dispatch(toggleMoveMode());
+    }
   };
   useEffect(() => {
     document.addEventListener("keydown", handleKeyDown);
     return () => {
       document.removeEventListener("keydown", handleKeyDown);
     };
-  }, [selectedBlock, currentTime]);
+  }, [selectedBlock, currentTime, moveMode]);
 
   const moveSelectedBlockUp = () => {
     console.log("moveSelectedBlockUp");
@@ -590,6 +597,13 @@ function ControlPanel({ setButtonState }) {
             <button className="add-timeline" onClick={addTimeline}>
               <FontAwesomeIcon icon={faPlus} size="lg" />
               <span className="tooltip">Add-Timeline</span>
+            </button>
+            <button
+              className={`move-mode-button ${moveMode ? "active" : ""}`}
+              onClick={() => dispatch(toggleMoveMode())}
+            >
+              <FontAwesomeIcon icon={faUpDownLeftRight} size="lg" />
+              <span className="tooltip">Move Mode ( M )</span>
             </button>
           </div>
           <div

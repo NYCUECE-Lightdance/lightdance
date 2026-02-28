@@ -7,6 +7,7 @@ import {
   updateTempActionTable,
   updateIsColorChangeActive,
   updateMultiSelectedBlocks,
+  updateMoveMode,
 } from "../../redux/actions";
 import cloneDeep from "lodash/cloneDeep";
 import { produce } from "immer";
@@ -33,6 +34,16 @@ const Timeline = forwardRef(
     const [draggedBlockIndex, setDraggedBlockIndex] = useState(null); // 被拖動的方塊索引
     const [dragStartpoint, setDragStartpoint] = useState(null); // 拖動的起始點
 
+    // 移動模式專用 ref 和 state
+    const [movingBlockIdx, setMovingBlockIdx] = useState(null); // 目前正在移動的方塊 index（null = 無）
+    const movingBlockIdxRef = useRef(null);  // 與 movingBlockIdx 同步的 ref，供 callback 讀取
+    const moveDragPixelsRef = useRef(0);     // 目前的像素位移
+    const draggedBlockDomRef = useRef(null); // 被移動方塊的 DOM 元素
+    const moveDragStartRef = useRef(0);      // 點擊時的 clientX
+    const minDragPxRef = useRef(-Infinity);  // 向左最大位移（像素）
+    const maxDragPxRef = useRef(Infinity);   // 向右最大位移（像素）
+    const commitMoveRef = useRef(null);      // 指向最新的 commitMove 函式（避免 stale closure）
+
     // 畫布相關狀態
     const canvasRef = useRef(null); // timeline 的畫布引用
     const [canvasWidth, setCanvasWidth] = useState(1600); // 預設畫布寬度
@@ -49,6 +60,7 @@ const Timeline = forwardRef(
     const duration = useSelector((state) => state.profiles.duration); // 總時長
     const selectedBlock = useSelector((state) => state.profiles.selectedBlock); // 全局選中方塊
     const multiSelectedBlocks = useSelector((state) => state.profiles.multiSelectedBlocks); // 全局多選中方塊
+    const moveMode = useSelector((state) => state.profiles.moveMode); // 移動模式
     const blackthreshold = 10;
 
     // 左、右箭頭的樣式
@@ -152,7 +164,7 @@ const Timeline = forwardRef(
       tempActionTable[armorIndex][partIndex].forEach((entry, index) => {
         const startTime = entry.time;
         const nextStartTime =
-          tempActionTable[armorIndex][partIndex]?.[index + 1]?.time || duration;
+          tempActionTable[armorIndex][partIndex]?.[index + 1]?.time ?? duration;
 
         const { R, G, B, A } = entry.color || {};
         const newBlock = {
@@ -182,59 +194,187 @@ const Timeline = forwardRef(
       );
     }, [tempActionTable, duration, armorIndex, partIndex, dispatch]);
 
+    // ── 移動模式：commit 函式（每次 render 更新 ref，避免 stale closure）──────
+    const commitMove = () => {
+      const blockIdx = movingBlockIdxRef.current;
+      if (blockIdx === null) return;
+
+      const rect = timelineRef.current?.getBoundingClientRect();
+      if (rect) {
+        const orig = actionTable[armorIndex][partIndex];
+        const blockStart = orig[blockIdx]?.time;
+        const blockEnd   = orig[blockIdx + 1]?.time;
+
+        if (blockStart !== undefined && blockEnd !== undefined) {
+          const leftBoundary  = orig[blockIdx - 1]?.time ?? 0;
+          const rightBoundary = orig[blockIdx + 2]?.time ?? duration;
+          const timeDelta = Math.floor((moveDragPixelsRef.current / rect.width * duration) / 50) * 50;
+
+          let clampedDelta = timeDelta;
+          if (blockStart + clampedDelta < leftBoundary)  clampedDelta = leftBoundary - blockStart;
+          if (blockEnd   + clampedDelta > rightBoundary) clampedDelta = rightBoundary - blockEnd;
+          // 絕對邊界安全夾：確保不超出音軌範圍
+          if (blockStart + clampedDelta < 0)        clampedDelta = -blockStart;
+          if (blockEnd   + clampedDelta > duration) clampedDelta = duration - blockEnd;
+          // 嚴格順序保證：blockStart 不能等於左鄰居時間（避免兩 entry 時間相同）
+          if (blockStart + clampedDelta === leftBoundary && blockIdx > 0) {
+            const adjusted = clampedDelta + 50;
+            if (blockEnd + adjusted <= rightBoundary && blockEnd + adjusted <= duration) {
+              clampedDelta = adjusted;
+            }
+          }
+
+          if (clampedDelta !== 0) {
+            const finalTable = produce(actionTable, (draft) => {
+              draft[armorIndex][partIndex][blockIdx].time     = blockStart + clampedDelta;
+              draft[armorIndex][partIndex][blockIdx + 1].time = blockEnd   + clampedDelta;
+            });
+            dispatch(updateActionTable(finalTable));
+          }
+        }
+      }
+
+      // DOM 清除
+      if (draggedBlockDomRef.current) {
+        draggedBlockDomRef.current.style.transform = "";
+        draggedBlockDomRef.current.style.zIndex    = "";
+        draggedBlockDomRef.current = null;
+      }
+      moveDragPixelsRef.current    = 0;
+      movingBlockIdxRef.current    = null;
+      setMovingBlockIdx(null);
+      dispatch(updateMoveMode(false)); // 退出移動模式
+    };
+    commitMoveRef.current = commitMove; // 保持最新（非 stale）
+
+    // ── 移動模式：mousemove 追蹤（僅在方塊被選取時啟用）────────────────────
+    useEffect(() => {
+      if (movingBlockIdx === null) return;
+
+      const onMouseMove = (e) => {
+        const rawDelta = e.clientX - moveDragStartRef.current;
+        const clamped  = Math.max(minDragPxRef.current, Math.min(maxDragPxRef.current, rawDelta));
+        moveDragPixelsRef.current = clamped;
+        if (draggedBlockDomRef.current) {
+          draggedBlockDomRef.current.style.transform = `translateX(${clamped}px)`;
+          draggedBlockDomRef.current.style.zIndex    = "10";
+        }
+      };
+
+      document.addEventListener("mousemove", onMouseMove);
+      return () => document.removeEventListener("mousemove", onMouseMove);
+    }, [movingBlockIdx]);
+
+    // ── 移動模式：mousedown 全域監聽（moveMode 啟用時即掛載）────────────────
+    // READY 狀態（無選取方塊）：任何點擊 → 退出移動模式
+    // MOVING 狀態（有選取方塊）：任何點擊 → commit + 退出
+    // 按下 M 鍵 / 圖示讓 moveMode 變 false → effect 重跑時偵測到 !moveMode → commit
+    useEffect(() => {
+      if (!moveMode) {
+        // moveMode 被外部關閉（按 M 鍵或點 icon），若有方塊正在移動則 commit
+        if (movingBlockIdxRef.current !== null) {
+          commitMoveRef.current();
+        }
+        return;
+      }
+
+      const onMouseDown = () => {
+        if (movingBlockIdxRef.current !== null) {
+          commitMoveRef.current(); // MOVING → commit 位置並退出
+        } else {
+          dispatch(updateMoveMode(false)); // READY → 直接退出，不須 commit
+        }
+      };
+
+      document.addEventListener("mousedown", onMouseDown);
+      return () => document.removeEventListener("mousedown", onMouseDown);
+    }, [moveMode]);
+
     // 處理鼠標按下事件
     const handleMouseDown = (e, index) => {
       e.stopPropagation();
 
       const block = timelineBlocks[index];
-      // If a black block is clicked, clear all selections.
-      if (block.color.R === 0 && block.color.G === 0 && block.color.B === 0) {
+      const isBlack = block.color.R === 0 && block.color.G === 0 && block.color.B === 0;
+
+      if (isBlack) {
         dispatch(updateSelectedBlock({}));
         dispatch(updateMultiSelectedBlocks([]));
         return;
       }
 
-      // Shift-click multi-selection logic
+      // ── 移動模式：點擊選取方塊，開始跟隨滑鼠 ──────────────────────────
+      if (moveMode) {
+        // 阻止此 mousedown 傳遞到 document 的 onMouseDown（避免立即 commit）
+        e.nativeEvent.stopImmediatePropagation();
+
+        // 若已有方塊在移動，先 commit 它再退出
+        if (movingBlockIdxRef.current !== null) {
+          commitMoveRef.current();
+          return;
+        }
+
+        dispatch(updateSelectedBlock({ armorIndex, partIndex, blockIndex: index }));
+        dispatch(updateMultiSelectedBlocks([]));
+
+        draggedBlockDomRef.current = e.currentTarget;
+        moveDragStartRef.current = e.clientX;
+        moveDragPixelsRef.current = 0;
+
+        // 預算左右邊界（像素），供 mousemove 夾緊用
+        if (timelineRef?.current) {
+          const rect = timelineRef.current.getBoundingClientRect();
+          const orig = actionTable[armorIndex][partIndex];
+          const bs = orig[index]?.time;
+          const be = orig[index + 1]?.time;
+          if (bs !== undefined && be !== undefined) {
+            const scale = rect.width / duration;
+            const neighborMin = (orig[index - 1]?.time ?? 0)       - bs;
+            const neighborMax = (orig[index + 2]?.time ?? duration) - be;
+            const trackMin    = 0        - bs; // blockStart 不能低於 0
+            const trackMax    = duration - be; // blockEnd 不能超過 duration
+            minDragPxRef.current = Math.max(neighborMin, trackMin) * scale;
+            maxDragPxRef.current = Math.min(neighborMax, trackMax) * scale;
+          } else {
+            minDragPxRef.current = 0;
+            maxDragPxRef.current = 0;
+          }
+        }
+
+        movingBlockIdxRef.current = index;
+        setMovingBlockIdx(index); // 觸發 useEffect 掛載全域事件
+        return;
+      }
+
+      // ── 一般模式：Shift 多選 或 單選 + 拖曳縮放 ──────────────────────
       if (e.shiftKey && selectedBlock && selectedBlock.armorIndex === armorIndex && selectedBlock.partIndex === partIndex) {
-        const startIdx = selectedBlock.blockIndex;
-        const endIdx = index;
-
-        const selectionStart = Math.min(startIdx, endIdx);
-        const selectionEnd = Math.max(startIdx, endIdx);
-
+        const selectionStart = Math.min(selectedBlock.blockIndex, index);
+        const selectionEnd   = Math.max(selectedBlock.blockIndex, index);
         const newMultiSelected = [];
         for (let i = selectionStart; i <= selectionEnd; i++) {
-          const currentBlock = timelineBlocks[i];
-          // Filter out black blocks (transition blocks)
-          const isBlackTransition = currentBlock.color.R === 0 && currentBlock.color.G === 0 && currentBlock.color.B === 0;
-          if (!isBlackTransition) {
+          const b = timelineBlocks[i];
+          if (!(b.color.R === 0 && b.color.G === 0 && b.color.B === 0)) {
             newMultiSelected.push({ armorIndex, partIndex, blockIndex: i });
           }
         }
         dispatch(updateMultiSelectedBlocks(newMultiSelected));
-
       } else {
-        // Single-select logic
-        dispatch(updateMultiSelectedBlocks([])); // Clear multi-selection
+        dispatch(updateMultiSelectedBlocks([]));
         setDragging(true);
         setDraggedBlockIndex(index);
         setDragStartpoint(e.clientX);
-
-        // Notify parent component to update global selected state
-        dispatch(
-          updateSelectedBlock({ armorIndex, partIndex, blockIndex: index })
-        );
+        draggedBlockDomRef.current = e.currentTarget;
+        moveDragPixelsRef.current = 0;
+        dispatch(updateSelectedBlock({ armorIndex, partIndex, blockIndex: index }));
       }
     };
 
-    // 處理鼠標放開事件
+    // 處理鼠標放開事件（移動模式不走這裡，因為 dragging 不會被設為 true）
     const handleMouseUp = () => {
-      if (dragging) {
-        setDragging(false); // 停止拖動
-        setDraggedBlockIndex(null);
-        dispatch(updateActionTable(tempActionTable)); // 更新 actionTable
-        // console.log(tempActionTable);
-      }
+      if (!dragging) return;
+      dispatch(updateActionTable(tempActionTable)); // 縮放拖動 commit
+      setDragging(false);
+      setDraggedBlockIndex(null);
     };
 
     // 處理鼠標移動事件，用於拖動方塊
@@ -248,7 +388,7 @@ const Timeline = forwardRef(
         return;
       }
 
-      // 获取 timeline 容器的边界信息
+      // 获取 timeline 容器的边界信息（縮放拖動）
       const rect = timelineRef.current.getBoundingClientRect();
 
       // 计算拖动的距离和对应的时间
@@ -256,7 +396,7 @@ const Timeline = forwardRef(
       const draggedTime =
         Math.floor(((draggedDistance / rect.width) * duration) / 50) * 50; // 将拖动距离转换为时间
 
-      // 使用 Immer 深拷贝并更新方块位置
+      // 使用 Immer 深拷贝并更新方块位置（原本的縮放拖動邏輯）
       const updatedTable = produce(tempActionTable, (draft) => {
         const direction = e.clientX > dragStartpoint ? "right" : "left"; // 判断拖动方向
         const partData = draft[armorIndex][partIndex]; // 获取当前部位的数据
@@ -522,6 +662,7 @@ const Timeline = forwardRef(
           }
 
           // 設定 blockStyle
+          const isBlackBlock = color.R === 0 && color.G === 0 && color.B === 0;
           const blockStyle = {
             display: "inline-block",
             background: backgroundStyle,
@@ -532,6 +673,7 @@ const Timeline = forwardRef(
             border: isSelected || isMultiSelected ? `3px solid ${selectionBorderColor}` : "none",
             boxSizing: "border-box",
             zIndex: 1,
+            cursor: moveMode && !isBlackBlock ? "grab" : "pointer",
           };
 
           const handleMouseLeave2 = (edge) => {

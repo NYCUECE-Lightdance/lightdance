@@ -36,7 +36,8 @@
 .choosetimeline,
 .undo,
 .redo,
-.add-timeline {
+.add-timeline,
+.move-mode-button {
   background-color: rgb(49, 47, 47);
   color: rgb(150, 146, 146);
   border: none;
@@ -49,8 +50,14 @@
 .choosetimeline:hover,
 .undo:hover,
 .redo:hover,
-.add-timeline:hover {
+.add-timeline:hover,
+.move-mode-button:hover {
   color: white; /* 懸停時改變文字顏色 */
+}
+/* move mode啟用時高亮 */
+.move-mode-button.active {
+  color: #4fc3f7;
+  background-color: rgb(20, 55, 80);
 }
 
 /* 通用 Tooltip 樣式 */
@@ -75,7 +82,8 @@
 .choosetimeline:hover .tooltip,
 .undo:hover .tooltip,
 .redo:hover .tooltip,
-.add-timeline:hover .tooltip {
+.add-timeline:hover .tooltip,
+.move-mode-button:hover .tooltip {
   visibility: visible; /* 顯示 Tooltip */
   opacity: 1; /* 不透明 */
 }
