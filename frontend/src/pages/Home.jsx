@@ -23,10 +23,10 @@ function Home({ rgba, setRgba, setButtonState }) {
   const navigate = useNavigate();
   const dispatch = useDispatch();
   const token = useSelector((state) => state.profiles.accessToken);
-  const data = useSelector((state) => state.profiles.data) || { actionTable: [], music_index: 2 };
+  const data = useSelector((state) => state.profiles.data) || { actionTable: [], music_filename: "" };
   const actionTable = data.actionTable || [];
-  const musicIndex = data.music_index ?? 2;
-  const userName = useSelector((state) => state.profiles.userName);
+  const musicFilename = data.music_filename ?? "";
+  const userName = useSelector((state) => state.profiles.user);
   const autoRefresh = useSelector((state) => state.profiles.autoRefresh);
   const [isDirty, setIsDirty] = useState(false);
   const [isLoaded, setIsLoaded] = useState(false);
@@ -254,7 +254,7 @@ function Home({ rgba, setRgba, setButtonState }) {
     console.log("players : ", players);
     const result = {  
       players,
-      music_index: musicIndex
+      music_filename: musicFilename
     };
   
     let BearerToken = "";

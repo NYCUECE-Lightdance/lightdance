@@ -2,7 +2,7 @@ export const UPDATEUSER = "UPDATEUSER";
 export const UPDATEFULLPEAKS = "UPDATEFULLPEAKS";
 export const UPDATEDURATION = "UPDATEDURATION";
 export const UPDATEACTIONTABLE = "UPDATEACTIONTABLE";
-export const UPDATEMUSICINDEX = "UPDATEMUSICINDEX";
+export const UPDATEMUSICFILENAME = "UPDATEMUSICFILENAME";
 export const UPDATETIMELINEBLOCKS = "UPDATETIMELINEBLOCKS";
 export const UPDATECHOSENCOLOR = "UPDATECHOSENCOLOR";
 export const UPDATECURRENTTIME = "UPDATECURRENTTIME";
@@ -39,8 +39,8 @@ export const updateActionTable = (payload, meta = {}) => ({
   meta,
 });
 
-export const updateMusicIndex = (value) => ({
-  type: UPDATEMUSICINDEX,
+export const updateMusicFilename = (value) => ({
+  type: UPDATEMUSICFILENAME,
   payload: value,
 });
 

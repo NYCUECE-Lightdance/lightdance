@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
+import { API_ENDPOINTS } from "../../config/api.js";
 import music from "./musicsrc/2026_funding.mp3";
 // 引入所有音樂檔案
 import music0 from "./musicsrc/2026_funding.mp3";
@@ -226,6 +227,8 @@ const AudioWaveform = ({
       // if (fullPeaks && fullPeaks.length > 0) return;
       dispatch(updateFullpeaks(peaks));
       dispatch(updateCurrentTime(0));
+    }).catch((error) => {
+      console.error("載入api音樂失敗", error);
     });
   }, [url, audioContext, dispatch]);
 
@@ -488,13 +491,17 @@ function Wave({
   // useEffect(() => {
   //   audioRef.current.volume = volume;
   // }, [volume, audioRef]);
-  const musicIndex = useSelector((state) => state.profiles.data?.music_index ?? 2);
+  // const musicIndex = useSelector((state) => state.profiles.data?.music_index ?? 2);
+  const musicFilename = useSelector((state) => state.profiles.data?.music_filename || "2026_funding.mp3");
+  const userName = useSelector((state) => state.profiles.user);
+  const dynamicUrl = `${API_ENDPOINTS.BASE}/get_music/${userName}/${musicFilename}`;/////////username
 
   return (
     <div>
       <AudioWaveform
         // url={music}
-        url={musicList[musicIndex]} // 根據索引選擇音樂
+        // url={musicList[musicIndex]} // 根據索引選擇音樂
+        url={dynamicUrl} // 根據後端提供的檔名動態生成 URL  
         isPlaying={isPlaying}
         setIsPlaying={setIsPlaying}
         // audioRef={audioRef}

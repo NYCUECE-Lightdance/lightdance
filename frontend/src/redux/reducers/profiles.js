@@ -3,7 +3,7 @@ const initialState = {
   fullPeaks: [],
   duration: 0,
   data: {
-    music_index: 0,
+    music_filename: "2026_show.mp3",
     actionTable: [],
   },
   timelineBlocks: {},
@@ -49,10 +49,10 @@ export const profiles = (state = initialState, action) => {
         action.payload && action.payload.actionTable
           ? action.payload.actionTable
           : action.payload;
-      const newMusicIndex =
-        action.payload && action.payload.music_index !== undefined
-          ? action.payload.music_index
-          : state.data.music_index;
+      const newMusicFilename =
+        action.payload && action.payload.music_filename !== undefined
+          ? action.payload.music_filename
+          : state.data.music_filename;
 
       if (
         JSON.stringify(state.data.actionTable) === JSON.stringify(newActionTable)
@@ -67,7 +67,7 @@ export const profiles = (state = initialState, action) => {
           data: {
             ...state.data,
             actionTable: newActionTable,
-            music_index: newMusicIndex,
+            music_filename: newMusicFilename,
           },
         };
       }
@@ -83,14 +83,14 @@ export const profiles = (state = initialState, action) => {
           console.log("state.data: ", {
             ...state.data,
             actionTable: newActionTable,
-            music_index: newMusicIndex,
+            music_filename: newMusicFilename,
           });
           return {
             ...state,
             data: {
               ...state.data,
               actionTable: newActionTable,
-              music_index: newMusicIndex,
+              music_filename: newMusicFilename,
             },
           };
         }
@@ -107,16 +107,16 @@ export const profiles = (state = initialState, action) => {
         data: {
           ...state.data,
           actionTable: newActionTable,
-          music_index: newMusicIndex,
+          music_filename: newMusicFilename,
         },
         history: newHistory,
         redoStack: state.history.length > 1 ? [] : state.redoStack,
       };
     }
-    case "UPDATEMUSICINDEX":
+    case "UPDATEMUSICFILENAME":
       return {
         ...state,
-        data: { ...state.data, music_index: action.payload },
+        data: { ...state.data, music_filename: action.payload },
       };
     case "UPDATETEMPACTIONTABLE":
       return { ...state, tempActionTable: action.payload };

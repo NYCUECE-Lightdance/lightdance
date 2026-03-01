@@ -6,7 +6,7 @@ import {
   updateSelectedBlock,
   updateClipboard,
   updateMultiSelectedBlocks,
-  updateMusicIndex,
+  // updateMusicIndex,
 } from "../../redux/actions.js";
 import "./audioplayer.css";
 import Waveform, { musicNames } from "./waveform.jsx";
@@ -39,7 +39,9 @@ const MAXZOOMVALUE = 100;
 function AudioPlayer({ setButtonState, timelineRef }) {
   const dispatch = useDispatch();
   const data = useSelector((state) => state.profiles.data);
-  const musicIndex = data?.music_index ?? 2;
+  // const musicIndex = data?.music_index ?? 2;
+  const userName = useSelector((state) => state.profiles.user);
+  const musicFilename = data?.music_filename || "2026_funding.mp3";
   const showPart = useSelector((state) => state.profiles.showPart);
   const currentTime = useSelector((state) => state.profiles.currentTime);
   const duration = useSelector((state) => state.profiles.duration); // 音樂總長度
@@ -1177,12 +1179,14 @@ function AudioPlayer({ setButtonState, timelineRef }) {
   return (
     <div className="audio-player-container">
       <div className="controls">
-        {/*<button className="effect-button" onClick={handleEffect}>
-          <FontAwesomeIcon icon={faWandMagicSparkles} size="lg" />
-          <span className="tooltip">Effect</span>
-        </button>*/}
+        {/* 僅顯示目前的檔名，無選單功能 */}
+        <div className="current-track-display" style={{ marginRight: "10px", display: "flex", alignItems: "center" }}>
+          <span className="badge bg-secondary" style={{ padding: "8px", fontSize: "14px" }}>
+            🎵 {musicFilename}
+          </span>
+        </div>
         {/* 3. 新增：音軌選擇選單 (放在 Effect 按鈕左邊) */}
-        <div className="dropdown" style={{ marginRight: "10px" }}>
+        {/* <div className="dropdown" style={{ marginRight: "10px" }}>
           <select
             className="dropdown-select"
             value={musicIndex}
@@ -1196,7 +1200,7 @@ function AudioPlayer({ setButtonState, timelineRef }) {
             ))}
           </select>
           <span className="tooltip">Select Track</span>
-        </div>
+        </div> */}
         <div className="effect-wrapper">
           <button className="effect-button" onClick={handleEffect}>
             <FontAwesomeIcon icon={faWandMagicSparkles} size="lg" />

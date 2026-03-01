@@ -3,7 +3,7 @@ import "bootstrap/dist/js/bootstrap.bundle.min.js";
 import "bootstrap/dist/css/bootstrap.min.css";
 import { MdInput } from "react-icons/md";
 import { useDispatch, useSelector } from "react-redux";
-import { updateActionTable, updateMusicIndex } from "../redux/actions.js";
+import { updateActionTable, updateMusicFilename } from "../redux/actions.js";
 import { API_ENDPOINTS } from "../config/api.js";
 
 function Dropdown({ userName, setIsDirty, isDirty, setIsLoaded, isLoaded }) {
@@ -77,8 +77,8 @@ function Dropdown({ userName, setIsDirty, isDirty, setIsLoaded, isLoaded }) {
         // setUserList(uniqueArray);
         // // console.log(uniqueArray);
         // setAnchorIndex(0);
-        if (data.music_index !== undefined) {
-          dispatch(updateMusicIndex(data.music_index));
+        if (data.music_filename !== undefined) {
+          dispatch(updateMusicFilename(data.music_filename));
         }
       })
       .catch((error) => {
@@ -107,16 +107,16 @@ function Dropdown({ userName, setIsDirty, isDirty, setIsLoaded, isLoaded }) {
         }
 
         let actionData;
-        let musicIdx; // 預設值
+        let musicFilename; // 預設值
         if (data && typeof data.raw_data !== "undefined") {
           // If raw_data exists, parse it
           // 1. 先把整串 JSON 字串轉成物件
           const parsedRaw = JSON.parse(data.raw_data);
           console.log("rawData:", parsedRaw);
                     
-          // 2. 判斷資料結構（如果是舊格式可能直接是 actionTable，新格式可能包含 music_index）
+          // 2. 判斷資料結構（如果是舊格式可能直接是 actionTable，新格式可能包含 music_filename）
           actionData = parsedRaw.actionTable || parsedRaw;
-          musicIdx = parsedRaw.music_index;
+          musicFilename = parsedRaw.music_filename;
 
         } else {
           // Otherwise, assume the data object itself is what we need
@@ -124,13 +124,13 @@ function Dropdown({ userName, setIsDirty, isDirty, setIsLoaded, isLoaded }) {
             "Response did not contain 'raw_data' field. Assuming the whole data object is the actionTable."
           );
           actionData = data;
-          musicIdx = data.music_index;
+          musicFilename = data.music_filename;
         }
         console.log("Final ActionData:", actionData);
-        console.log("Final MusicIndex:", musicIdx);
+        console.log("Final MusicFilename:", musicFilename);
 
         dispatch(updateActionTable(actionData));
-        dispatch(updateMusicIndex(musicIdx))
+        dispatch(updateMusicFilename(musicFilename))
       })
       .catch((error) => {
         // This will now catch both HTTP errors and backend errors from the response body
@@ -286,9 +286,9 @@ function Dropdown({ userName, setIsDirty, isDirty, setIsLoaded, isLoaded }) {
                       {/* 顯示更新時間 */}
                     <span>{option.update_time}</span>
                     
-                    {/* 新增：顯示 Music Index 的標籤 */}
+                    {/* 新增：顯示 Music Filename 的標籤 */}
                     <span className="badge bg-info text-dark ms-2">
-                      🎵 Index: {option.music_index ?? "N/A"}
+                      🎵 Music: {option.music_filename ?? "N/A"}
                     </span>
                   </a>
                 </li>
