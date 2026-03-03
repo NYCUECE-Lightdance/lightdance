@@ -304,3 +304,156 @@
   background-color: bisque;
   z-index: 100;
 }
+
+/* 容器：預設寬度窄，展開時變寬 */
+.home-creation-bar {
+  display: flex;
+  flex-direction: row; /* 水平排列，JSX 中音樂清單在前 */
+  align-items: center;
+  background-color: #1a3d24; /* 深暗綠色 */
+  border: 1px solid #2d5a3c;
+  border-radius: 5.7px; /* 統一圓角以對齊其他按鈕 */
+  height: 34px; /* 對齊 Output/Edit 按鈕高度 */
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  overflow: hidden;
+  cursor: pointer;
+  padding: 0 12px;
+  white-space: nowrap;
+
+  /* 定位：放在 device-info-button (right: 11.7%) 的左邊 */
+  position: absolute;
+  margin-top: 15px;
+  right: calc(11.7% + 100px); 
+  z-index: 101;
+}
+
+/* 展開後的寬度（可以根據音樂名字長度調整，或設為 auto） */
+.home-creation-bar.expanded {
+  background-color: #244d30;
+  box-shadow: -5px 0 15px rgba(0, 0, 0, 0.3);
+}
+
+/* 主要按鈕部分 */
+.home-main-action {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: white;
+  font-family: "Kanit", sans-serif;
+  font-weight: 400;
+  font-size: 15px;
+}
+
+/* 向右延伸的音樂清單 */
+.home-music-extension {
+  display: flex;
+  align-items: center;
+  animation: slideInLeft 0.3s ease-out;
+}
+
+@keyframes slideInLeft {
+  from { 
+    opacity: 0; 
+    transform: translateX(20px); 
+  }
+  to { 
+    opacity: 1; 
+    transform: translateX(0); 
+  }
+}
+
+.divider-icon {
+  margin: 0 8px;
+  color: rgba(255, 255, 255, 0.3);
+  font-size: 1rem;
+}
+
+.home-music-list-scroll {
+  display: flex;
+  gap: 12px;
+  overflow-x: auto;
+  padding-left: 5px;
+  scrollbar-width: none;
+}
+
+.home-music-list-scroll::-webkit-scrollbar {
+  display: none;
+}
+
+/* 音樂項目樣式 */
+.home-music-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: #f0f0f0;
+  font-size: 0.9rem;
+  padding: 4px 8px;
+  border-radius: 4px;
+  transition: background 0.2s;
+}
+
+.home-music-item:hover {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+/* Modal 遮罩層 */
+.custom-modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  background: rgba(0, 0, 0, 0.7); /* 半透明黑 */
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 2000; /* 確保在最前方 */
+}
+
+/* Modal 內容主體 */
+.custom-modal-content {
+  background: #1e1e1e; /* 深色背景 */
+  padding: 25px;
+  border-radius: 12px;
+  border: 1px solid #2d5a3c; /* 暗綠邊框 */
+  width: 400px;
+  text-align: center;
+  color: #ededed;
+  box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+}
+
+.modal-title {
+  margin-bottom: 15px;
+  font-family: "Kanit", sans-serif;
+  color: #28a745; /* 綠色標題 */
+}
+
+.modal-body {
+  margin-bottom: 25px;
+  font-size: 15px;
+  line-height: 1.6;
+}
+
+/* 按鈕排列 */
+.modal-footer-buttons {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.modal-footer-buttons button {
+  padding: 10px;
+  border-radius: 6px;
+  border: none;
+  font-weight: bold;
+  cursor: pointer;
+  transition: opacity 0.2s;
+}
+
+.btn-save { background-color: #28a745; color: white; }
+.btn-discard { background-color: #dc3545; color: white; } /* 紅色警告 */
+.btn-cancel { background-color: #444; color: white; }
+
+.modal-footer-buttons button:hover {
+  opacity: 0.8;
+}
