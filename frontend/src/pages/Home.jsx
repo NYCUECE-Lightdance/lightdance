@@ -9,6 +9,7 @@ import { FiEdit } from "react-icons/fi";
 import { useEffect, useState } from "react";
 import { FaSignOutAlt } from "react-icons/fa";
 import { useDispatch, useSelector } from "react-redux";
+import { updateActionTable, updateMusicFilename } from "../redux/actions";
 import { persistor } from "../redux/store.js";
 import Dropdown from "../components/LoadData.jsx";
 import "bootstrap/dist/js/bootstrap.bundle.min.js";
@@ -17,7 +18,14 @@ import { updateAutoRefresh } from "../redux/actions";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faRobot } from "@fortawesome/free-solid-svg-icons";
 import { set } from "lodash";
+import { LuPlus, LuMusic, LuChevronRight } from "react-icons/lu";
 import { API_ENDPOINTS } from "../config/api.js";
+
+const generateInitialTable = () => Array.from({ length: 7 }, () =>
+  Array.from({ length: 14 }, () => [
+    { time: 0, color: { R: 0, G: 0, B: 0, A: 1 }, linear: 0 },
+  ])
+);
 
 function Home({ rgba, setRgba, setButtonState }) {
   const navigate = useNavigate();
@@ -30,6 +38,11 @@ function Home({ rgba, setRgba, setButtonState }) {
   const autoRefresh = useSelector((state) => state.profiles.autoRefresh);
   const [isDirty, setIsDirty] = useState(false);
   const [isLoaded, setIsLoaded] = useState(false);
+  const [showSaveModal, setShowSaveModal] = useState(false);
+  const [pendingMusic, setPendingMusic] = useState(null);
+  const initialTable = generateInitialTable();
+
+
 
   const editing = () => {
     navigate("/edit");
@@ -278,18 +291,64 @@ function Home({ rgba, setRgba, setButtonState }) {
       alert("原始檔與播放檔皆上傳成功！"); 
       console.log("upload(translated) : ", JSON.stringify(result));
     }
-    // if (!response.ok) {
-    //   alert("upload failed");
-    //   console.error("Response Error:", response.status, response.statusText);
-    //   const errorText = await response.text();
-    //   throw new Error(
-    //     `HTTP error! Status: ${response.status}, Message: ${errorText}`
-    //   );
-    // } else {
-    //   console.log("upload(translated) : ", JSON.stringify(result));
-    // }
+
   }
-  
+
+  const [musicList, setMusicList] = useState([]);
+  const [showNewProjectMenu, setShowNewProjectMenu] = useState(false);
+
+  // 1. 點擊「新建專案」時切換音樂選單
+  const handleToggleNewProject = async () => {
+    if (!showNewProjectMenu) {
+      try {
+        const response = await fetch(`${API_ENDPOINTS.BASE}/get_music_list/${userName}`);
+        const data = await response.json();
+        setMusicList(data.music_list || []);
+        setShowNewProjectMenu(true);
+      } catch (error) {
+        console.error("Fetch music error:", error);
+      }
+    } else {
+      setShowNewProjectMenu(false);
+    }
+  };
+
+  // 2. 核心邏輯：選定音樂後的檢查機制
+  const handleSelectNewMusic = async (filename) => {
+
+    if (isDirty) {
+      setPendingMusic(filename);
+      setShowSaveModal(true); // 有變動，跳出自訂彈窗
+    } else {
+      // 沒變動，直接新建
+      dispatch(updateMusicFilename(filename));
+      dispatch(updateActionTable(initialTable));
+      setShowNewProjectMenu(false);
+    }
+  };
+
+  const handleModalAction = async (action) => {
+    if (action === "save") {
+      try {
+        await handleOutput(); // 執行你原本的儲存邏輯
+        dispatch(updateMusicFilename(pendingMusic));
+        dispatch(updateActionTable(initialTable));
+        console.log("actionTable to save:", actionTable);
+      } catch (e) {
+        alert("儲存失敗，已取消新建。");
+        return;
+      }
+    } else if (action === "discard") {
+      dispatch(updateMusicFilename(pendingMusic));
+      dispatch(updateActionTable(initialTable));
+    }
+    
+    // 如果是 "cancel"，就直接關閉 Modal，不做任何 dispatch
+    setShowSaveModal(false);
+    setIsDirty(false); // 只有在 save 或 discard 時重置 dirty
+    setShowNewProjectMenu(false);
+  };
+    
 
   const listitem = [<Palette key="palette-1" rgba={rgba} setRgba={setRgba} />]; // 添加 key
 
@@ -297,6 +356,7 @@ function Home({ rgba, setRgba, setButtonState }) {
     <div>
       <div className="homepage">
         <div className="panel">
+
           <button className="output-button" onClick={handleOutput}>
             Output <MdOutput className="output-icon" />
           </button>
@@ -332,6 +392,27 @@ function Home({ rgba, setRgba, setButtonState }) {
               ⚠️ 有尚未儲存的變更
             </div>
           )}
+          <div className={`home-creation-bar ${showNewProjectMenu ? "expanded" : ""}`}>
+            {/* 音樂清單放在前面，實現向左延伸 */}
+            {showNewProjectMenu && (
+              <div className="home-music-extension">
+                <div className="home-music-list-scroll">
+                  {musicList.map((file, i) => (
+                    <div key={i} className="home-music-item" onClick={() => handleSelectNewMusic(file)}>
+                      <LuMusic className="item-icon" />
+                      <span>{file}</span>
+                    </div>
+                  ))}
+                </div>
+                <LuChevronRight className="divider-icon" style={{ transform: 'rotate(180deg)' }} />
+              </div>
+            )}
+
+            <div className="home-main-action" onClick={handleToggleNewProject}>
+              <LuPlus className="action-icon" />
+              <span className="action-text">New Project</span>
+            </div>
+          </div>
           <button className="device-info-button">
             <FontAwesomeIcon icon={faRobot} size="lg" />
           </button>
@@ -348,6 +429,25 @@ function Home({ rgba, setRgba, setButtonState }) {
           setButtonState={setButtonState}
         />
       </div>
+          {showSaveModal && (
+      <div className="custom-modal-overlay">
+        <div className="custom-modal-content">
+          <h4 className="modal-title">確認新建專案</h4>
+          <p className="modal-body">目前有尚未儲存的變更，請問要如何處理？</p>
+          <div className="modal-footer-buttons">
+            <button className="btn-save" onClick={() => handleModalAction("save")}>
+              儲存並新建
+            </button>
+            <button className="btn-discard" onClick={() => handleModalAction("discard")}>
+              放棄變更並新建
+            </button>
+            <button className="btn-cancel" onClick={() => setShowSaveModal(false)}>
+              取消返回
+            </button>
+          </div>
+        </div>
+      </div>
+    )}
     </div>
   );
 }
