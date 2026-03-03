@@ -49,15 +49,12 @@
   /* --- 上方漸層區域 (開始創作) --- */
   .upper-section {
     height: 35vh;
-    /* 改為純色背景 */
-    background: rgb(48, 72, 54);
+    background: linear-gradient(135deg, #04404b 0%, #24984e 100%);
     display: flex;
     align-items: center;
     justify-content: center;
     padding: 0 5%;
     position: relative;
-    /* 可選：加上淡淡的底部邊界線增加層次感 */
-    border-bottom: 1px solid rgba(54, 140, 124, 0.05);
   }
   
   .creation-bar {

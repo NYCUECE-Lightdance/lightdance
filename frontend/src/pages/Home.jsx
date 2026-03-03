@@ -252,11 +252,13 @@ function Home({ rgba, setRgba, setButtonState }) {
     }
     
     console.log("players : ", players);
+    console.log(">>> [1] 上傳的原始資料 (Raw Data):", data);
     const result = {  
       players,
       music_filename: musicFilename
     };
-  
+    
+    console.log(">>> [2] 上傳的播放資料 (Translated Items):", result);
     let BearerToken = "";
     token === "" ? (BearerToken = " ") : (BearerToken = token);
   
