@@ -1,6 +1,34 @@
 import React, { useEffect, useRef, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
+import { API_ENDPOINTS } from "../../config/api.js";
 import music from "./musicsrc/2026_funding.mp3";
+// 引入所有音樂檔案
+import music0 from "./musicsrc/2026_funding.mp3";
+import music1 from "./musicsrc/3.mp3";
+import music2 from "./musicsrc/4.mp3";
+import music3 from "./musicsrc/5.mp3";
+import music4 from "./musicsrc/Clean Bandit - Symphony.mp3";
+import music5 from "./musicsrc/fixed_audio.mp3";
+import music6 from "./musicsrc/lightdance V2.mp3";
+import music7 from "./musicsrc/lightdance V3.mp3";
+import music8 from "./musicsrc/SoundHelix-Song-9.mp3";
+import music9 from "./musicsrc/test1.mp3";
+import music10 from "./musicsrc/test2.mp3";
+import music11 from "./musicsrc/test3.m4a";
+import music12 from "./musicsrc/test4.m4a";
+
+// 1. 導出音樂清單
+export const musicList = [
+  music0, music1, music2, music3, music4, music5, music6, music7, music8, music9, music10, music11, music12
+];
+
+// 2. 導出易讀的檔名列表 (供選單顯示)
+export const musicNames = [
+  "2026 Funding", "Track 3", "Track 4", "Track 5", "Symphony", 
+  "Fixed Audio", "Lightdance V2", "Lightdance V3", "SoundHelix 9", 
+  "Test 1", "Test 2", "Test 3", "Test 4"
+];
+
 import {
   updateCurrentTime,
   updateDuration,
@@ -180,15 +208,29 @@ const AudioWaveform = ({
   }, [zoomValue, canvasWidth, duration, scrollRef]);
 
   useEffect(() => {
+    if (!url) return;
+
+  // 1. 當 URL 改變時，先停止目前的播放（如果正在播）
+    if (sourceNode) {
+      try {
+        sourceNode.stop();
+      } catch (e) {
+        console.warn("停止舊音軌失敗", e);
+      }
+      setSourceNode(null);
+    }
     // if (fullPeaks && fullPeaks.length > 0) return;
-    loadAudioData(music, audioContext).then((buffer) => {
+    loadAudioData(url, audioContext).then((buffer) => {
       const peaks = getPeaks(buffer);
       setAudioBuffer(buffer);
       dispatch(updateDuration(buffer.duration * 1000));
-      if (fullPeaks && fullPeaks.length > 0) return;
+      // if (fullPeaks && fullPeaks.length > 0) return;
       dispatch(updateFullpeaks(peaks));
+      dispatch(updateCurrentTime(0));
+    }).catch((error) => {
+      console.error("載入api音樂失敗", error);
     });
-  }, [audioContext, fullPeaks, dispatch]);
+  }, [url, audioContext, dispatch]);
 
   // 根據 zoomValue 重繪波形
   // useEffect(() => {
@@ -202,7 +244,7 @@ const AudioWaveform = ({
 
   // 根據當前播放時間更新波形進度
   useEffect(() => {
-    if (currentTime && fullPeaks && fullPeaks.length > 0) {
+    if (fullPeaks && fullPeaks.length > 0) {
       const canvas = canvasRef.current;
       // const targetBarCount = 3000;
       // const displayPeaks = resamplePeaks(fullPeaks, targetBarCount);
@@ -249,6 +291,9 @@ const AudioWaveform = ({
   function drawWaveforms(canvas) {
     const context = canvas.getContext("2d");
     const height = canvas.height;
+    const width = canvas.width;
+    context.clearRect(0, 0, width, height);
+
     const container = containerRef.current;
     context.clearRect(0, 0, scrollRef.current.clientWidth, height); // 清空畫布
     context.fillStyle = "#dbf0e4"; // 設置波形顏色
@@ -441,17 +486,22 @@ function Wave({
   containerRef,
   sourceNode,
   setSourceNode,
-
   volume,
 }) {
   // useEffect(() => {
   //   audioRef.current.volume = volume;
   // }, [volume, audioRef]);
+  // const musicIndex = useSelector((state) => state.profiles.data?.music_index ?? 2);
+  const musicFilename = useSelector((state) => state.profiles.data?.music_filename || "2026_funding.mp3");
+  const userName = useSelector((state) => state.profiles.user);
+  const dynamicUrl = `${API_ENDPOINTS.BASE}/get_music/${userName}/${musicFilename}`;/////////username
 
   return (
     <div>
       <AudioWaveform
-        url={music}
+        // url={music}
+        // url={musicList[musicIndex]} // 根據索引選擇音樂
+        url={dynamicUrl} // 根據後端提供的檔名動態生成 URL  
         isPlaying={isPlaying}
         setIsPlaying={setIsPlaying}
         // audioRef={audioRef}

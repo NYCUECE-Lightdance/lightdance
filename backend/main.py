@@ -149,7 +149,7 @@ async def read_root():
 @api_router.get("/timelist/")
 async def front_read_time():
     # Only include user and update_time fields
-    all_entries = list(collection_color.find({}, {"user": 1, "update_time": 1}))
+    all_entries = list(collection_color.find({}, {"user": 1, "update_time": 1, "music_filename": 1}))
 
     for entry in all_entries:
         entry["_id"] = str(entry["_id"])
@@ -157,7 +157,7 @@ async def front_read_time():
     # Sort the entries by username and update times
     sorted_entries_pre = sorted(all_entries, key=lambda x: x['update_time'] , reverse=True)
     sorted_entries = sorted(sorted_entries_pre, key=lambda x: x['user'] )
-    final_response = [{"user": entry["user"], "update_time": entry["update_time"]} for entry in sorted_entries]
+    final_response = [{"user": entry["user"], "update_time": entry["update_time"], "music_filename": entry.get("music_filename", 0)} for entry in sorted_entries]
 
     return {"list": final_response}
 
@@ -167,7 +167,7 @@ async def front_read_time():
 @api_router.get("/timelist/{username}")
 async def front_read_time(username: str):
 	# Only include user and update_time fields
-	all_entries = list(collection_color.find({"user": username}, {"user": 1, "update_time": 1}))
+	all_entries = list(collection_color.find({"user": username}, {"user": 1, "update_time": 1, "music_filename": 1}))
 
 	for entry in all_entries:
 		entry["_id"] = str(entry["_id"])
@@ -175,7 +175,7 @@ async def front_read_time(username: str):
 	# Sort the entries by username and update time
 	sorted_entries = sorted(all_entries, key=lambda x: (x['user'] != username, x['update_time']), reverse=True)
 
-	final_response = [{"user": entry["user"], "update_time": entry["update_time"]} for entry in sorted_entries]
+	final_response = [{"user": entry["user"], "update_time": entry["update_time"], "music_filename": entry.get("music_filename", 0)} for entry in sorted_entries]
 
 	return {"list": final_response}
 
@@ -282,7 +282,8 @@ async def upload_user_color (request: Request, current_user: User = Depends(get_
 	user_data = Data(
 		user = current_user.username,
 		last_updated_time = current_time,
-		players = [Player(data=[PlayerData(**item) for item in sublist]) for sublist in b['players']]
+		players = [Player(data=[PlayerData(**item) for item in sublist]) for sublist in b['players']],
+        music_filename = b.get('music_filename', 0)
 	)
 
 	existing_entries = collection_color.find({"user": user_data.user}).sort("update_time", 1)  # Sort by update time
@@ -295,7 +296,8 @@ async def upload_user_color (request: Request, current_user: User = Depends(get_
 	document = {
 		'user': user_data.user,
 		'update_time': user_data.last_updated_time,
-		'players': [[player_data.dict() for player_data in player.data] for player in user_data.players]
+		'players': [[player_data.dict() for player_data in player.data] for player in user_data.players],
+        'music_filename': user_data.music_filename
 	}
 
 	collection_color.insert_one(document)

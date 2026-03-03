@@ -42,7 +42,7 @@ const Timeline = forwardRef(
     const timelineBlocks = useSelector(
       (state) => state.profiles.timelineBlocks?.[armorIndex]?.[partIndex] || [] // 當前時間軸的方塊數據
     );
-    const actionTable = useSelector((state) => state.profiles.actionTable); // 原始動作表
+    const actionTable = useSelector((state) => state.profiles.data?.actionTable || []); // 原始動作表
     const tempActionTable = useSelector(
       (state) => state.profiles.tempActionTable
     ); // 臨時動作表

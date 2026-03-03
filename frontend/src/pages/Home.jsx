@@ -23,8 +23,10 @@ function Home({ rgba, setRgba, setButtonState }) {
   const navigate = useNavigate();
   const dispatch = useDispatch();
   const token = useSelector((state) => state.profiles.accessToken);
-  const actionTable = useSelector((state) => state.profiles.actionTable);
-  const userName = useSelector((state) => state.profiles.userName);
+  const data = useSelector((state) => state.profiles.data) || { actionTable: [], music_filename: "" };
+  const actionTable = data.actionTable || [];
+  const musicFilename = data.music_filename ?? "";
+  const userName = useSelector((state) => state.profiles.user);
   const autoRefresh = useSelector((state) => state.profiles.autoRefresh);
   const [isDirty, setIsDirty] = useState(false);
   const [isLoaded, setIsLoaded] = useState(false);
@@ -81,7 +83,8 @@ function Home({ rgba, setRgba, setButtonState }) {
     setIsDirty(false);
     setIsLoaded(false);
     console.log("-token- : ", BearerToken);
-    let result = JSON.stringify(actionTable);
+    // let result = JSON.stringify(actionTable);
+    let result = JSON.stringify(data);
     // console.log("upload(raw) : ", JSON.stringify(result));
     const response = await fetch(API_ENDPOINTS.UPLOAD_RAW, {
       method: "POST",
@@ -249,8 +252,13 @@ function Home({ rgba, setRgba, setButtonState }) {
     }
     
     console.log("players : ", players);
-    const result = { players };
-  
+    console.log(">>> [1] 上傳的原始資料 (Raw Data):", data);
+    const result = {  
+      players,
+      music_filename: musicFilename
+    };
+    
+    console.log(">>> [2] 上傳的播放資料 (Translated Items):", result);
     let BearerToken = "";
     token === "" ? (BearerToken = " ") : (BearerToken = token);
   
@@ -265,17 +273,21 @@ function Home({ rgba, setRgba, setButtonState }) {
       body: JSON.stringify(result),
       mode: "cors",
     });
-  
-    if (!response.ok) {
-      alert("upload failed");
-      console.error("Response Error:", response.status, response.statusText);
-      const errorText = await response.text();
-      throw new Error(
-        `HTTP error! Status: ${response.status}, Message: ${errorText}`
-      );
-    } else {
+    if (response.ok) {
+      // 這裡多加一個 alert，或是把 handleOutputString 裡的 alert 移到這裡
+      alert("原始檔與播放檔皆上傳成功！"); 
       console.log("upload(translated) : ", JSON.stringify(result));
     }
+    // if (!response.ok) {
+    //   alert("upload failed");
+    //   console.error("Response Error:", response.status, response.statusText);
+    //   const errorText = await response.text();
+    //   throw new Error(
+    //     `HTTP error! Status: ${response.status}, Message: ${errorText}`
+    //   );
+    // } else {
+    //   console.log("upload(translated) : ", JSON.stringify(result));
+    // }
   }
   
 
