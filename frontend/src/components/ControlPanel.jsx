@@ -30,20 +30,25 @@ function ControlPanel({ setButtonState }) {
   const [selectedTimelines, setSelectedTimelines] = useState([]);
   const [showModal, setShowModal] = useState(false);
   const selectedBlock = useSelector((state) => state.profiles.selectedBlock);
-  const actionTable = useSelector((state) => state.profiles.actionTable);
+  const actionTable = useSelector((state) => state.profiles.data?.actionTable || []);
   const currentTime = useSelector((state) => state.profiles.currentTime);
   const showPart = useSelector((state) => state.profiles.showPart);
   const dispatch = useDispatch();
   const partName = [
-    "頭",
-    "肩甲",
-    "胸甲",
-    "手腰",
-    "腿上",
-    "腿下",
-    "鞋",
-    "棍內",
-    "棍外",
+    "帽子",      // 0
+    "臉",        // 1
+    "左胸",      // 2
+    "右胸",      // 3
+    "左手臂",    // 4
+    "右手臂",    // 5
+    "領帶",      // 6
+    "腰帶",      // 7
+    "左手套",    // 8
+    "右手套",    // 9
+    "左腿",      // 10
+    "右腿",      // 11
+    "左鞋",      // 12
+    "右鞋",      // 13
   ];
 
   useEffect(() => {
@@ -292,7 +297,7 @@ function ControlPanel({ setButtonState }) {
   };
   // 全选/取消全选某列（所有人物的某种部件）
   const toggleColumnSelect = (partIndex) => {
-    const isColumnFullySelected = Array.from({ length: 5 }).every(
+    const isColumnFullySelected = Array.from({ length: 7 }).every(
       (_, armorIndex) =>
         selectedTimelines.some(
           (item) =>
@@ -302,7 +307,7 @@ function ControlPanel({ setButtonState }) {
 
     setSelectedTimelines((prev) => {
       const updated = [...prev];
-      Array.from({ length: 5 }).forEach((_, armorIndex) => {
+      Array.from({ length: 7 }).forEach((_, armorIndex) => {
         const exists = updated.some(
           (item) =>
             item.armorIndex === armorIndex && item.partIndex === partIndex
@@ -323,7 +328,7 @@ function ControlPanel({ setButtonState }) {
 
   // 切换行全选/取消全选
   const toggleRowSelect = (armorIndex) => {
-    const isRowFullySelected = Array.from({ length: 9 }).every((_, partIndex) =>
+    const isRowFullySelected = Array.from({ length: 14 }).every((_, partIndex) =>
       selectedTimelines.some(
         (item) => item.armorIndex === armorIndex && item.partIndex === partIndex
       )
@@ -331,7 +336,7 @@ function ControlPanel({ setButtonState }) {
 
     setSelectedTimelines((prev) => {
       const updated = [...prev];
-      Array.from({ length: 9 }).forEach((_, partIndex) => {
+      Array.from({ length: 14 }).forEach((_, partIndex) => {
         const exists = updated.some(
           (item) =>
             item.armorIndex === armorIndex && item.partIndex === partIndex
@@ -487,11 +492,11 @@ function ControlPanel({ setButtonState }) {
               <thead>
                 <tr>
                   <th>Armor</th>
-                  {Array.from({ length: 5 }).map((_, armorIndex) => (
+                  {Array.from({ length: 7 }).map((_, armorIndex) => (
                     <th key={armorIndex}>
                       <button
                         className={`allsel-button ${
-                          Array.from({ length: 9 }).every((_, partIndex) =>
+                          Array.from({ length: 14 }).every((_, partIndex) =>
                             selectedTimelines.some(
                               (item) =>
                                 item.armorIndex === armorIndex &&
@@ -510,12 +515,12 @@ function ControlPanel({ setButtonState }) {
                 </tr>
               </thead>
               <tbody>
-                {Array.from({ length: 9 }).map((_, partIndex) => (
+                {Array.from({ length: 14 }).map((_, partIndex) => (
                   <tr key={partIndex}>
                     <td>
                       <button
                         className={`allsel-button ${
-                          Array.from({ length: 5 }).every((_, armorIndex) =>
+                          Array.from({ length: 7 }).every((_, armorIndex) =>
                             selectedTimelines.some(
                               (item) =>
                                 item.armorIndex === armorIndex &&
@@ -530,7 +535,7 @@ function ControlPanel({ setButtonState }) {
                         All
                       </button>
                     </td>
-                    {Array.from({ length: 5 }).map((_, armorIndex) => {
+                    {Array.from({ length: 7 }).map((_, armorIndex) => {
                       const isSelected = selectedTimelines.some(
                         (item) =>
                           item.armorIndex === armorIndex &&
@@ -623,7 +628,7 @@ function ControlPanel({ setButtonState }) {
                       )
                     }
                   >
-                    {Array.from({ length: 5 }).map((_, i) => (
+                    {Array.from({ length: 7 }).map((_, i) => (
                       <option key={i} value={i}>
                         {i + 1}
                       </option>
@@ -643,7 +648,7 @@ function ControlPanel({ setButtonState }) {
                       )
                     }
                   >
-                    {Array.from({ length: 9 }).map((_, i) => (
+                    {Array.from({ length: 14 }).map((_, i) => (
                       <option key={i} value={i}>
                         {partName[i]}
                       </option>

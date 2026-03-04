@@ -3,7 +3,7 @@ import "bootstrap/dist/js/bootstrap.bundle.min.js";
 import "bootstrap/dist/css/bootstrap.min.css";
 import { MdInput } from "react-icons/md";
 import { useDispatch, useSelector } from "react-redux";
-import { updateActionTable } from "../redux/actions.js";
+import { updateActionTable, updateMusicFilename } from "../redux/actions.js";
 import { API_ENDPOINTS } from "../config/api.js";
 
 function Dropdown({ userName, setIsDirty, isDirty, setIsLoaded, isLoaded }) {
@@ -11,7 +11,7 @@ function Dropdown({ userName, setIsDirty, isDirty, setIsLoaded, isLoaded }) {
   const [userList, setUserList] = useState([]);
   const [anchorIndex, setAnchorIndex] = useState(0);
   const dispatch = useDispatch();
-  const actionTable = useSelector((state) => state.profiles.actionTable);
+  const actionTable = useSelector((state) => state.profiles.data?.actionTable || []);
 
   async function fetchAvailableDataList() {
     // Define the API endpoint
@@ -41,6 +41,8 @@ function Dropdown({ userName, setIsDirty, isDirty, setIsLoaded, isLoaded }) {
       .catch((error) => {
         console.error("Error fetching data:", error); // Handle any errors
       });
+
+      // console.log("TimeList API Response:", data);
   }
 
   async function handleChoose(user, time) {
@@ -75,6 +77,9 @@ function Dropdown({ userName, setIsDirty, isDirty, setIsLoaded, isLoaded }) {
         // setUserList(uniqueArray);
         // // console.log(uniqueArray);
         // setAnchorIndex(0);
+        if (data.music_filename !== undefined) {
+          dispatch(updateMusicFilename(data.music_filename));
+        }
       })
       .catch((error) => {
         console.error("Error fetching data:", error); // Handle any errors
@@ -95,24 +100,42 @@ function Dropdown({ userName, setIsDirty, isDirty, setIsLoaded, isLoaded }) {
       })
       .then((data) => {
         console.log("Fetched Data:", data); // Log the returned data
-        // console.log(data.players); // Log the returned data
-        // console.log("Table : ", actionTable);
-        let getData = JSON.parse(data.raw_data);
-        console.log("getData : ", getData);
-        dispatch(updateActionTable(getData));
-        // console.log("After : ", restoredActionTable);
 
-        // let timeListArray = data.list;
-        // setTimeList(timeListArray);
-        // const uniqueArray = [
-        //   ...new Set(timeListArray.map((array) => array.user)),
-        // ];
-        // setUserList(uniqueArray);
-        // // console.log(uniqueArray);
-        // setAnchorIndex(0);
+        // Check if the backend returned an error message in the body
+        if (data && data.message) {
+          throw new Error(`Backend error: ${data.message}`);
+        }
+
+        let actionData;
+        let musicFilename; // 預設值
+        if (data && typeof data.raw_data !== "undefined") {
+          // If raw_data exists, parse it
+          // 1. 先把整串 JSON 字串轉成物件
+          const parsedRaw = JSON.parse(data.raw_data);
+          console.log("rawData:", parsedRaw);
+                    
+          // 2. 判斷資料結構（如果是舊格式可能直接是 actionTable，新格式可能包含 music_filename）
+          actionData = parsedRaw.actionTable || parsedRaw;
+          musicFilename = parsedRaw.music_filename;
+
+        } else {
+          // Otherwise, assume the data object itself is what we need
+          console.warn(
+            "Response did not contain 'raw_data' field. Assuming the whole data object is the actionTable."
+          );
+          actionData = data;
+          musicFilename = data.music_filename;
+        }
+        console.log("Final ActionData:", actionData);
+        console.log("Final MusicFilename:", musicFilename);
+
+        dispatch(updateActionTable(actionData));
+        dispatch(updateMusicFilename(musicFilename))
       })
       .catch((error) => {
+        // This will now catch both HTTP errors and backend errors from the response body
         console.error("Error fetching data:", error); // Handle any errors
+        alert(`Failed to load data: ${error.message}`); // Also alert the user
       });
   }
 
@@ -254,13 +277,19 @@ function Dropdown({ userName, setIsDirty, isDirty, setIsLoaded, isLoaded }) {
                 )}
                 <li key={key}>
                   <a
-                    className="dropdown-item"
+                    className="dropdown-item d-flex justify-content-between align-items-center"
                     style={{ fontSize: "16px" }}
                     onClick={() =>
                       fetchRawPlayerData(option.user, option.update_time)
                     }
                   >
-                    {option.update_time}
+                      {/* 顯示更新時間 */}
+                    <span>{option.update_time}</span>
+                    
+                    {/* 新增：顯示 Music Filename 的標籤 */}
+                    <span className="badge bg-info text-dark ms-2">
+                      🎵 Music: {option.music_filename ?? "N/A"}
+                    </span>
                   </a>
                 </li>
               </React.Fragment>

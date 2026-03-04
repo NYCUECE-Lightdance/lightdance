@@ -14,7 +14,7 @@ const Welcome = () => {
         initial={{ opacity: 0 }}
         animate={{ opacity: 1, transition: { delay: 1, duration: 0.5 } }}
       >
-        光舞設計網站
+        光舞設計
       </motion.h1>
 
       <motion.button

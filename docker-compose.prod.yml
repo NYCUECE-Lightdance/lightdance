@@ -13,23 +13,6 @@
 #
 
 services:
-  # ------------------ Nginx 服務 (Production Frontend) ------------------
-  nginx:
-    build: 
-      context: ./frontend
-    container_name: frontend
-    ports:
-      - ${NGINX_PORT:-80}:80
-    volumes:
-      - ./nginx/:/etc/nginx/conf.d
-    depends_on:
-      backend:
-        condition: service_healthy
-    networks:
-      app-network:
-        aliases:
-          - nginx
-
   # ------------------ 後端服務 (FastAPI) ------------------
   backend:
     build: ./backend

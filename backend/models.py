@@ -22,15 +22,21 @@ class PlayerData(BaseModel):
     包含身體各部位的燈光顏色數值
     """
     time: int
-    head: int
-    shoulder: int
-    chest: int
-    front: int
-    skirt: int
-    leg: int
-    shoes: int
-    weap_1: int
-    weap_2: int
+    hat: int
+    face: int
+    chestL: int
+    chestR: int
+    armL: int
+    armR: int
+    tie: int
+    belt: int
+    gloveL: int
+    gloveR: int
+    legL: int
+    legR: int
+    shoeL: int
+    shoeR: int
+    board: int
 
 
 class Player(BaseModel):
@@ -49,6 +55,7 @@ class Data(BaseModel):
     user: str
     last_updated_time: str
     players: List[Player] = []
+    music_filename: str
 
 
 # ============================================================================

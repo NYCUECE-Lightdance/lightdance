@@ -6,9 +6,14 @@ import {
   updateSelectedBlock,
   updateTempActionTable,
   updateIsColorChangeActive,
+  updateMultiSelectedBlocks,
 } from "../../redux/actions";
 import cloneDeep from "lodash/cloneDeep";
 import { produce } from "immer";
+import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+import {
+  faWandMagicSparkles,
+} from "@fortawesome/free-solid-svg-icons";
 
 // Timeline 組件
 const Timeline = forwardRef(
@@ -37,12 +42,13 @@ const Timeline = forwardRef(
     const timelineBlocks = useSelector(
       (state) => state.profiles.timelineBlocks?.[armorIndex]?.[partIndex] || [] // 當前時間軸的方塊數據
     );
-    const actionTable = useSelector((state) => state.profiles.actionTable); // 原始動作表
+    const actionTable = useSelector((state) => state.profiles.data?.actionTable || []); // 原始動作表
     const tempActionTable = useSelector(
       (state) => state.profiles.tempActionTable
     ); // 臨時動作表
     const duration = useSelector((state) => state.profiles.duration); // 總時長
     const selectedBlock = useSelector((state) => state.profiles.selectedBlock); // 全局選中方塊
+    const multiSelectedBlocks = useSelector((state) => state.profiles.multiSelectedBlocks); // 全局多選中方塊
     const blackthreshold = 10;
 
     // 左、右箭頭的樣式
@@ -97,6 +103,7 @@ const Timeline = forwardRef(
         ) {
           console.log("click outside");
           dispatch(updateSelectedBlock({})); // 更新 Redux
+          dispatch(updateMultiSelectedBlocks([])); // 清除多選
           dispatch(updateIsColorChangeActive(false)); // 更新 Redux
         }
       };
@@ -180,19 +187,44 @@ const Timeline = forwardRef(
       e.stopPropagation();
 
       const block = timelineBlocks[index];
+      // If a black block is clicked, clear all selections.
       if (block.color.R === 0 && block.color.G === 0 && block.color.B === 0) {
-        dispatch(updateSelectedBlock({})); // 更新 Redux
+        dispatch(updateSelectedBlock({}));
+        dispatch(updateMultiSelectedBlocks([]));
         return;
       }
 
-      setDragging(true);
-      setDraggedBlockIndex(index);
-      setDragStartpoint(e.clientX); // 記錄鼠標按下的位置
+      // Shift-click multi-selection logic
+      if (e.shiftKey && selectedBlock && selectedBlock.armorIndex === armorIndex && selectedBlock.partIndex === partIndex) {
+        const startIdx = selectedBlock.blockIndex;
+        const endIdx = index;
 
-      // 通知父组件更新全局选中状态
-      dispatch(
-        updateSelectedBlock({ armorIndex, partIndex, blockIndex: index })
-      );
+        const selectionStart = Math.min(startIdx, endIdx);
+        const selectionEnd = Math.max(startIdx, endIdx);
+
+        const newMultiSelected = [];
+        for (let i = selectionStart; i <= selectionEnd; i++) {
+          const currentBlock = timelineBlocks[i];
+          // Filter out black blocks (transition blocks)
+          const isBlackTransition = currentBlock.color.R === 0 && currentBlock.color.G === 0 && currentBlock.color.B === 0;
+          if (!isBlackTransition) {
+            newMultiSelected.push({ armorIndex, partIndex, blockIndex: i });
+          }
+        }
+        dispatch(updateMultiSelectedBlocks(newMultiSelected));
+
+      } else {
+        // Single-select logic
+        dispatch(updateMultiSelectedBlocks([])); // Clear multi-selection
+        setDragging(true);
+        setDraggedBlockIndex(index);
+        setDragStartpoint(e.clientX);
+
+        // Notify parent component to update global selected state
+        dispatch(
+          updateSelectedBlock({ armorIndex, partIndex, blockIndex: index })
+        );
+      }
     };
 
     // 處理鼠標放開事件
@@ -439,6 +471,12 @@ const Timeline = forwardRef(
             selectedBlock?.partIndex === partIndex &&
             selectedBlock?.blockIndex === index;
 
+          const isMultiSelected = multiSelectedBlocks.some(b => 
+              b.armorIndex === armorIndex && 
+              b.partIndex === partIndex && 
+              b.blockIndex === index
+          );
+
           // 計算顏色距離的函式
           const colorDistance = (color1, color2) => {
             return Math.sqrt(
@@ -457,15 +495,41 @@ const Timeline = forwardRef(
             selectionBorderColor = "#00FFFF"; // 改成青色
           }
 
+          const currentBlockData = actionTable[armorIndex]?.[partIndex]?.[index];
+          const isFade = currentBlockData?.linear === 1;
+
+          let backgroundStyle;
+
+          if (isFade) {
+            const partTimeline = actionTable[armorIndex]?.[partIndex];
+            const nextBlock = partTimeline?.[index + 1];
+            const nextNextBlock = partTimeline?.[index + 2];
+            const isBlack = (c) => c && c.R === 0 && c.G === 0 && c.B === 0;
+
+            let endColor = { R: 0, G: 0, B: 0, A: 1 }; // Default to black
+
+            if (nextBlock && !isBlack(nextBlock.color)) {
+              endColor = nextBlock.color;
+            } else if (nextNextBlock) {
+              endColor = nextNextBlock.color;
+            }
+
+            const startColorString = `rgba(${color.R}, ${color.G}, ${color.B}, ${color.A})`;
+            const endColorString = `rgba(${endColor.R}, ${endColor.G}, ${endColor.B}, ${endColor.A})`;
+            backgroundStyle = `linear-gradient(to right, ${startColorString}, ${endColorString})`;
+          } else {
+            backgroundStyle = `rgba(${color.R}, ${color.G}, ${color.B}, ${color.A})`;
+          }
+
           // 設定 blockStyle
           const blockStyle = {
             display: "inline-block",
-            backgroundColor: `rgba(${color.R}, ${color.G}, ${color.B}, ${color.A})`,
+            background: backgroundStyle,
             width: `${(block.durationTime / duration) * 100}%`,
             height: "90%",
             position: "relative",
             borderRadius: "7px",
-            border: isSelected ? `3px solid ${selectionBorderColor}` : "none",
+            border: isSelected || isMultiSelected ? `3px solid ${selectionBorderColor}` : "none",
             boxSizing: "border-box",
             zIndex: 1,
           };
@@ -505,9 +569,22 @@ const Timeline = forwardRef(
               className="timeline-block"
               onMouseDown={(e) => handleMouseDown(e, index)} // 點擊方塊選中
             >
+              {currentBlockData?.linear === 1 && (
+                <FontAwesomeIcon
+                  icon={faWandMagicSparkles}
+                  size="xl"
+                  style={{
+                    position: "absolute",
+                    top: "5px",
+                    right: "5px",
+                    color: "white",
+                    zIndex: 2,
+                  }}
+                />
+              )}
               {" "}
               {/*
-              {/* 如果不是黑色方块，渲染左右虚拟检测块  
+              {/* 如果不是黑色方块，渲染左右虛擬檢測塊
               {!(
                 block.color.R === 0 &&
                 block.color.G === 0 &&

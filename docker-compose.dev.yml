@@ -75,8 +75,8 @@ services:
       MONGO_INITDB_ROOT_USERNAME: ${MONGO_USERNAME:-user}
       MONGO_INITDB_ROOT_PASSWORD: ${MONGO_PASSWORD:-password}
     volumes:
-      # 將資料庫檔案保存在本地的 ./db 資料夾
-      - ./db:/data/db
+      # 使用 Docker volume 儲存資料庫,避免 Windows 檔案系統權限問題
+      - mongo_data:/data/db
       - ./mongo-init:/docker-entrypoint-initdb.d
     networks:
       app-network:
@@ -115,3 +115,4 @@ networks:
 # ------------------ 共用 Volume ------------------
 volumes:
   frontend_node_modules:
+  mongo_data:

@@ -13,3 +13,48 @@
   width: 270px;
   height: 330px;
 }
+
+/* 舞者容器 - 包含標籤和 SVG */
+.armor-container {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+/* 舞者編號標籤 */
+.dancer-label {
+  /* 定位 - 對齊畫布頂部 */
+  position: absolute;
+  top: 5px;  /* 距離頂部 5px，保持在畫布內 */
+  left: 50%;
+  transform: translateX(-50%);
+
+  /* 視覺樣式 */
+  background: linear-gradient(135deg, #4a9eff 0%, #3a8eef 100%);
+  color: white;
+  padding: 6px 16px;
+  border-radius: 20px;
+  font-size: 14px;
+  font-weight: bold;
+
+  /* 陰影與深度 */
+  box-shadow: 0 4px 8px rgba(74, 158, 255, 0.3),
+              0 2px 4px rgba(0, 0, 0, 0.2);
+
+  /* 動畫過渡 */
+  transition: all 0.3s ease;
+
+  /* 確保在最上層 */
+  z-index: 100;
+
+  /* 確保不會被 SVG 遮擋 */
+  pointer-events: none;
+}
+
+/* 懸停效果 */
+.armor-container:hover .dancer-label {
+  transform: translateX(-50%) scale(1.1);
+  box-shadow: 0 6px 12px rgba(74, 158, 255, 0.4),
+              0 3px 6px rgba(0, 0, 0, 0.3);
+}

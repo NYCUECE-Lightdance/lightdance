@@ -2,9 +2,13 @@ const initialState = {
   user: null,
   fullPeaks: [],
   duration: 0,
-  actionTable: [],
+  data: {
+    music_filename: "2026_show.mp3",
+    actionTable: [],
+  },
   timelineBlocks: {},
   selectedBlock: {},
+  multiSelectedBlocks: [],
   chosenColor: { R: 5, G: 5, B: 5, A: 1 },
   currentTime: 0,
   accessToken: "",
@@ -22,6 +26,13 @@ const initialState = {
     { id: 3, armorIndex: 2, partIndex: 0, hidden: false },
   ],
   favoriteColor: [],
+  dancerVisibility: [false, false, false, false, false, false, false], // 初始全部隱藏
+  clipboard: {
+    data: null,              // 複製的 timeline 資料
+    sourceArmorIndex: null,  // 來源舞者索引
+    sourcePartIndex: null,   // 來源部位索引
+    timestamp: null,         // 複製時間戳
+  },
 };
 
 export const profiles = (state = initialState, action) => {
@@ -33,51 +44,80 @@ export const profiles = (state = initialState, action) => {
       return { ...state, fullPeaks: action.payload };
     case "UPDATEDURATION":
       return { ...state, duration: action.payload };
-    case "UPDATEACTIONTABLE":
+    case "UPDATEACTIONTABLE": {
+      const newActionTable =
+        action.payload && action.payload.actionTable
+          ? action.payload.actionTable
+          : action.payload;
+      const newMusicFilename =
+        action.payload && action.payload.music_filename !== undefined
+          ? action.payload.music_filename
+          : state.data.music_filename;
+
       if (
-        JSON.stringify(state.actionTable) === JSON.stringify(action.payload)
+        JSON.stringify(state.data.actionTable) === JSON.stringify(newActionTable)
       ) {
-        return state; // 如果數據相同，直接返回舊狀態
+        return state;
       }
 
       // 跳过初始化操作的历史记录更新
       if (action.meta && action.meta.skipHistory) {
         return {
           ...state,
-          actionTable: action.payload,
+          data: {
+            ...state.data,
+            actionTable: newActionTable,
+            music_filename: newMusicFilename,
+          },
         };
       }
 
       if (state.history.length > 0) {
-        if (action.payload[0][0].length === 1) {
-          console.log("state.actionTable: ", action.payload);
-          // console.log("yes");
+        // 这里的逻辑似乎是检查某种特定的 actionTable 格式，保留它
+        if (
+          Array.isArray(newActionTable) &&
+          newActionTable[0] &&
+          newActionTable[0][0] &&
+          newActionTable[0][0].length === 1
+        ) {
+          console.log("state.data: ", {
+            ...state.data,
+            actionTable: newActionTable,
+            music_filename: newMusicFilename,
+          });
           return {
             ...state,
-            actionTable: action.payload,
+            data: {
+              ...state.data,
+              actionTable: newActionTable,
+              music_filename: newMusicFilename,
+            },
           };
         }
       }
 
       const newHistory = Array.isArray(state.history)
-        ? [...state.history, state.actionTable]
-        : [state.actionTable]; // 如果 history 不是数组，则初始化为新数组
+        ? [...state.history, state.data.actionTable]
+        : [state.data.actionTable];
 
-      if (newHistory.length > 50) newHistory.shift(); // 限制历史记录长度为 50
-      if (state.history.length > 1) {
-        return {
-          ...state,
-          actionTable: action.payload,
-          history: newHistory,
-          redoStack: [], // 每次更新清空 redoStack
-        };
-      } else {
-        return {
-          ...state,
-          actionTable: action.payload,
-          history: newHistory,
-        };
-      }
+      if (newHistory.length > 50) newHistory.shift();
+
+      return {
+        ...state,
+        data: {
+          ...state.data,
+          actionTable: newActionTable,
+          music_filename: newMusicFilename,
+        },
+        history: newHistory,
+        redoStack: state.history.length > 1 ? [] : state.redoStack,
+      };
+    }
+    case "UPDATEMUSICFILENAME":
+      return {
+        ...state,
+        data: { ...state.data, music_filename: action.payload },
+      };
     case "UPDATETEMPACTIONTABLE":
       return { ...state, tempActionTable: action.payload };
     case "UPDATETIMELINEBLOCKS":
@@ -117,14 +157,14 @@ export const profiles = (state = initialState, action) => {
       if (
         state.history.length > 0 &&
         JSON.stringify(state.history[state.history.length - 1]) ===
-          JSON.stringify(state.actionTable)
+          JSON.stringify(state.data.actionTable)
       ) {
         return state; // 如果当前状态与上一个状态相同，跳过更新
       }
 
       return {
         ...state,
-        history: [...state.history, state.actionTable], // 推入新的历史记录
+        history: [...state.history, state.data.actionTable], // 推入新的历史记录
         redoStack: [], // 清空 redo 堆栈
       };
     }
@@ -134,16 +174,16 @@ export const profiles = (state = initialState, action) => {
       if (state.history.length === 0) return state; // 无历史记录，无法 undo
       const previousState = state.history[state.history.length - 1]; // 获取最后一个历史状态
       // console.log("Previous state:", previousState); // 输出调试信息
-      // console.log("Current state:", state.actionTable); // 输出调试信息
-      if (JSON.stringify(previousState) === JSON.stringify(state.actionTable)) {
+      // console.log("Current state:", state.data.actionTable); // 输出调试信息
+      if (JSON.stringify(previousState) === JSON.stringify(state.data.actionTable)) {
         // console.log("Same as previous state, skipping..."); // 输出调试信息
         return state; // 如果当前状态与上一个状态相同，跳过更新
       }
       return {
         ...state,
-        actionTable: previousState, // 恢复到上一个状态
+        data: { ...state.data, actionTable: previousState }, // 恢复到上一个状态
         history: state.history.slice(0, -1), // 移除最后一个历史记录
-        redoStack: [state.actionTable, ...state.redoStack], // 将当前状态存入 redoStack
+        redoStack: [state.data.actionTable, ...state.redoStack], // 将当前状态存入 redoStack
       };
     }
 
@@ -153,8 +193,8 @@ export const profiles = (state = initialState, action) => {
       const latestRedo = state.redoStack[0]; // 获取 redoStack 的第一个状态
       return {
         ...state,
-        actionTable: latestRedo, // 恢复到 redo 状态
-        history: [...state.history, state.actionTable], // 将当前状态存入历史记录
+        data: { ...state.data, actionTable: latestRedo }, // 恢复到 redo 状态
+        history: [...state.history, state.data.actionTable], // 将当前状态存入历史记录
         redoStack: state.redoStack.slice(1), // 移除第一个 redo 记录
       };
     }
@@ -164,6 +204,12 @@ export const profiles = (state = initialState, action) => {
       return { ...state, showPart: action.payload };
     case "UPDATEFAVORITECOLOR":
       return { ...state, favoriteColor: action.payload };
+    case "UPDATEDANCERVISIBILITY":
+      return { ...state, dancerVisibility: action.payload };
+    case "UPDATECLIPBOARD":
+      return { ...state, clipboard: action.payload };
+    case "UPDATE_MULTI_SELECTED_BLOCKS":
+      return { ...state, multiSelectedBlocks: action.payload };
     case "REFRESH":
       return initialState;
     default:

@@ -7,18 +7,24 @@ import WaveSurferPlayer from "../components/audio/WaveSurferplayer"; // 🔹 引
 function EditActionTable() {
   const dispatch = useDispatch();
   const navigate = useNavigate(); // 🔹 用來做頁面跳轉
-  const actionTable = useSelector((state) => state.profiles.actionTable);
+  const actionTable = useSelector((state) => state.profiles.data?.actionTable || []);
 
   const partName = [
-    "頭",
-    "肩甲",
-    "胸甲",
-    "手腰",
-    "腿上",
-    "腿下",
-    "鞋",
-    "棍內",
-    "棍外",
+    "帽子",      // 0
+    "臉",        // 1
+    "左胸",      // 2
+    "右胸",      // 3
+    "左手臂",    // 4
+    "右手臂",    // 5
+    "領帶",      // 6
+    "腰帶",      // 7
+    "左手套",    // 8
+    "右手套",    // 9
+    "左腿",      // 10
+    "右腿",      // 11
+    "左鞋",      // 12
+    "右鞋",      // 13
+    "板子",    // 14
   ];
 
   // 選擇 Armor & Part
@@ -195,15 +201,20 @@ function PartEditor({
   onDeleteBlock,
 }) {
   const partName = [
-    "頭",
-    "肩甲",
-    "胸甲",
-    "手腰",
-    "腿上",
-    "腿下",
-    "鞋",
-    "棍內",
-    "棍外",
+    "帽子",      // 0
+    "臉",        // 1
+    "左胸",      // 2
+    "右胸",      // 3
+    "左手臂",    // 4
+    "右手臂",    // 5
+    "領帶",      // 6
+    "腰帶",      // 7
+    "左手套",    // 8
+    "右手套",    // 9
+    "左腿",      // 10
+    "右腿",      // 11
+    "左鞋",      // 12
+    "右鞋",      // 13
   ];
   return (
     <div

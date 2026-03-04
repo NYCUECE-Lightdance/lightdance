@@ -1,3 +1,9 @@
+.timeline {
+  box-sizing: border-box; /* 確保邊框不影響高度計算 */
+  display: flex;
+  align-items: center;
+}
+
 .timeline-block:hover {
   opacity: 0.85;
   transform: scale(1.0005); /* 鼠标悬停时放大 */
