@@ -8,7 +8,8 @@ import {
 
 const Armor = (props) => {
   const dispatch = useDispatch();
-  const actionTable = useSelector((state) => state.profiles.actionTable);
+  const data = useSelector((state) => state.profiles.data);
+  const actionTable = data?.actionTable || [];
   const time = useSelector((state) => state.profiles.currentTime);
   const duration = useSelector((state) => state.profiles.duration);
   const chosenColor = useSelector((state) => state.profiles.chosenColor);
@@ -17,8 +18,8 @@ const Armor = (props) => {
   const blackthreshold = 10;
 
   useEffect(() => {
-    console.log("actionTable: ", actionTable);
-  }, [actionTable]);
+    console.log("data: ", data);
+  }, [data]);
 
   // 新的部位名稱（對應 Home.jsx 的輸出映射）
   const partNames = [

@@ -32,7 +32,7 @@ function ControlPanel({ setButtonState }) {
   const [selectedTimelines, setSelectedTimelines] = useState([]);
   const [showModal, setShowModal] = useState(false);
   const selectedBlock = useSelector((state) => state.profiles.selectedBlock);
-  const actionTable = useSelector((state) => state.profiles.actionTable);
+  const actionTable = useSelector((state) => state.profiles.data?.actionTable || []);
   const currentTime = useSelector((state) => state.profiles.currentTime);
   const showPart = useSelector((state) => state.profiles.showPart);
   const moveMode = useSelector((state) => state.profiles.moveMode);

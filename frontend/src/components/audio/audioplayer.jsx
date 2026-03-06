@@ -6,9 +6,10 @@ import {
   updateSelectedBlock,
   updateClipboard,
   updateMultiSelectedBlocks,
+  // updateMusicIndex,
 } from "../../redux/actions.js";
 import "./audioplayer.css";
-import Waveform from "./waveform.jsx";
+import Waveform, { musicNames } from "./waveform.jsx";
 import Timeline from "./Timeline.jsx";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import {
@@ -37,10 +38,14 @@ const MAXZOOMVALUE = 100;
 
 function AudioPlayer({ setButtonState, timelineRef }) {
   const dispatch = useDispatch();
+  const data = useSelector((state) => state.profiles.data);
+  // const musicIndex = data?.music_index ?? 2;
+  const userName = useSelector((state) => state.profiles.user);
+  const musicFilename = data?.music_filename || "2026_funding.mp3";
   const showPart = useSelector((state) => state.profiles.showPart);
   const currentTime = useSelector((state) => state.profiles.currentTime);
   const duration = useSelector((state) => state.profiles.duration); // 音樂總長度
-  const actionTable = useSelector((state) => state.profiles.actionTable); // Redux 狀態中的動作表
+  const actionTable = data?.actionTable || []; // Redux 狀態中的動作表
   const timelineBlocks = useSelector((state) => state.profiles.timelineBlocks); // Redux 狀態中的時間軸區塊
   const chosenColor = useSelector((state) => state.profiles.chosenColor);
   const selectedBlock = useSelector((state) => state.profiles.selectedBlock);
@@ -1174,10 +1179,28 @@ function AudioPlayer({ setButtonState, timelineRef }) {
   return (
     <div className="audio-player-container">
       <div className="controls">
-        {/*<button className="effect-button" onClick={handleEffect}>
-          <FontAwesomeIcon icon={faWandMagicSparkles} size="lg" />
-          <span className="tooltip">Effect</span>
-        </button>*/}
+        {/* 僅顯示目前的檔名，無選單功能 */}
+        <div className="current-track-display" style={{ marginRight: "10px", display: "flex", alignItems: "center" }}>
+          <span className="badge bg-secondary" style={{ padding: "8px", fontSize: "14px" }}>
+            🎵 {musicFilename}
+          </span>
+        </div>
+        {/* 3. 新增：音軌選擇選單 (放在 Effect 按鈕左邊) */}
+        {/* <div className="dropdown" style={{ marginRight: "10px" }}>
+          <select
+            className="dropdown-select"
+            value={musicIndex}
+            onChange={(e) => dispatch(updateMusicIndex(Number(e.target.value)))}
+            style={{ minWidth: "120px" }}
+          >
+            {musicNames.map((name, index) => (
+              <option key={index} value={index}>
+                {index}. {name}
+              </option>
+            ))}
+          </select>
+          <span className="tooltip">Select Track</span>
+        </div> */}
         <div className="effect-wrapper">
           <button className="effect-button" onClick={handleEffect}>
             <FontAwesomeIcon icon={faWandMagicSparkles} size="lg" />
@@ -1353,9 +1376,12 @@ function AudioPlayer({ setButtonState, timelineRef }) {
               </>
             )}
           </button>
-          <div className="time-display">
+          <span className="current-time-box">{formatTime(currentTime)}</span>
+          <span className="time-separator">/</span>
+          <span className="duration-box">{formatTime(duration)}</span>
+          {/* <div className="time-display">
             {formatTime(currentTime)} / {formatTime(duration)}
-          </div>
+          </div> */}
         </div>
         <div className="zoom-controls">
           <button onClick={handleminuszoom} disabled={zoomLevel < 1}>

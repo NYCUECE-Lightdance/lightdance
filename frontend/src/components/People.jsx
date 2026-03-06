@@ -5,7 +5,7 @@ import { updateActionTable } from "../redux/actions.js";
 
 function People() {
   const components = Array(7).fill(null);
-  const actionTable = useSelector((state) => state.profiles.actionTable);
+  const actionTable = useSelector((state) => state.profiles.data?.actionTable || []);
   const dancerVisibility = useSelector(
     (state) => state.profiles.dancerVisibility
   );
