@@ -31,7 +31,9 @@ import {
   updateIsColorChangeActive,
   updatePlaybackRate,
   updateCurrentTime,
+  updateMusicFilename,
 } from "../../redux/actions.js";
+import { API_ENDPOINTS } from "../../config/api.js"; 
 import { set } from "lodash";
 
 const MAXZOOMVALUE = 100;
@@ -79,6 +81,35 @@ function AudioPlayer({ setButtonState, timelineRef }) {
   const [startBrightness, setStartBrightness] = useState(10);
   const [interval, setInterval] = useState(10);
   const [endBrightness, setEndBrightness] = useState(100);
+  const [apiMusicList, setApiMusicList] = useState([]);
+
+  useEffect(() => {
+    const fetchMusicList = async () => {
+      if (!userName) return;
+      try {
+        const response = await fetch(`${API_ENDPOINTS.BASE}/get_music_list/${userName}`);
+        const data = await response.json();
+        if (data && data.music_list) {
+          setApiMusicList(data.music_list);
+        }
+      } catch (error) {
+        console.error("抓取音樂清單失敗:", error);
+      }
+    };
+  
+    fetchMusicList();
+  }, [userName]);
+  
+  // 處理選單切換音樂
+  const handleMusicChange = (e) => {
+    const newFilename = e.target.value;
+    // 更新 Redux 中的 music_filename
+    dispatch(updateMusicFilename(newFilename)); 
+    // 如果正在播放，停止播放以觸發 waveform 重新載入
+    if (isPlaying) {
+      setIsPlaying(false);
+    }
+  };
 
   useEffect(() => {
     // 如果這不是外部觸發的跳轉，就跳過
@@ -1180,27 +1211,40 @@ function AudioPlayer({ setButtonState, timelineRef }) {
     <div className="audio-player-container">
       <div className="controls">
         {/* 僅顯示目前的檔名，無選單功能 */}
-        <div className="current-track-display" style={{ marginRight: "10px", display: "flex", alignItems: "center" }}>
+        {/* <div className="current-track-display" style={{ marginRight: "10px", display: "flex", alignItems: "center" }}>
           <span className="badge bg-secondary" style={{ padding: "8px", fontSize: "14px" }}>
             🎵 {musicFilename}
           </span>
-        </div>
-        {/* 3. 新增：音軌選擇選單 (放在 Effect 按鈕左邊) */}
-        {/* <div className="dropdown" style={{ marginRight: "10px" }}>
-          <select
-            className="dropdown-select"
-            value={musicIndex}
-            onChange={(e) => dispatch(updateMusicIndex(Number(e.target.value)))}
-            style={{ minWidth: "120px" }}
-          >
-            {musicNames.map((name, index) => (
-              <option key={index} value={index}>
-                {index}. {name}
-              </option>
-            ))}
-          </select>
-          <span className="tooltip">Select Track</span>
         </div> */}
+        <div className="current-track-display" style={{ marginRight: "10px", display: "flex", alignItems: "center" }}>
+          <div className="dropdown">
+            <select
+              className="dropdown-select"
+              value={musicFilename}
+              onChange={handleMusicChange}
+              style={{ 
+                minWidth: "150px", 
+                backgroundColor: "#2c3e50", 
+                color: "white", 
+                border: "1px solid #34495e",
+                borderRadius: "4px",
+                padding: "5px"
+              }}
+            >
+              {/* 如果目前的音樂不在清單中，顯示一個預設選項 */}
+              {!apiMusicList.includes(musicFilename) && (
+                <option value={musicFilename}>{musicFilename} (目前)</option>
+              )}
+              
+              {apiMusicList.map((filename, index) => (
+                <option key={index} value={filename}>
+                  🎵 {filename}
+                </option>
+              ))}
+            </select>
+            <span className="tooltip">Switch Track</span>
+          </div>
+        </div>
         <div className="effect-wrapper">
           <button className="effect-button" onClick={handleEffect}>
             <FontAwesomeIcon icon={faWandMagicSparkles} size="lg" />
