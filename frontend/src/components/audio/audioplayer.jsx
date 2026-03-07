@@ -23,6 +23,9 @@ import {
   faCircleHalfStroke,
   faPause,
   faWandMagicSparkles,
+  faCheck,
+  faTimes,
+  faArrowsLeftRight,
 } from "@fortawesome/free-solid-svg-icons";
 import { produce } from "immer";
 import {
@@ -82,6 +85,8 @@ function AudioPlayer({ setButtonState, timelineRef }) {
   const [interval, setInterval] = useState(10);
   const [endBrightness, setEndBrightness] = useState(100);
   const [apiMusicList, setApiMusicList] = useState([]);
+  const [shiftStep, setShiftStep] = useState(0); // 0: 關閉, 1: 選起始, 2: 選結束, 3: 選目標
+  const [shiftTimes, setShiftTimes] = useState({ start: 0, end: 0, target: 0 });
 
   useEffect(() => {
     const fetchMusicList = async () => {
@@ -1195,6 +1200,127 @@ function AudioPlayer({ setButtonState, timelineRef }) {
     dispatch(updateActionTable(updated));
   };
 
+  const handleShiftStep = () => {
+    const currentT = Math.floor(currentTime / 50) * 50; // 對齊 50ms 網格
+
+    if (shiftStep === 0) {
+      setShiftStep(1);
+    } else if (shiftStep === 1) {
+      setShiftTimes(prev => ({ ...prev, start: currentT }));
+      setShiftStep(2);
+    } else if (shiftStep === 2) {
+      if (currentT <= shiftTimes.start) {
+        alert("結束時間必須大於起始時間！");
+        return;
+      }
+      setShiftTimes(prev => ({ ...prev, end: currentT }));
+      setShiftStep(3);
+    } else if (shiftStep === 3) {
+      executeTimeShift(shiftTimes.start, shiftTimes.end, currentT);
+      resetShift();
+    }
+  };
+
+  const resetShift = () => {
+    setShiftStep(0);
+    setShiftTimes({ start: 0, end: 0, target: 0 });
+  };
+
+  // 3. 核心資料搬移邏輯
+  const executeTimeShift = (start, end, target) => {
+    const updatedActionTable = produce(actionTable, (draft) => {
+      // --- 第一階段：找出全域基準點 ---
+      let globalFirstTime = Infinity;
+  
+      Object.values(draft).forEach((armor) => {
+        Object.values(armor).forEach((timeline) => {
+          if (!Array.isArray(timeline)) return;
+          
+          for (let i = 0; i < timeline.length - 1; i++) {
+            const pointA = timeline[i];
+            const pointB = timeline[i + 1];
+            const isInRange = pointA.time >= start && pointA.time <= end && 
+                               pointB.time >= start && pointB.time <= end;
+            const isNextBlack = pointB.color.R === 0 && pointB.color.G === 0 && pointB.color.B === 0;
+  
+            if (isInRange && isNextBlack) {
+              if (pointA.time < globalFirstTime) {
+                globalFirstTime = pointA.time; // 紀錄全體最早的時間點
+              }
+            }
+          }
+        });
+      });
+  
+      if (globalFirstTime === Infinity) {
+        alert("選取區間內找不到符合條件（後方接續黑色）的光表點。");
+        return;
+      }
+  
+      // 計算統一的偏移量：target - 全體第一個時間點
+      const offset = target - globalFirstTime;
+  
+      // --- 第二階段：執行各部位平移與衝突處理 ---
+      Object.keys(draft).forEach((armorIdx) => {
+        Object.keys(draft[armorIdx]).forEach((partIdx) => {
+          let timeline = draft[armorIdx][partIdx];
+          if (!Array.isArray(timeline)) return;
+  
+          const moveIndices = [];
+          for (let i = 0; i < timeline.length - 1; i++) {
+            const pointA = timeline[i];
+            const pointB = timeline[i + 1];
+            const isInRange = pointA.time >= start && pointA.time <= end && 
+                               pointB.time >= start && pointB.time <= end;
+            const isNextBlack = pointB.color.R === 0 && pointB.color.G === 0 && pointB.color.B === 0;
+  
+            if (isInRange && isNextBlack) {
+              moveIndices.push(i, i + 1);
+            }
+          }
+  
+          if (moveIndices.length === 0) return;
+  
+          // 套用統一偏移量
+          const movedPoints = moveIndices.map(idx => ({
+            ...timeline[idx],
+            time: timeline[idx].time + offset
+          }));
+  
+          const newRangeStart = movedPoints[0].time;
+          const newRangeEnd = movedPoints[movedPoints.length - 1].time;
+  
+          const indicesToRemove = new Set(moveIndices);
+          let foundConflictEnd = -1;
+  
+          timeline.forEach((item, idx) => {
+            if (item.time >= newRangeStart && item.time <= newRangeEnd) {
+              indicesToRemove.add(idx);
+              foundConflictEnd = idx;
+            }
+          });
+  
+          if (foundConflictEnd !== -1 && foundConflictEnd + 1 < timeline.length) {
+            const nextAfterConflict = timeline[foundConflictEnd + 1];
+            if (nextAfterConflict.color.R === 0 && nextAfterConflict.color.G === 0 && nextAfterConflict.color.B === 0) {
+              indicesToRemove.add(foundConflictEnd + 1);
+            }
+          }
+  
+          let finalTimeline = timeline.filter((_, idx) => !indicesToRemove.has(idx));
+          finalTimeline = [...finalTimeline, ...movedPoints];
+          finalTimeline.sort((a, b) => a.time - b.time);
+  
+          draft[armorIdx][partIdx] = finalTimeline;
+        });
+      });
+    });
+  
+    dispatch(updateActionTable(updatedActionTable));
+    // 完成後跳轉 currentTime 到目標位置方便預覽
+    dispatch(updateCurrentTime(target));
+    // alert(`平移完成！全體基準點 ${target}ms`);
+  };
   const listitem = showPart.map((setting) => (
     <Timeline
       key={setting.id}
@@ -1244,6 +1370,28 @@ function AudioPlayer({ setButtonState, timelineRef }) {
             </select>
             <span className="tooltip">Switch Track</span>
           </div>
+        </div>
+        <div className="shift-tool-wrapper">
+          {shiftStep === 0 ? (
+            <button className="shift-main-button" onClick={() => setShiftStep(1)}>
+              <FontAwesomeIcon icon={faArrowsLeftRight} size="lg" />
+              <span className="tooltip">Shift all light dance data within the interval</span>
+            </button>
+          ) : (
+            <div className="shift-guide-panel">
+              <span className="shift-message">
+                {shiftStep === 1 && `[1/3] 設定「起始點」: ${Math.floor(currentTime/50)*50}ms`}
+                {shiftStep === 2 && `[2/3] 起始: ${shiftTimes.start}ms -> 設定「結束點」`}
+                {shiftStep === 3 && `[3/3] 區塊: ${shiftTimes.start}~${shiftTimes.end}ms -> 設定「目標位置」`}
+              </span>
+              <button className="shift-confirm-btn" onClick={handleShiftStep}>
+                <FontAwesomeIcon icon={faCheck} /> 確定
+              </button>
+              <button className="shift-cancel-btn" onClick={resetShift}>
+                <FontAwesomeIcon icon={faTimes} /> 取消
+              </button>
+            </div>
+          )}
         </div>
         <div className="effect-wrapper">
           <button className="effect-button" onClick={handleEffect}>
@@ -1490,6 +1638,22 @@ function AudioPlayer({ setButtonState, timelineRef }) {
           </div>
         </div>
       </div>
+      {shiftStep >= 2 && (
+      <div
+        className="shift-marker start-marker"
+        style={{ left: `${(shiftTimes.start / duration) * 100}%` }}
+      >
+        <span className="marker-label">Start</span>
+      </div>
+      )}
+      {shiftStep >= 3 && (
+      <div
+        className="shift-marker end-marker"
+        style={{ left: `${(shiftTimes.end / duration) * 100}%` }}
+      >
+        <span className="marker-label">End</span>
+      </div>
+      )}
       <div
         className="progress-flag"
         style={{
