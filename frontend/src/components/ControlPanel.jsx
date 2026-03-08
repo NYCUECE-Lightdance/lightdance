@@ -19,7 +19,7 @@ import {
   updateRedo,
   updateUndo,
   updateShowPart,
-  updateSelectedBlock,
+  updateMultiSelectedBlocks,
 } from "../redux/actions.js";
 
 function ControlPanel({ setButtonState }) {
@@ -29,7 +29,7 @@ function ControlPanel({ setButtonState }) {
   const settingRef = useRef(null); // 左側設定區容器
   const [selectedTimelines, setSelectedTimelines] = useState([]);
   const [showModal, setShowModal] = useState(false);
-  const selectedBlock = useSelector((state) => state.profiles.selectedBlock);
+  const multiSelectedBlocks = useSelector((state) => state.profiles.multiSelectedBlocks);
   const actionTable = useSelector((state) => state.profiles.data?.actionTable || []);
   const currentTime = useSelector((state) => state.profiles.currentTime);
   const showPart = useSelector((state) => state.profiles.showPart);
@@ -92,15 +92,15 @@ function ControlPanel({ setButtonState }) {
     return () => {
       document.removeEventListener("keydown", handleKeyDown);
     };
-  }, [selectedBlock, currentTime]);
+  }, [multiSelectedBlocks, currentTime]);
 
   const moveSelectedBlockUp = () => {
     console.log("moveSelectedBlockUp");
-    if (!selectedBlock) return;
+    if (multiSelectedBlocks.length === 0) return;
 
-    const { armorIndex, partIndex } = selectedBlock;
+    const { armorIndex, partIndex, blockIndex } = multiSelectedBlocks[0];
     const currentTime =
-      actionTable?.[armorIndex]?.[partIndex]?.[selectedBlock.blockIndex]?.time;
+      actionTable?.[armorIndex]?.[partIndex]?.[blockIndex]?.time;
 
     if (currentTime === undefined) return;
 
@@ -145,20 +145,20 @@ function ControlPanel({ setButtonState }) {
     }
 
     dispatch(
-      updateSelectedBlock({
+      updateMultiSelectedBlocks([{
         armorIndex: prevArmor,
         partIndex: prevPart,
         blockIndex: newBlockIndex,
-      })
+      }])
     );
   };
   const moveSelectedBlockDown = () => {
     console.log("moveSelectedBlockDown");
-    if (!selectedBlock) return;
+    if (multiSelectedBlocks.length === 0) return;
 
-    const { armorIndex, partIndex } = selectedBlock;
+    const { armorIndex, partIndex, blockIndex } = multiSelectedBlocks[0];
     const currentTime =
-      actionTable?.[armorIndex]?.[partIndex]?.[selectedBlock.blockIndex]?.time;
+      actionTable?.[armorIndex]?.[partIndex]?.[blockIndex]?.time;
 
     if (currentTime === undefined) return;
 
@@ -203,18 +203,18 @@ function ControlPanel({ setButtonState }) {
     }
 
     dispatch(
-      updateSelectedBlock({
+      updateMultiSelectedBlocks([{
         armorIndex: nextArmor,
         partIndex: nextPart,
         blockIndex: newBlockIndex,
-      })
+      }])
     );
   };
   const moveSelectedBlockLeft = () => {
     console.log("moveSelectedBlockLeft");
-    if (!selectedBlock) return;
+    if (multiSelectedBlocks.length === 0) return;
 
-    const { armorIndex, partIndex, blockIndex } = selectedBlock;
+    const { armorIndex, partIndex, blockIndex } = multiSelectedBlocks[0];
     if (
       !actionTable?.[armorIndex]?.[partIndex] ||
       !actionTable[armorIndex][partIndex][blockIndex]
@@ -240,19 +240,19 @@ function ControlPanel({ setButtonState }) {
       }
     }
     dispatch(
-      updateSelectedBlock({
+      updateMultiSelectedBlocks([{
         armorIndex,
         partIndex,
         blockIndex: newBlockIndex,
-      })
+      }])
     );
   };
 
   const moveSelectedBlockRight = () => {
     console.log("moveSelectedBlockRight");
-    if (!selectedBlock) return;
+    if (multiSelectedBlocks.length === 0) return;
 
-    const { armorIndex, partIndex, blockIndex } = selectedBlock;
+    const { armorIndex, partIndex, blockIndex } = multiSelectedBlocks[0];
     if (
       !actionTable?.[armorIndex]?.[partIndex] ||
       !actionTable[armorIndex][partIndex][blockIndex]
@@ -276,11 +276,11 @@ function ControlPanel({ setButtonState }) {
       }
     }
     dispatch(
-      updateSelectedBlock({
+      updateMultiSelectedBlocks([{
         armorIndex,
         partIndex,
         blockIndex: newBlockIndex,
-      })
+      }])
     );
   };
   // 处理复选框选择变化
