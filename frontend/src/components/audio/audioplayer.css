@@ -543,3 +543,24 @@
   width: 3px;
   box-shadow: 0 0 10px rgba(255, 0, 0, 0.7);
 }
+
+/* 區間複製模式下的提示標籤 (選填) */
+.copy-mode-overlay {
+  position: fixed;
+  top: 10px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(46, 204, 113, 0.9);
+  color: white;
+  padding: 8px 20px;
+  border-radius: 20px;
+  z-index: 1000;
+  font-weight: bold;
+  pointer-events: none;
+  box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+}
+
+/* 確保多選框與目標框有明顯區別 */
+.timeline-block {
+  transition: border 0.2s ease;
+}

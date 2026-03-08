@@ -41,6 +41,36 @@ import { set } from "lodash";
 
 const MAXZOOMVALUE = 100;
 
+const ensureBlackBefore = (timeline, targetTime, threshold = 10) => {
+  const blackTime = targetTime - threshold;
+  if (blackTime <= 0) return;
+
+  // 尋找 blackTime 附近的點
+  const existingIdx = timeline.findIndex(p => Math.abs(p.time - blackTime) < 5);
+  
+  if (existingIdx !== -1) {
+    // 如果已經有黑點就不用動，但如果是有顏色的點，就把他變黑
+    const p = timeline[existingIdx];
+    if (p.color.R !== 0 || p.color.G !== 0 || p.color.B !== 0) {
+      p.color = { R: 0, G: 0, B: 0, A: 1 };
+      p.linear = 0;
+    }
+  } else {
+    // 檢查 blackTime 之前的最後一個點
+    const prevPoints = timeline.filter(p => p.time < blackTime);
+    if (prevPoints.length > 0) {
+      const lastPoint = prevPoints[prevPoints.length - 1];
+      // 如果前一個點不是黑色的，則必須補一個黑點
+      if (lastPoint.color.R !== 0 || lastPoint.color.G !== 0 || lastPoint.color.B !== 0) {
+        timeline.push({
+          time: blackTime,
+          color: { R: 0, G: 0, B: 0, A: 1 },
+          linear: 0
+        });
+      }
+    }
+  }
+};
 function AudioPlayer({ setButtonState, timelineRef }) {
   const dispatch = useDispatch();
   const data = useSelector((state) => state.profiles.data);
@@ -213,6 +243,108 @@ function AudioPlayer({ setButtonState, timelineRef }) {
     }
   }, [selectedBlock, actionTable]);
 
+    // 在 AudioPlayer 內部新增狀態
+  const [isCopying, setIsCopying] = useState(false);
+
+  const handleCopy = () => {
+    if (multiSelectedBlocks.length === 0) {
+      console.warn("請先 Shift+點選 以多選區塊再進行複製。");
+      return;
+    }
+
+    // 1. 取得多選區間的絕對起始與結束時間
+    const { armorIndex, partIndex } = multiSelectedBlocks[0];
+    const blocks = timelineBlocks[armorIndex][partIndex];
+    
+    const selectedIndices = multiSelectedBlocks.map(b => b.blockIndex);
+    const minIdx = Math.min(...selectedIndices);
+    const maxIdx = Math.max(...selectedIndices);
+
+    // 這裡是該部位「視覺上」多選區塊的起始和結束時間
+    const startTime = blocks[minIdx].startTime;
+    const endTime = blocks[maxIdx].startTime + blocks[maxIdx].durationTime;
+
+    // 2. 從 actionTable 提取這段「時間區間」內的所有原始點位 (包含動作點與接續的黑色點)
+    const timelineData = actionTable[armorIndex][partIndex];
+    const copiedPoints = timelineData.filter(p => p.time >= startTime && p.time <= endTime);
+
+    if (copiedPoints.length === 0) return;
+
+    // 3. 存入剪貼簿，紀錄類型為「固定時間區間」
+    dispatch(updateClipboard({
+      type: "range_fixed_time",
+      data: JSON.parse(JSON.stringify(copiedPoints)),
+      startTime: startTime, // 紀錄原始區間起點
+      endTime: endTime      // 紀錄原始區間終點
+    }));
+
+    setIsCopying(true); // 進入複製模式，讓 Timeline 顯示綠框
+  };
+  const executeAdvancedPaste = (targetArmor, targetPart, offset, copiedData) => {
+    const updatedActionTable = produce(actionTable, (draft) => {
+      let timeline = draft[targetArmor][targetPart];
+      if (!Array.isArray(timeline)) return;
+  
+      // A. 產生平移後的點 (根據傳入的 offset)
+      const movedPoints = copiedData.map(p => ({ ...p, time: p.time + offset }));
+      const newStart = movedPoints[0].time;
+      const newEnd = movedPoints[movedPoints.length - 1].time;
+  
+      // B. 清理衝突區間：移除目標部位在 [newStart, newEnd] 內的所有點
+      const indicesToRemove = new Set();
+      let lastConflictIdx = -1;
+      timeline.forEach((item, idx) => {
+        if (item.time >= newStart && item.time <= newEnd) {
+          indicesToRemove.add(idx);
+          lastConflictIdx = idx;
+        }
+      });
+  
+      // 衝突後方黑塊清理：如果衝突結束後緊跟黑塊，也刪除
+      if (lastConflictIdx !== -1 && lastConflictIdx + 1 < timeline.length) {
+        const nextP = timeline[lastConflictIdx + 1];
+        if (nextP.color.R === 0 && nextP.color.G === 0 && nextP.color.B === 0) {
+          indicesToRemove.add(lastConflictIdx + 1);
+        }
+      }
+  
+      let nextTimeline = timeline.filter((_, idx) => !indicesToRemove.has(idx));
+  
+      // C. 插入點位並排序
+      nextTimeline = [...nextTimeline, ...movedPoints].sort((a, b) => a.time - b.time);
+  
+      // D. 智慧黑點緩衝 (檢查起點前方是否需要黑點)
+      const firstColorPoint = movedPoints.find(p => p.color.R !== 0 || p.color.G !== 0 || p.color.B !== 0);
+      if (firstColorPoint) {
+        ensureBlackBefore(nextTimeline, firstColorPoint.time, blackthreshold);
+      }
+  
+      draft[targetArmor][targetPart] = nextTimeline.sort((a, b) => a.time - b.time);
+    });
+  
+    // E. 全域重複清理並更新 Redux
+    const cleaned = removeDuplicateBlackBlocks(updatedActionTable);
+    dispatch(updateActionTable(cleaned));
+    setIsCopying(false);
+    dispatch(updateMultiSelectedBlocks([]));
+  };
+
+  const handlePasteAlignedToTarget = () => {
+    if (!clipboard || !selectedBlock.armorIndex === undefined) return;
+
+    const { armorIndex: targetArmor, partIndex: targetPart, blockIndex: targetBlockIdx } = selectedBlock;
+    const targetTime = timelineBlocks[targetArmor][targetPart][targetBlockIdx].startTime;
+    
+    // 計算偏移量：目標時間 - 複製內容的第一個點的時間
+    const offset = targetTime - clipboard.data[0].time;
+
+    executeAdvancedPaste(targetArmor, targetPart, offset, clipboard.data);
+  };
+
+  const handlePasteFixedTime = () => {
+    if (!clipboard || !selectedBlock.armorIndex === undefined) return;
+    executeAdvancedPaste(selectedBlock.armorIndex, selectedBlock.partIndex, 0, clipboard.data);
+  };
   const keyPress = useRef(false);
 
   const handleKeyDown = (event) => {
@@ -249,16 +381,41 @@ function AudioPlayer({ setButtonState, timelineRef }) {
       }
     }
 
-    if (event.shiftKey && event.key === "ArrowRight") {
-      event.preventDefault();
-      console.log("Shift + ArrowRight pressed. Moving right.");
-      handleGoRight();
+    if (event.shiftKey) {
+      // Shift + C: 複製整個部位
+      if (event.key === "c" || event.key === "C") {
+        event.preventDefault();
+        console.log("Shift + C: Copy whole timeline");
+        handleWholeCopy();
+      }
+      // Shift + V: 貼上整個部位 (整條覆蓋)
+      else if (event.key === "v" || event.key === "V") {
+        if (!event.ctrlKey) { // 排除 Ctrl+Shift+V
+          event.preventDefault();
+          console.log("Shift + V: Paste whole timeline");
+          handleWholePaste();
+        }
+      } else if (event.key === "ArrowRight") {
+        event.preventDefault();
+        console.log("Shift + ArrowRight pressed. Moving right.");
+        handleGoRight();
+      } else if (event.key === "ArrowLeft") {
+        event.preventDefault();
+        console.log("Shift + ArrowLeft pressed. Moving left.");
+        handleGoLeft();
+      }
     }
-    if (event.shiftKey && event.key === "ArrowLeft") {
-      event.preventDefault();
-      console.log("Shift + ArrowLeft pressed. Moving left.");
-      handleGoLeft();
-    }
+
+    // if (event.shiftKey && event.key === "ArrowRight") {
+    //   event.preventDefault();
+    //   console.log("Shift + ArrowRight pressed. Moving right.");
+    //   handleGoRight();
+    // }
+    // if (event.shiftKey && event.key === "ArrowLeft") {
+    //   event.preventDefault();
+    //   console.log("Shift + ArrowLeft pressed. Moving left.");
+    //   handleGoLeft();
+    // }
     if (event.key === "m") {
       event.preventDefault();
       ClickedColorChange();
@@ -279,15 +436,32 @@ function AudioPlayer({ setButtonState, timelineRef }) {
       handleFavoriteColorChoose(parseInt(event.key) - 1);
     }
     if (event.ctrlKey) {
-      // Ctrl+C: 複製
+      // if (event.key === "c" || event.key === "C") {
+      //   event.preventDefault();
+      //   handleWholeCopy();
+      // }
+      // // Ctrl+V: 貼上
+      // else if (event.key === "v" || event.key === "V") {
+      //   event.preventDefault();
+      //   handleWholePaste();
+      // }
+      // Ctrl + C: 複製選取區間
       if (event.key === "c" || event.key === "C") {
         event.preventDefault();
-        handleCopy();
+        if (multiSelectedBlocks.length > 0) {
+          handleCopy(); // 原本處理區間複製的函數
+        }
       }
-      // Ctrl+V: 貼上
+      // 處理 Ctrl + V 家族
       else if (event.key === "v" || event.key === "V") {
         event.preventDefault();
-        handlePaste();
+        if (event.shiftKey) {
+          // ✅ Ctrl + Shift + V: 對齊「原始時間」貼上
+          handlePasteFixedTime(); 
+        } else {
+          // ✅ Ctrl + V: 對齊「目標 Block 時間」貼上
+          handlePasteAlignedToTarget(); 
+        }
       }
       // Ctrl+數字: 設定透明度
       else if (["1", "2", "3", "4", "5", "6", "7", "8", "9"].includes(event.key)) {
@@ -742,43 +916,27 @@ function AudioPlayer({ setButtonState, timelineRef }) {
   };
 
   const removeDuplicateBlackBlocks = (actionTable) => {
-    if (typeof actionTable !== "object" || actionTable === null)
-      return actionTable;
-
-    return Object.entries(actionTable).reduce((newTable, [armorKey, armor]) => {
-      if (typeof armor !== "object" || armor === null) {
-        newTable[armorKey] = armor;
-        return newTable;
-      }
-
-      newTable[armorKey] = Object.fromEntries(
-        Object.entries(armor).map(([partKey, part]) => {
-          if (!Array.isArray(part)) return [partKey, part]; // 如果 `part` 不是陣列，直接返回
-
-          let lastWasBlack = false; // 用來追蹤前一個是否是黑色區塊
-
-          return [
-            partKey,
-            part.filter((block, index, arr) => {
-              const isCurrentBlack =
-                block?.color?.R === 0 &&
-                block?.color?.G === 0 &&
-                block?.color?.B === 0;
-
-              if (isCurrentBlack && lastWasBlack) {
-                // 如果前一個是黑色，這個也是黑色 -> 刪除這個
-                return false;
-              }
-
-              lastWasBlack = isCurrentBlack; // 更新狀態
-              return true;
-            }),
-          ];
-        })
-      );
-
-      return newTable;
-    }, {});
+    return produce(actionTable, (draft) => {
+      Object.values(draft).forEach(armor => {
+        Object.keys(armor).forEach(partKey => {
+          let timeline = armor[partKey];
+          if (!Array.isArray(timeline)) return;
+  
+          armor[partKey] = timeline.filter((block, index) => {
+            const isBlack = block.color.R === 0 && block.color.G === 0 && block.color.B === 0;
+            if (!isBlack) return true;
+  
+            const prev = timeline[index - 1];
+            if (prev) {
+              const prevIsBlack = prev.color.R === 0 && prev.color.G === 0 && prev.color.B === 0;
+              // 如果連續兩個黑點，或者是時間點重疊/太接近的黑點，刪除後者
+              if (prevIsBlack || Math.abs(block.time - prev.time) < 5) return false;
+            }
+            return true;
+          });
+        });
+      });
+    });
   };
 
   const ClickedColorChange = () => {
@@ -1010,7 +1168,7 @@ function AudioPlayer({ setButtonState, timelineRef }) {
     );
   };
 
-  const handleCopy = () => {
+  const handleWholeCopy = () => {
     console.log("Copy clicked");
     console.log("selectedBlock:", selectedBlock);
 
@@ -1054,7 +1212,7 @@ function AudioPlayer({ setButtonState, timelineRef }) {
     console.log(`Total blocks copied: ${copiedData.length}`);
   };
 
-  const handlePaste = () => {
+  const handleWholePaste = () => {
     console.log("Paste clicked");
     console.log("selectedBlock:", selectedBlock);
 
@@ -1229,98 +1387,53 @@ function AudioPlayer({ setButtonState, timelineRef }) {
   // 3. 核心資料搬移邏輯
   const executeTimeShift = (start, end, target) => {
     const updatedActionTable = produce(actionTable, (draft) => {
-      // --- 第一階段：找出全域基準點 ---
-      let globalFirstTime = Infinity;
-  
-      Object.values(draft).forEach((armor) => {
-        Object.values(armor).forEach((timeline) => {
-          if (!Array.isArray(timeline)) return;
-          
-          for (let i = 0; i < timeline.length - 1; i++) {
-            const pointA = timeline[i];
-            const pointB = timeline[i + 1];
-            const isInRange = pointA.time >= start && pointA.time <= end && 
-                               pointB.time >= start && pointB.time <= end;
-            const isNextBlack = pointB.color.R === 0 && pointB.color.G === 0 && pointB.color.B === 0;
-  
-            if (isInRange && isNextBlack) {
-              if (pointA.time < globalFirstTime) {
-                globalFirstTime = pointA.time; // 紀錄全體最早的時間點
-              }
-            }
-          }
-        });
-      });
-  
-      if (globalFirstTime === Infinity) {
-        alert("選取區間內找不到符合條件（後方接續黑色）的光表點。");
-        return;
-      }
-  
-      // 計算統一的偏移量：target - 全體第一個時間點
+      // ... (前段計算 globalFirstTime 與 offset 的邏輯保持不變) ...
       const offset = target - globalFirstTime;
   
-      // --- 第二階段：執行各部位平移與衝突處理 ---
       Object.keys(draft).forEach((armorIdx) => {
         Object.keys(draft[armorIdx]).forEach((partIdx) => {
           let timeline = draft[armorIdx][partIdx];
-          if (!Array.isArray(timeline)) return;
-  
+          
+          // 找出要移動的點
           const moveIndices = [];
-          for (let i = 0; i < timeline.length - 1; i++) {
-            const pointA = timeline[i];
-            const pointB = timeline[i + 1];
-            const isInRange = pointA.time >= start && pointA.time <= end && 
-                               pointB.time >= start && pointB.time <= end;
-            const isNextBlack = pointB.color.R === 0 && pointB.color.G === 0 && pointB.color.B === 0;
-  
-            if (isInRange && isNextBlack) {
-              moveIndices.push(i, i + 1);
-            }
-          }
+          timeline.forEach((p, idx) => {
+            if (p.time >= start && p.time <= end) moveIndices.push(idx);
+          });
   
           if (moveIndices.length === 0) return;
   
-          // 套用統一偏移量
           const movedPoints = moveIndices.map(idx => ({
             ...timeline[idx],
             time: timeline[idx].time + offset
           }));
   
-          const newRangeStart = movedPoints[0].time;
-          const newRangeEnd = movedPoints[movedPoints.length - 1].time;
-  
-          const indicesToRemove = new Set(moveIndices);
-          let foundConflictEnd = -1;
-  
-          timeline.forEach((item, idx) => {
-            if (item.time >= newRangeStart && item.time <= newRangeEnd) {
-              indicesToRemove.add(idx);
-              foundConflictEnd = idx;
-            }
+          // 刪除舊點與目標區間衝突點
+          const newStart = movedPoints[0].time;
+          const newEnd = movedPoints[movedPoints.length - 1].time;
+          const toRemove = new Set(moveIndices);
+          timeline.forEach((p, idx) => {
+            if (p.time >= newStart && p.time <= newEnd) toRemove.add(idx);
           });
   
-          if (foundConflictEnd !== -1 && foundConflictEnd + 1 < timeline.length) {
-            const nextAfterConflict = timeline[foundConflictEnd + 1];
-            if (nextAfterConflict.color.R === 0 && nextAfterConflict.color.G === 0 && nextAfterConflict.color.B === 0) {
-              indicesToRemove.add(foundConflictEnd + 1);
-            }
+          let nextTimeline = timeline.filter((_, idx) => !toRemove.has(idx));
+          nextTimeline = [...nextTimeline, ...movedPoints].sort((a, b) => a.time - b.time);
+  
+          // 檢查平移後的第一個色塊前方是否有黑點
+          const firstColorPoint = movedPoints.find(p => p.color.R !== 0 || p.color.G !== 0 || p.color.B !== 0);
+          if (firstColorPoint) {
+              ensureBlackBefore(nextTimeline, firstColorPoint.time, blackthreshold);
           }
   
-          let finalTimeline = timeline.filter((_, idx) => !indicesToRemove.has(idx));
-          finalTimeline = [...finalTimeline, ...movedPoints];
-          finalTimeline.sort((a, b) => a.time - b.time);
-  
-          draft[armorIdx][partIdx] = finalTimeline;
+          draft[armorIdx][partIdx] = nextTimeline.sort((a, b) => a.time - b.time);
         });
       });
     });
   
-    dispatch(updateActionTable(updatedActionTable));
-    // 完成後跳轉 currentTime 到目標位置方便預覽
+    const cleanedActionTable = removeDuplicateBlackBlocks(updatedActionTable);
+    dispatch(updateActionTable(cleanedActionTable));
     dispatch(updateCurrentTime(target));
-    // alert(`平移完成！全體基準點 ${target}ms`);
   };
+
   const listitem = showPart.map((setting) => (
     <Timeline
       key={setting.id}
@@ -1330,6 +1443,7 @@ function AudioPlayer({ setButtonState, timelineRef }) {
       zoomValue={zoomLevel}
       ref={elRefs.current[showPart.findIndex((s) => s.id === setting.id)]}
       height={showPart.length <= 7 ? 100 / showPart.length : 14}
+      isCopying={isCopying}
     />
   ));
 

@@ -17,7 +17,7 @@ import {
 
 // Timeline 組件
 const Timeline = forwardRef(
-  ({ zoomValue, height, armorIndex, partIndex, hidden }, timelineRef) => {
+  ({ zoomValue, height, armorIndex, partIndex, hidden, isCopying }, timelineRef) => {
     const dispatch = useDispatch();
 
     // **狀態變數**
@@ -187,6 +187,12 @@ const Timeline = forwardRef(
       e.stopPropagation();
 
       const block = timelineBlocks[index];
+
+      if (isCopying) {
+        // 關鍵：在尋找貼上目標時，僅更新單選(綠框目標)，不觸發多選清除，保留來源橘框
+        dispatch(updateSelectedBlock({ armorIndex, partIndex, blockIndex: index }));
+        return;
+      }
       // If a black block is clicked, clear all selections.
       if (block.color.R === 0 && block.color.G === 0 && block.color.B === 0) {
         dispatch(updateSelectedBlock({}));
@@ -465,6 +471,11 @@ const Timeline = forwardRef(
         onMouseUp={handleMouseUp}
       >
         {timelineBlocks.map((block, index) => {
+          const isPasteTarget = isCopying && 
+          selectedBlock?.armorIndex === armorIndex && 
+          selectedBlock?.partIndex === partIndex && 
+          selectedBlock?.blockIndex === index;
+
           const color = block.color || { R: 0, G: 0, B: 0, A: 1 };
           const isSelected =
             selectedBlock?.armorIndex === armorIndex &&
@@ -529,7 +540,9 @@ const Timeline = forwardRef(
             height: "90%",
             position: "relative",
             borderRadius: "7px",
-            border: isSelected || isMultiSelected ? `3px solid ${selectionBorderColor}` : "none",
+            // border: isSelected || isMultiSelected ? `3px solid ${selectionBorderColor}` : "none",
+            border: isPasteTarget ? "4px solid #00FF00"  // 複製目標顯示綠色框
+                        : (isSelected || isMultiSelected ? `3px solid ${selectionBorderColor}` : "none"),
             boxSizing: "border-box",
             zIndex: 1,
           };
@@ -560,6 +573,7 @@ const Timeline = forwardRef(
           };
           return (
             <div
+              key={index}
               style={{
                 ...blockStyle,
                 ...(hoveredBlock?.index === index
