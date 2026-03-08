@@ -13,7 +13,7 @@ const Armor = (props) => {
   const time = useSelector((state) => state.profiles.currentTime);
   const duration = useSelector((state) => state.profiles.duration);
   const chosenColor = useSelector((state) => state.profiles.chosenColor);
-  const selectedBlock = useSelector((state) => state.profiles.selectedBlock);
+  const multiSelectedBlocks = useSelector((state) => state.profiles.multiSelectedBlocks);
   const myId = props.index;
   const blackthreshold = 10;
 
@@ -211,10 +211,9 @@ const Armor = (props) => {
   }
 
   const isSelected = (part) => {
-    return (
-      selectedBlock &&
-      selectedBlock.armorIndex === myId &&
-      selectedBlock.partIndex === part
+    return multiSelectedBlocks.some(b => 
+      b.armorIndex === myId && 
+      b.partIndex === part
     );
   };
 

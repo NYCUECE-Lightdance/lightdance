@@ -7,7 +7,6 @@ const initialState = {
     actionTable: [],
   },
   timelineBlocks: {},
-  selectedBlock: {},
   multiSelectedBlocks: [],
   chosenColor: { R: 5, G: 5, B: 5, A: 1 },
   currentTime: 0,
@@ -28,10 +27,14 @@ const initialState = {
   favoriteColor: [],
   dancerVisibility: [false, false, false, false, false, false, false], // 初始全部隱藏
   clipboard: {
-    data: null,              // 複製的 timeline 資料
-    sourceArmorIndex: null,  // 來源舞者索引
-    sourcePartIndex: null,   // 來源部位索引
-    timestamp: null,         // 複製時間戳
+    type: null,              // 增加 type 區分複製類型
+    data: null,              
+    sourceArmorIndex: null,  
+    sourcePartIndex: null,   
+    timestamp: null,
+    sourceBlocks: [],        // ✅ 增加這個欄位，用來儲存來源 block 的位置
+    startTime: 0,
+    endTime: 0
   },
 };
 
@@ -131,8 +134,6 @@ export const profiles = (state = initialState, action) => {
           },
         },
       };
-    case "UPDATESELECTEDBLOCK":
-      return { ...state, selectedBlock: action.payload };
     case "UPDATECHOSENCOLOR":
       return { ...state, chosenColor: action.payload };
     case "UPDATECURRENTTIME":
