@@ -12,7 +12,6 @@ export const UPDATETIMELINEBLOCK = "UPDATETIMELINEBLOCK";
 export const UPDATEAUTOREFRESH = "UPDATEAUTOREFRESH";
 export const UPDATETEMPACTIONTABLE = "UPDATETEMPACTIONTABLE";
 export const UPDATEPALETTECOLOR = "UPDATEPALETTECOLOR";
-export const UPDATESELECTEDBLOCK = "UPDATESELECTEDBLOCK";
 export const UPDATEHISTORY = "UPDATEHISTORY";
 export const UPDATEISCOLORCHANGEACTIVE = "UPDATEISCOLORCHANGEACTIVE";
 export const UPDATEPLAYBACKRATE = "UPDATEPLAYBACKRATE";
@@ -50,10 +49,6 @@ export const updateTimelineBlocks = ({ armorIndex, partIndex, value }) => ({
 });
 export const updateChosenColor = (value) => ({
   type: UPDATECHOSENCOLOR,
-  payload: value,
-});
-export const updateSelectedBlock = (value) => ({
-  type: UPDATESELECTEDBLOCK,
   payload: value,
 });
 

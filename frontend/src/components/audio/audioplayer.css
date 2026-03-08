@@ -345,32 +345,60 @@
   display: inline-block; /* 或者 flex / inline-flex，看你想怎麼排 */
 }
 
+/* 修改後的效果選單樣式 */
+
 .effect-menu {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  margin-bottom: 8px;
+  background-color: rgb(49, 47, 47); /* 與按鈕一致的實色背景 */
+  border: 1px solid rgb(70, 70, 70); /* 加入微細邊框增加層次感 */
+  border-radius: 5px;
+  padding: 4px 0;
+  z-index: 1000;
   display: flex;
   flex-direction: column;
-  align-items: flex-start;
-  gap: 4px;
-  position: absolute;
-  top: 100%; /* 正好在 wrapper 底部 */
-  left: 0; /* 跟按鈕左邊對齊 */
-  margin-top: 4px;
-  /* top: 40px;
-  right: 20px; */
-  background: #333;
-  border-radius: 6px;
-  padding: 8px;
-  z-index: 1000;
-  white-space: nowrap; /* 單行不換行 */
+  min-width: 110px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
 }
 
 .effect-menu-item {
-  padding: 6px 12px;
+  padding: 0px 15px;
   cursor: pointer;
-  color: #fff;
+  color: rgb(150, 146, 146); /* 未選取時的一致灰色 */
+  font-size: 14px;
+  white-space: nowrap;
+  position: relative;
+  transition: background-color 0.2s, color 0.2s;
+  background-color: rgb(49, 47, 47); /* 預設與背景同色 */
 }
 
-.effect-menu-item:hover {
-  background: #444;
+/* 選取/懸停時的樣式：顏色變白，背景加亮 */
+.effect-menu-item:hover, 
+.effect-menu-item.active {
+  background-color: rgb(70, 70, 70) !important; 
+  color: white !important;
+}
+
+/* 子選單容器：向右平移 */
+.effect-submenu {
+  position: absolute;
+  left: 100%; /* 從父項目右邊緣開始 */
+  top: -4px; /* 稍微向上校準對齊父項目頂部 */
+  margin-left: 2px; /* 子選單與母選單的小間隙 */
+  background-color: rgb(49, 47, 47); /* 顏色完全一致 */
+  border: 1px solid rgb(70, 70, 70);
+  border-radius: 5px;
+  padding: 4px 0;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 4px 0 12px rgba(0, 0, 0, 0.5);
+}
+
+/* 確保子選單內的項目寬度與間距一致 */
+.effect-submenu .effect-menu-item {
+  min-width: 90px;
 }
 
 .gradient-settings-popup {
@@ -563,4 +591,85 @@
 /* 確保多選框與目標框有明顯區別 */
 .timeline-block {
   transition: border 0.2s ease;
+}
+
+.copy-mode-banner {
+  position: fixed;
+  top: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: #27ae60;
+  color: white;
+  padding: 10px 20px;
+  border-radius: 30px;
+  box-shadow: 0 4px 15px rgba(0,0,0,0.4);
+  z-index: 2000;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  animation: slide-down 0.3s ease-out;
+}
+
+.hint-text {
+  font-size: 11px;
+  opacity: 0.8;
+  margin-top: 4px;
+}
+
+@keyframes slide-down {
+  from { top: -50px; opacity: 0; }
+  to { top: 20px; opacity: 1; }
+}
+
+/* 修改或新增以下樣式 */
+
+.effect-menu {
+  position: absolute;
+  bottom: 100%; /* 位於按鈕上方 */
+  left: 0;
+  margin-bottom: 5px; /* 與按鈕保持一點距離 */
+  background-color: rgb(49, 47, 47); /* 使用與按鈕一致的顏色 */
+  border-radius: 5px;
+  padding: 5px 0;
+  z-index: 1000;
+  display: flex;
+  flex-direction: column;
+  min-width: 100px;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.5);
+}
+
+.effect-menu-item {
+  padding: 8px 15px;
+  cursor: pointer;
+  color: rgb(150, 146, 146);
+  font-size: 14px;
+  white-space: nowrap;
+  position: relative; /* 為了讓 submenu 定位 */
+  transition: all 0.2s ease;
+}
+
+.effect-menu-item:hover, 
+.effect-menu-item.active {
+  background-color: rgb(70, 70, 70); /* Hover 時稍微變亮 */
+  color: white;
+}
+
+/* 向右延伸的子選單樣式 */
+.effect-submenu {
+  position: absolute;
+  left: 100%; /* 正好在父項目的右邊 */
+  top: 0;
+  margin-left: 2px; /* 稍微空出一點縫隙，避免視覺太擠 */
+  background-color: rgb(49, 47, 47); /* 顏色與原本一致 */
+  border-radius: 5px;
+  padding: 5px 0;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 4px 4px 8px rgba(0, 0, 0, 0.5);
+}
+
+/* 讓子選單中的項目也具備一樣的 Hover 效果 */
+.effect-submenu .effect-menu-item {
+  min-width: 80px;
+  border-bottom: none;
 }
