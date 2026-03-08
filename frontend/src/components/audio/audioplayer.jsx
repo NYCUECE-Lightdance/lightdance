@@ -3,7 +3,6 @@ import { store } from "../../redux/store.js"; // 確保引入你的 Redux store
 import { useSelector, useDispatch } from "react-redux";
 import {
   updateActionTable,
-  updateSelectedBlock,
   updateClipboard,
   updateMultiSelectedBlocks,
   // updateMusicIndex,
@@ -83,7 +82,6 @@ function AudioPlayer({ setButtonState, timelineRef }) {
   const actionTable = data?.actionTable || []; // Redux 狀態中的動作表
   const timelineBlocks = useSelector((state) => state.profiles.timelineBlocks); // Redux 狀態中的時間軸區塊
   const chosenColor = useSelector((state) => state.profiles.chosenColor);
-  const selectedBlock = useSelector((state) => state.profiles.selectedBlock);
   const favoriteColor = useSelector((state) => state.profiles.favoriteColor);
   const isColorChangeActive = useSelector(
     (state) => state.profiles.isColorChangeActive
@@ -191,22 +189,17 @@ function AudioPlayer({ setButtonState, timelineRef }) {
   useEffect(() => {
     if (
       isColorChangeActive &&
-      selectedBlock &&
-      selectedBlock.armorIndex !== undefined &&
-      selectedBlock.partIndex !== undefined &&
-      selectedBlock.blockIndex !== undefined &&
+      multiSelectedBlocks.length > 0 &&
       chosenColor
     ) {
-      const { armorIndex, partIndex, blockIndex } = selectedBlock;
-
       // 使用 Immer 深拷贝并更新
       const updatedActionTable = produce(actionTable, (draft) => {
-        const timeline = draft[armorIndex][partIndex];
-        if (!timeline) return;
-
-        if (timeline[blockIndex]) {
-          timeline[blockIndex].color = chosenColor; // 更新 block 的颜色
-        }
+        multiSelectedBlocks.forEach(({ armorIndex, partIndex, blockIndex }) => {
+          const timeline = draft[armorIndex][partIndex];
+          if (timeline && timeline[blockIndex]) {
+            timeline[blockIndex].color = chosenColor; // 更新 block 的颜色
+          }
+        });
       });
 
       // 通过 Redux 更新 actionTable
@@ -216,7 +209,7 @@ function AudioPlayer({ setButtonState, timelineRef }) {
 
       // 重置调色状态
     }
-  }, [isColorChangeActive, chosenColor, selectedBlock, actionTable, dispatch]);
+  }, [isColorChangeActive, chosenColor, multiSelectedBlocks, actionTable, dispatch]);
 
   useEffect(() => {
     if (duration > 0) {
@@ -226,59 +219,77 @@ function AudioPlayer({ setButtonState, timelineRef }) {
   }, [currentTime, duration]);
 
   useEffect(() => {
-    if (
-      selectedBlock &&
-      selectedBlock.armorIndex !== undefined &&
-      selectedBlock.partIndex !== undefined &&
-      selectedBlock.blockIndex !== undefined
-    ) {
-      const block =
-        actionTable?.[selectedBlock.armorIndex]?.[selectedBlock.partIndex]?.[
-          selectedBlock.blockIndex
-        ];
-      console.log("Selected block:", selectedBlock, block);
+    if (multiSelectedBlocks.length > 0) {
+      const { armorIndex, partIndex, blockIndex } = multiSelectedBlocks[0];
+      const block = actionTable?.[armorIndex]?.[partIndex]?.[blockIndex];
+      console.log("Selected block for brightness:", multiSelectedBlocks[0], block);
       if (block && block.color && block.color.A !== undefined) {
         setBrightness(block.color.A); // 同步選取的區塊的 alpha 值到亮度控制項
       }
     }
-  }, [selectedBlock, actionTable]);
+  }, [multiSelectedBlocks, actionTable]);
 
     // 在 AudioPlayer 內部新增狀態
   const [isCopying, setIsCopying] = useState(false);
 
   const handleCopy = () => {
-    if (multiSelectedBlocks.length === 0) {
-      console.warn("請先 Shift+點選 以多選區塊再進行複製。");
+    let startTime, endTime, armorIndex, partIndex, copiedPoints;
+    let sourceBlocksInfo = []; // ✅ 初始化變數，確保其在整個 handleCopy 作用域可用
+
+    // 1. 優先檢查是否有多選 (Shift 多選)
+    if (multiSelectedBlocks && multiSelectedBlocks.length > 0) {
+      const firstBlockPos = multiSelectedBlocks[0];
+      armorIndex = firstBlockPos.armorIndex;
+      partIndex = firstBlockPos.partIndex;
+      sourceBlocksInfo = multiSelectedBlocks; // 儲存多選陣列
+
+      const blocks = timelineBlocks[armorIndex][partIndex];
+      const selectedIndices = multiSelectedBlocks.map(b => b.blockIndex);
+      const minIdx = Math.min(...selectedIndices);
+      const maxIdx = Math.max(...selectedIndices);
+
+      startTime = blocks[minIdx].startTime;
+      endTime = blocks[maxIdx].startTime + blocks[maxIdx].durationTime;
+    } 
+    // 2. 如果沒有多選，檢查是否有單選 (點擊單個 Block)
+    // 注意：這裡假設您的 selectedBlock 格式為 { armorIndex, partIndex, blockIndex }
+    else if (multiSelectedBlocks.length === 0 && data?.selectedBlock?.armorIndex !== undefined) {
+      const sBlock = data.selectedBlock;
+      armorIndex = sBlock.armorIndex;
+      partIndex = sBlock.partIndex;
+      sourceBlocksInfo = [sBlock]; // ✅ 將單選包裝成陣列，這樣渲染邏輯就統一了
+
+      const block = timelineBlocks?.[armorIndex]?.[partIndex]?.[sBlock.blockIndex];
+      if (!block) {
+        console.warn("找不到選中的方塊資料");
+        return;
+      }
+
+      startTime = block.startTime;
+      endTime = block.startTime + block.durationTime;
+    } 
+    else {
+      console.warn("請先選取方塊再進行複製。");
       return;
     }
 
-    // 1. 取得多選區間的絕對起始與結束時間
-    const { armorIndex, partIndex } = multiSelectedBlocks[0];
-    const blocks = timelineBlocks[armorIndex][partIndex];
-    
-    const selectedIndices = multiSelectedBlocks.map(b => b.blockIndex);
-    const minIdx = Math.min(...selectedIndices);
-    const maxIdx = Math.max(...selectedIndices);
-
-    // 這裡是該部位「視覺上」多選區塊的起始和結束時間
-    const startTime = blocks[minIdx].startTime;
-    const endTime = blocks[maxIdx].startTime + blocks[maxIdx].durationTime;
-
-    // 2. 從 actionTable 提取這段「時間區間」內的所有原始點位 (包含動作點與接續的黑色點)
+    // 3. 從 actionTable 提取資料
     const timelineData = actionTable[armorIndex][partIndex];
-    const copiedPoints = timelineData.filter(p => p.time >= startTime && p.time <= endTime);
+    copiedPoints = timelineData.filter(p => p.time >= startTime && p.time <= endTime);
 
     if (copiedPoints.length === 0) return;
 
-    // 3. 存入剪貼簿，紀錄類型為「固定時間區間」
+    // 4. 存入剪貼簿
     dispatch(updateClipboard({
       type: "range_fixed_time",
       data: JSON.parse(JSON.stringify(copiedPoints)),
-      startTime: startTime, // 紀錄原始區間起點
-      endTime: endTime      // 紀錄原始區間終點
+      startTime: startTime,
+      endTime: endTime,
+      sourceBlocks: sourceBlocksInfo // 現在保證這裡一定有值
     }));
 
-    setIsCopying(true); // 進入複製模式，讓 Timeline 顯示綠框
+    setIsCopying(true); // 進入模式，讓 Timeline 顯示標記
+    console.log("複製成功:", multiSelectedBlocks.length > 0 ? "區間" : "單一區塊");
   };
   const executeAdvancedPaste = (targetArmor, targetPart, offset, copiedData) => {
     const updatedActionTable = produce(actionTable, (draft) => {
@@ -330,9 +341,9 @@ function AudioPlayer({ setButtonState, timelineRef }) {
   };
 
   const handlePasteAlignedToTarget = () => {
-    if (!clipboard || !selectedBlock.armorIndex === undefined) return;
+    if (!clipboard || multiSelectedBlocks.length === 0) return;
 
-    const { armorIndex: targetArmor, partIndex: targetPart, blockIndex: targetBlockIdx } = selectedBlock;
+    const { armorIndex: targetArmor, partIndex: targetPart, blockIndex: targetBlockIdx } = multiSelectedBlocks[0];
     const targetTime = timelineBlocks[targetArmor][targetPart][targetBlockIdx].startTime;
     
     // 計算偏移量：目標時間 - 複製內容的第一個點的時間
@@ -342,8 +353,8 @@ function AudioPlayer({ setButtonState, timelineRef }) {
   };
 
   const handlePasteFixedTime = () => {
-    if (!clipboard || !selectedBlock.armorIndex === undefined) return;
-    executeAdvancedPaste(selectedBlock.armorIndex, selectedBlock.partIndex, 0, clipboard.data);
+    if (!clipboard || multiSelectedBlocks.length === 0) return;
+    executeAdvancedPaste(multiSelectedBlocks[0].armorIndex, multiSelectedBlocks[0].partIndex, 0, clipboard.data);
   };
   const keyPress = useRef(false);
 
@@ -362,6 +373,26 @@ function AudioPlayer({ setButtonState, timelineRef }) {
       event.shiftKey
     );
 
+    if (event.key === "Escape") {
+      if (isCopying) {
+        event.preventDefault(); // ✅ 攔截瀏覽器預設行為
+        event.stopPropagation();
+        setIsCopying(false);
+        dispatch(updateMultiSelectedBlocks([]));
+        console.log("Cancel Copying Mode");
+        return;
+      }
+    }
+    if (event.key === "b" || event.key === "B") {
+      event.preventDefault();
+      // 檢查是否有選中單一 block
+      if (multiSelectedBlocks.length === 1) {
+        setEffectMenuVisible(true); // 開啟一級選單
+        setEffectType("blink");     // 直接選中並展開頻閃子選單
+      } else {
+        console.warn("Please select exactly one block to use Blink effect.");
+      }
+    }
     if (event.key === "ArrowRight" || event.key === "ArrowLeft") {
       event.preventDefault();
       if (event.key === "ArrowRight") {
@@ -445,21 +476,18 @@ function AudioPlayer({ setButtonState, timelineRef }) {
       //   event.preventDefault();
       //   handleWholePaste();
       // }
-      // Ctrl + C: 複製選取區間
+      // Ctrl + C: 只要有東西被選中就執行
       if (event.key === "c" || event.key === "C") {
         event.preventDefault();
-        if (multiSelectedBlocks.length > 0) {
-          handleCopy(); // 原本處理區間複製的函數
-        }
+        console.log("觸發 Ctrl+C");
+        handleCopy(); 
       }
-      // 處理 Ctrl + V 家族
+      // 處理 Ctrl + V 家族 (保持原樣)
       else if (event.key === "v" || event.key === "V") {
         event.preventDefault();
         if (event.shiftKey) {
-          // ✅ Ctrl + Shift + V: 對齊「原始時間」貼上
           handlePasteFixedTime(); 
         } else {
-          // ✅ Ctrl + V: 對齊「目標 Block 時間」貼上
           handlePasteAlignedToTarget(); 
         }
       }
@@ -504,7 +532,7 @@ function AudioPlayer({ setButtonState, timelineRef }) {
     return () => {
       document.removeEventListener("keydown", handleKeyDown);
     };
-  }, [selectedBlock, currentTime, multiSelectedBlocks]); // 依賴 selectedBlock，確保每次變化時都重新綁定事件處理器
+  }, [currentTime, multiSelectedBlocks]); // 確保每次變化時都重新綁定事件處理器
 
   const handleFavoriteColorInsert = (colorIndex) => {
     const row = Math.floor(colorIndex / favoriteColor[0].length); // 計算第幾列
@@ -514,17 +542,12 @@ function AudioPlayer({ setButtonState, timelineRef }) {
 
   const insertFavoriteColorArray = (color) => {
     console.log("insertFavoriteColor: ", color);
-    if (
-      !selectedBlock ||
-      selectedBlock.armorIndex === undefined ||
-      selectedBlock.partIndex === undefined
-    ) {
-      console.warn("No block selected or invalid block index.");
+    if (multiSelectedBlocks.length === 0) {
+      console.warn("No block selected.");
       return;
     }
 
-    const armorIndex = selectedBlock.armorIndex;
-    const partIndex = selectedBlock.partIndex;
+    const { armorIndex, partIndex } = multiSelectedBlocks[0];
     const partData = actionTable[armorIndex]?.[partIndex] || [];
     const indexToCopy = binarySearchFirstGreater(partData, currentTime);
 
@@ -674,53 +697,34 @@ function AudioPlayer({ setButtonState, timelineRef }) {
   };
 
   const handleFavoriteColorChoose = (index) => {
-    if (!selectedBlock) return;
-
-    const { armorIndex, partIndex, blockIndex } = selectedBlock;
-    if (
-      !actionTable?.[armorIndex]?.[partIndex] ||
-      !actionTable[armorIndex][partIndex][blockIndex]
-    ) {
-      return;
-    }
+    if (multiSelectedBlocks.length === 0) return;
 
     const updatedActionTable = produce(actionTable, (draft) => {
-      const timeline = draft[armorIndex][partIndex];
-      if (!timeline) return;
-
       const row = Math.floor(index / favoriteColor[0].length); // 計算第幾列
       const col = index % favoriteColor[0].length; // 計算第幾行
+      const newColor = { ...favoriteColor[row % favoriteColor.length][col] };
 
-      timeline[blockIndex].color = {
-        ...favoriteColor[row % favoriteColor.length][col],
-      };
-      console.log("color:", favoriteColor[row % favoriteColor.length][col]);
+      multiSelectedBlocks.forEach(({ armorIndex, partIndex, blockIndex }) => {
+        const timeline = draft[armorIndex]?.[partIndex];
+        if (timeline && timeline[blockIndex]) {
+          timeline[blockIndex].color = { ...newColor };
+        }
+      });
     });
-
-    console.log("color:", favoriteColor);
 
     dispatch(updateActionTable(updatedActionTable));
   };
 
   const handleAlphaChoose = (alphaValue) => {
-    if (!selectedBlock) return;
-
-    const { armorIndex, partIndex, blockIndex } = selectedBlock;
-    if (
-      !actionTable?.[armorIndex]?.[partIndex] ||
-      !actionTable[armorIndex][partIndex][blockIndex]
-    ) {
-      return;
-    }
+    if (multiSelectedBlocks.length === 0) return;
 
     const updatedActionTable = produce(actionTable, (draft) => {
-      const timeline = draft[armorIndex][partIndex];
-      if (!timeline) return;
-
-      if (timeline[blockIndex]?.color) {
-        timeline[blockIndex].color.A = alphaValue; // 設定透明度
-        console.log(`Updated alpha to: ${alphaValue}`);
-      }
+      multiSelectedBlocks.forEach(({ armorIndex, partIndex, blockIndex }) => {
+        const timeline = draft[armorIndex]?.[partIndex];
+        if (timeline && timeline[blockIndex]?.color) {
+          timeline[blockIndex].color.A = alphaValue;
+        }
+      });
     });
 
     dispatch(updateActionTable(updatedActionTable));
@@ -821,100 +825,103 @@ function AudioPlayer({ setButtonState, timelineRef }) {
     const cleanedActionTable = removeDuplicateBlackBlocks(updatedActionTable);
   
     dispatch(updateActionTable(cleanedActionTable));
-    dispatch(updateSelectedBlock({}));
     dispatch(updateMultiSelectedBlocks([]));
   };
 
   const ClickedDelete = () => {
-    console.log("Delete clicked");
-    console.log("selectedBlock:", selectedBlock);
-
-    // 確保選中的 block 有效
-    if (
-      !selectedBlock ||
-      selectedBlock.armorIndex === undefined ||
-      selectedBlock.partIndex === undefined
-    ) {
-      console.warn("No block selected or invalid block index.");
-      return;
-    }
-
-    const { armorIndex, partIndex, blockIndex } = selectedBlock;
-
-    // 找到對應的 block
-    const block = timelineBlocks?.[armorIndex]?.[partIndex]?.[blockIndex];
-
-    if (!block || !block.startTime) {
-      console.warn("Selected block has no valid startTime.");
-      return;
-    }
-
-    const startTime = block.startTime;
-
-    // **更新 actionTable**
-    const updatedActionTable = produce(actionTable, (draft) => {
-      const timeline = draft[armorIndex][partIndex];
-      if (!timeline) {
-        console.warn("No corresponding timeline found in actionTable.");
-        return;
-      }
-
-      // 找到對應的時間索引
-      const timeIndex = timeline.findIndex((entry) => entry.time === startTime);
-      console.log("Found time index:", timeIndex);
-      if (timeIndex === -1) {
-        console.warn("No corresponding time entry found in actionTable.");
-        return;
-      }
-
-      // 如果後一個的顏色是黑色，也需要刪除
-      const isNextBlockBlack =
-        timeline[timeIndex + 1]?.color?.R === 0 &&
-        timeline[timeIndex + 1]?.color?.G === 0 &&
-        timeline[timeIndex + 1]?.color?.B === 0;
-
-      // 刪除當前時間條目
-      console.log("isNextBlockBlack:", isNextBlockBlack);
-      timeline.splice(timeIndex, 1);
-
-      if (isNextBlockBlack) {
-        timeline.splice(timeIndex, 1);
-      }
-
-      dispatch(updateSelectedBlock({})); // 清空選中的 block
-    });
-
-    // **移除多餘的黑色塊**
-    const cleanedActionTable = removeDuplicateBlackBlocks(updatedActionTable);
-
-    console.log("Updated and cleaned actionTable:", cleanedActionTable);
-    dispatch(updateActionTable(cleanedActionTable)); // 更新 Redux
+    if (multiSelectedBlocks.length === 0) return;
+    handleMultiDelete();
   };
 
   const handleSetLinear = () => {
-    if (
-      !selectedBlock ||
-      selectedBlock.armorIndex === undefined ||
-      selectedBlock.partIndex === undefined ||
-      selectedBlock.blockIndex === undefined
-    ) {
-      console.warn("No block selected or invalid block index.");
-      return;
-    }
-
-    const { armorIndex, partIndex, blockIndex } = selectedBlock;
+    if (multiSelectedBlocks.length === 0) return;
 
     const updatedActionTable = produce(actionTable, (draft) => {
-      const block = draft[armorIndex]?.[partIndex]?.[blockIndex];
-      if (block) {
-        // Toggle the linear property, ensuring it exists first
-        block.linear = block.linear === 1 ? 0 : 1;
-      }
+      multiSelectedBlocks.forEach(({ armorIndex, partIndex, blockIndex }) => {
+        const block = draft[armorIndex]?.[partIndex]?.[blockIndex];
+        if (block) {
+          block.linear = block.linear === 1 ? 0 : 1;
+        }
+      });
     });
 
     dispatch(updateActionTable(updatedActionTable));
   };
 
+  const applyBlinkEffect = (period) => {
+    if (multiSelectedBlocks.length !== 1) return;
+  
+    const { armorIndex, partIndex, blockIndex } = multiSelectedBlocks[0];
+  
+    const updatedActionTable = produce(actionTable, (draft) => {
+      const timeline = draft[armorIndex][partIndex];
+      const viewBlock = timelineBlocks[armorIndex][partIndex][blockIndex];
+      if (!viewBlock) return;
+  
+      const startTime = viewBlock.startTime;
+      const totalDuration = viewBlock.durationTime;
+      const activeBlock = timeline[blockIndex];
+      const isLinear = activeBlock.linear === 1;
+  
+      // 🔥 核心邏輯：尋找「下一個非黑色點」作為漸變終點
+      let targetEndBlock = null;
+      if (isLinear) {
+        for (let i = blockIndex + 1; i < timeline.length; i++) {
+          const p = timeline[i];
+          const isBlack = p.color.R === 0 && p.color.G === 0 && p.color.B === 0;
+          if (!isBlack) {
+            targetEndBlock = p;
+            break;
+          }
+        }
+      }
+  
+      const blinkCount = Math.floor(totalDuration / period);
+      if (blinkCount < 1) return;
+  
+      const newPoints = [];
+      for (let i = 0; i < blinkCount; i++) {
+        const baseTime = startTime + i * period;
+        let currentColor = { ...activeBlock.color };
+  
+        // 如果有漸變屬性且找到了有效的終點顏色
+        if (isLinear && targetEndBlock && targetEndBlock.time > activeBlock.time) {
+          // 計算相對於「大區間」的時間佔比 f
+          const f = (baseTime - activeBlock.time) / (targetEndBlock.time - activeBlock.time);
+          
+          currentColor = {
+            R: Math.round(activeBlock.color.R * (1 - f) + targetEndBlock.color.R * f),
+            G: Math.round(activeBlock.color.G * (1 - f) + targetEndBlock.color.G * f),
+            B: Math.round(activeBlock.color.B * (1 - f) + targetEndBlock.color.B * f),
+            A: activeBlock.color.A * (1 - f) + targetEndBlock.color.A * f,
+          };
+        }
+  
+        // 1. 週期起始：顏色點
+        newPoints.push({
+          time: baseTime,
+          color: currentColor,
+          linear: 0, 
+        });
+  
+        // 2. 週期結束前：黑色緩衝
+        newPoints.push({
+          time: baseTime + period - blackthreshold,
+          color: { R: 0, G: 0, B: 0, A: 1 },
+          linear: 0,
+        });
+      }
+  
+      // 移除原本的點並插入頻閃點列
+      timeline.splice(blockIndex, 1, ...newPoints);
+      timeline.sort((a, b) => a.time - b.time);
+    });
+  
+    const cleaned = removeDuplicateBlackBlocks(updatedActionTable);
+    dispatch(updateActionTable(cleaned));
+    setEffectMenuVisible(false);
+    setEffectType(null);
+  };
   const removeDuplicateBlackBlocks = (actionTable) => {
     return produce(actionTable, (draft) => {
       Object.values(draft).forEach(armor => {
@@ -942,20 +949,12 @@ function AudioPlayer({ setButtonState, timelineRef }) {
   const ClickedColorChange = () => {
     console.log("Color Change clicked");
 
-    if (
-      !selectedBlock ||
-      selectedBlock.armorIndex === undefined ||
-      selectedBlock.partIndex === undefined ||
-      selectedBlock.blockIndex === undefined
-    ) {
-      console.warn("No block selected or invalid block index.");
-      return;
-    }
+    if (multiSelectedBlocks.length === 0) return;
+
+    const { armorIndex, partIndex, blockIndex } = multiSelectedBlocks[0];
 
     const block =
-      timelineBlocks?.[selectedBlock.armorIndex]?.[selectedBlock.partIndex]?.[
-        selectedBlock.blockIndex
-      ];
+      timelineBlocks?.[armorIndex]?.[partIndex]?.[blockIndex];
 
     if (!block || !block.color) {
       console.warn("Selected block has no color information.");
@@ -993,17 +992,9 @@ function AudioPlayer({ setButtonState, timelineRef }) {
 
   const handleGoLeft = () => {
     console.log("go left");
-    console.log("selectedBlock:", selectedBlock);
-    if (
-      !selectedBlock ||
-      selectedBlock.armorIndex === undefined ||
-      selectedBlock.partIndex === undefined
-    ) {
-      console.warn("No timeline selected or invalid block index.");
-      return;
-    }
+    if (multiSelectedBlocks.length === 0) return;
 
-    const { armorIndex, partIndex } = selectedBlock;
+    const { armorIndex, partIndex } = multiSelectedBlocks[0];
     const timeline = actionTable[armorIndex]?.[partIndex];
 
     if (!timeline || timeline.length === 0) {
@@ -1043,16 +1034,8 @@ function AudioPlayer({ setButtonState, timelineRef }) {
 
   const handleGoRight = () => {
     console.log("go right");
-    console.log("selectedBlock:", selectedBlock);
-    if (
-      !selectedBlock ||
-      selectedBlock.armorIndex === undefined ||
-      selectedBlock.partIndex === undefined
-    ) {
-      console.warn("No timeline selected or invalid block index.");
-      return;
-    }
-    const { armorIndex, partIndex } = selectedBlock;
+    if (multiSelectedBlocks.length === 0) return;
+    const { armorIndex, partIndex } = multiSelectedBlocks[0];
     const timeline = actionTable[armorIndex]?.[partIndex];
     console.log("timeline:", timeline);
 
@@ -1096,18 +1079,12 @@ function AudioPlayer({ setButtonState, timelineRef }) {
 
   const handleCut = () => {
     console.log("cut clicked");
-    console.log("selectedBlock:", selectedBlock);
-    if (
-      !selectedBlock ||
-      selectedBlock.armorIndex === undefined ||
-      selectedBlock.partIndex === undefined ||
-      selectedBlock.blockIndex === undefined
-    ) {
-      console.warn("No block selected or invalid block index.");
+    if (multiSelectedBlocks.length !== 1) {
+      console.warn("Cut operation is only valid when exactly one block is selected.");
       return;
     }
     
-    const { armorIndex, partIndex, blockIndex } = selectedBlock;
+    const { armorIndex, partIndex, blockIndex } = multiSelectedBlocks[0];
     
     const updatedActionTable = produce(actionTable, (draft) => {
       const timeline = draft[armorIndex]?.[partIndex];
@@ -1160,29 +1137,22 @@ function AudioPlayer({ setButtonState, timelineRef }) {
     dispatch(updateActionTable(updatedActionTable));
     
     dispatch(
-      updateSelectedBlock({
+      updateMultiSelectedBlocks([{
         armorIndex,
         partIndex,
         blockIndex: blockIndex + 2,
-      })
+      }])
     );
   };
 
   const handleWholeCopy = () => {
     console.log("Copy clicked");
-    console.log("selectedBlock:", selectedBlock);
-
-    // 檢查是否有選中的方塊
-    if (
-      !selectedBlock ||
-      selectedBlock.armorIndex === undefined ||
-      selectedBlock.partIndex === undefined
-    ) {
+    if (multiSelectedBlocks.length === 0) {
       console.warn("No block selected. Cannot copy.");
       return;
     }
 
-    const { armorIndex, partIndex } = selectedBlock;
+    const { armorIndex, partIndex } = multiSelectedBlocks[0];
 
     // 取得整個部位的 timeline
     const timeline = actionTable?.[armorIndex]?.[partIndex];
@@ -1214,7 +1184,6 @@ function AudioPlayer({ setButtonState, timelineRef }) {
 
   const handleWholePaste = () => {
     console.log("Paste clicked");
-    console.log("selectedBlock:", selectedBlock);
 
     // 檢查剪貼簿是否有資料
     if (!clipboard || !clipboard.data || clipboard.data.length === 0) {
@@ -1223,17 +1192,13 @@ function AudioPlayer({ setButtonState, timelineRef }) {
     }
 
     // 檢查是否有選中的方塊
-    if (
-      !selectedBlock ||
-      selectedBlock.armorIndex === undefined ||
-      selectedBlock.partIndex === undefined
-    ) {
+    if (multiSelectedBlocks.length === 0) {
       console.warn("No block selected. Cannot determine paste target.");
       return;
     }
 
     const { armorIndex: targetArmorIndex, partIndex: targetPartIndex } =
-      selectedBlock;
+      multiSelectedBlocks[0];
 
     console.log(`Pasting to Armor ${targetArmorIndex}, Part ${targetPartIndex}`);
     console.log(
@@ -1273,39 +1238,45 @@ function AudioPlayer({ setButtonState, timelineRef }) {
     }
 
     dispatch(
-      updateSelectedBlock({
+      updateMultiSelectedBlocks([{
         armorIndex: targetArmorIndex,
         partIndex: targetPartIndex,
         blockIndex: newBlockIndex,
-      })
+      }])
     );
   };
 
   const handleBrightnessChange = (newBrightness) => {
-    if (
-      !selectedBlock ||
-      selectedBlock.armorIndex === undefined ||
-      selectedBlock.partIndex === undefined ||
-      selectedBlock.blockIndex === undefined
-    ) {
-      console.warn("No block selected or invalid block index.");
+    // 檢查是否有選中任何 block
+    if (!multiSelectedBlocks || multiSelectedBlocks.length === 0) {
+      console.warn("No blocks selected to change brightness.");
       return;
     }
-
-    const { armorIndex, partIndex, blockIndex } = selectedBlock;
-
+  
+    const alphaValue = parseFloat(newBrightness);
+  
+    // 使用 Immer 更新 actionTable
     const updatedActionTable = produce(actionTable, (draft) => {
-      const timeline = draft[armorIndex][partIndex];
-      if (!timeline || !timeline[blockIndex]) return;
-
-      // 更新選取區塊的 alpha 值
-      timeline[blockIndex].color.A = parseFloat(newBrightness);
+      multiSelectedBlocks.forEach(({ armorIndex, partIndex, blockIndex }) => {
+        const timeline = draft[armorIndex]?.[partIndex];
+        if (timeline && timeline[blockIndex]) {
+          // 1. 更新每個選中點的 A (Alpha) 值
+          timeline[blockIndex].color.A = alphaValue;
+        }
+      });
     });
-
-    // 更新 Redux 狀態
+  
+    // 2. 更新到 Redux
     dispatch(updateActionTable(updatedActionTable));
-
-    // 更新本地狀態
+  
+    // 3. ✅ 同步更新 chosenColor (讓調色盤也知道現在 Alpha 變了)
+    if (multiSelectedBlocks.length > 0) {
+      const { armorIndex, partIndex, blockIndex } = multiSelectedBlocks[0];
+      const firstBlockColor = actionTable[armorIndex][partIndex][blockIndex].color;
+      dispatch(updateChosenColor({ ...firstBlockColor, A: alphaValue }));
+    }
+  
+    // 更新本地選單 UI 狀態
     setBrightness(newBrightness);
   };
 
@@ -1320,17 +1291,12 @@ function AudioPlayer({ setButtonState, timelineRef }) {
   };
 
   const applyGradientEffect = (startBrightness, interval, endBrightness) => {
-    if (
-      !selectedBlock ||
-      selectedBlock.armorIndex == null ||
-      selectedBlock.partIndex == null ||
-      selectedBlock.blockIndex == null
-    ) {
-      console.warn("No block selected or invalid indices.");
+    if (multiSelectedBlocks.length !== 1) {
+      console.warn("Gradient effect is only valid when exactly one block is selected.");
       return;
     }
 
-    const { armorIndex, partIndex, blockIndex } = selectedBlock;
+    const { armorIndex, partIndex, blockIndex } = multiSelectedBlocks[0];
 
     const updated = produce(actionTable, (draft) => {
       const timeline = draft[armorIndex][partIndex];
@@ -1449,6 +1415,12 @@ function AudioPlayer({ setButtonState, timelineRef }) {
 
   return (
     <div className="audio-player-container">
+      {isCopying && (
+        <div className="copy-mode-banner">
+          <span>📋 Copy Mode Active (Interval: {clipboard?.startTime}ms ~ {clipboard?.endTime}ms)</span>
+          <span className="hint-text">Press [ESC] to Cancel or click Target then [Ctrl+V]</span>
+        </div>
+      )}
       <div className="controls">
         {/* 僅顯示目前的檔名，無選單功能 */}
         {/* <div className="current-track-display" style={{ marginRight: "10px", display: "flex", alignItems: "center" }}>
@@ -1513,21 +1485,49 @@ function AudioPlayer({ setButtonState, timelineRef }) {
             <span className="tooltip">Effect</span>
           </button>
 
-          {/* 一級選單：選 gradient / blink */}
+          {/* 一級選單 */}
           {effectMenuVisible && (
-            <div className="effect-menu">
-              <div
-                className="effect-menu-item"
-                onClick={() => {
-                  handleSetLinear();
-                  setEffectMenuVisible(false);
-                }}
-              >
-                漸變 (L)
-              </div>
+          <div className="effect-menu">
+            {/* 漸變選項 */}
+            <div
+              className="effect-menu-item"
+              onClick={() => {
+                handleSetLinear();
+                setEffectMenuVisible(false);
+              }}
+            >
+              漸變 (L)
             </div>
-          )}
 
+            {/* 頻閃選項：只有在 Hover 時才透過 CSS 改變顏色 */}
+            <div
+              className={`effect-menu-item blink-trigger ${effectType === "blink" ? "active" : ""}`}
+              onMouseEnter={() => setEffectType("blink")}
+              onMouseLeave={() => setEffectType(null)} // 離開時隱藏，讓視覺乾淨
+              onClick={() => setEffectType(effectType === "blink" ? null : "blink")}
+            >
+              頻閃 (B)
+              
+              {/* 向右延伸的子選單 */}
+              {effectType === "blink" && (
+                <div className="effect-submenu">
+                  {[100, 150, 200].map((p) => (
+                    <div 
+                      key={p} 
+                      className="effect-menu-item" 
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        applyBlinkEffect(p);
+                      }}
+                    >
+                      {p}ms
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        )}
           {/* 二級設定 panel：只在選了 gradient 時顯示 */}
           {gradientSettingsVisible && effectType === "gradient" && (
             <div className="gradient-settings-popup">

@@ -3,7 +3,6 @@ import { useDispatch, useSelector } from "react-redux";
 import {
   updateActionTable,
   updateTimelineBlocks,
-  updateSelectedBlock,
   updateTempActionTable,
   updateIsColorChangeActive,
   updateMultiSelectedBlocks,
@@ -15,6 +14,13 @@ import {
   faWandMagicSparkles,
 } from "@fortawesome/free-solid-svg-icons";
 
+const colorDistance = (color1, color2) => {
+  return Math.sqrt(
+    Math.pow((color1.R || 0) - (color2.R || 0), 2) +
+    Math.pow((color1.G || 0) - (color2.G || 0), 2) +
+    Math.pow((color1.B || 0) - (color2.B || 0), 2)
+  );
+};
 // Timeline 組件
 const Timeline = forwardRef(
   ({ zoomValue, height, armorIndex, partIndex, hidden, isCopying }, timelineRef) => {
@@ -47,8 +53,8 @@ const Timeline = forwardRef(
       (state) => state.profiles.tempActionTable
     ); // 臨時動作表
     const duration = useSelector((state) => state.profiles.duration); // 總時長
-    const selectedBlock = useSelector((state) => state.profiles.selectedBlock); // 全局選中方塊
     const multiSelectedBlocks = useSelector((state) => state.profiles.multiSelectedBlocks); // 全局多選中方塊
+    const clipboard = useSelector((state) => state.profiles.clipboard);
     const blackthreshold = 10;
 
     // 左、右箭頭的樣式
@@ -102,7 +108,6 @@ const Timeline = forwardRef(
           !e.target.closest(".effect-wrapper")
         ) {
           console.log("click outside");
-          dispatch(updateSelectedBlock({})); // 更新 Redux
           dispatch(updateMultiSelectedBlocks([])); // 清除多選
           dispatch(updateIsColorChangeActive(false)); // 更新 Redux
         }
@@ -189,20 +194,20 @@ const Timeline = forwardRef(
       const block = timelineBlocks[index];
 
       if (isCopying) {
-        // 關鍵：在尋找貼上目標時，僅更新單選(綠框目標)，不觸發多選清除，保留來源橘框
-        dispatch(updateSelectedBlock({ armorIndex, partIndex, blockIndex: index }));
+        // 關鍵：在尋找貼上目標時，僅更新單選(綠框目標)
+        dispatch(updateMultiSelectedBlocks([{ armorIndex, partIndex, blockIndex: index }]));
         return;
       }
       // If a black block is clicked, clear all selections.
       if (block.color.R === 0 && block.color.G === 0 && block.color.B === 0) {
-        dispatch(updateSelectedBlock({}));
         dispatch(updateMultiSelectedBlocks([]));
         return;
       }
 
       // Shift-click multi-selection logic
-      if (e.shiftKey && selectedBlock && selectedBlock.armorIndex === armorIndex && selectedBlock.partIndex === partIndex) {
-        const startIdx = selectedBlock.blockIndex;
+      const anchorBlock = multiSelectedBlocks[0];
+      if (e.shiftKey && anchorBlock && anchorBlock.armorIndex === armorIndex && anchorBlock.partIndex === partIndex) {
+        const startIdx = anchorBlock.blockIndex;
         const endIdx = index;
 
         const selectionStart = Math.min(startIdx, endIdx);
@@ -221,15 +226,12 @@ const Timeline = forwardRef(
 
       } else {
         // Single-select logic
-        dispatch(updateMultiSelectedBlocks([])); // Clear multi-selection
         setDragging(true);
         setDraggedBlockIndex(index);
         setDragStartpoint(e.clientX);
 
         // Notify parent component to update global selected state
-        dispatch(
-          updateSelectedBlock({ armorIndex, partIndex, blockIndex: index })
-        );
+        dispatch(updateMultiSelectedBlocks([{ armorIndex, partIndex, blockIndex: index }]));
       }
     };
 
@@ -470,67 +472,56 @@ const Timeline = forwardRef(
         onMouseMove={handleMouseMove}
         onMouseUp={handleMouseUp}
       >
-        {timelineBlocks.map((block, index) => {
-          const isPasteTarget = isCopying && 
-          selectedBlock?.armorIndex === armorIndex && 
-          selectedBlock?.partIndex === partIndex && 
-          selectedBlock?.blockIndex === index;
+      {timelineBlocks.map((block, index) => {
+        // --- 1. 定義狀態變數 ---
+        // 是否在目前這條 Timeline 的選中清單中
+        const isCurrentlyInMultiSelect = multiSelectedBlocks.some(b => 
+          b.armorIndex === armorIndex && 
+          b.partIndex === partIndex && 
+          b.blockIndex === index
+        );
 
-          const color = block.color || { R: 0, G: 0, B: 0, A: 1 };
-          const isSelected =
-            selectedBlock?.armorIndex === armorIndex &&
-            selectedBlock?.partIndex === partIndex &&
-            selectedBlock?.blockIndex === index;
+        // A. 判斷是否為「貼上目標」(綠色)：在複製模式下且被點擊選中
+        const isPasteTarget = isCopying && isCurrentlyInMultiSelect;
 
-          const isMultiSelected = multiSelectedBlocks.some(b => 
-              b.armorIndex === armorIndex && 
-              b.partIndex === partIndex && 
-              b.blockIndex === index
-          );
+        // B. 判斷是否為「複製來源」(橘色)：從剪貼簿讀取當初 Ctrl+C 的位置
+        const isCopySource = isCopying && clipboard?.sourceBlocks?.some(b => 
+          b.armorIndex === armorIndex && 
+          b.partIndex === partIndex && 
+          b.blockIndex === index
+        );
 
-          // 計算顏色距離的函式
-          const colorDistance = (color1, color2) => {
-            return Math.sqrt(
-              Math.pow(color1.R - color2.R, 2) +
-                Math.pow(color1.G - color2.G, 2) +
-                Math.pow(color1.B - color2.B, 2)
-            );
-          };
+        // C. 判斷是否為「普通選取」(橘色)：非複製模式下的正常選取
+        const isNormalSelected = !isCopying && isCurrentlyInMultiSelect;
 
-          // 預設選取框顏色
-          let selectionBorderColor = "#FFA500"; // 橘色
-          const colorThreshold = 200; // 設定距離閾值
+        // --- 2. 顏色與樣式邏輯 ---
+        const color = block.color || { R: 0, G: 0, B: 0, A: 1 };
+        const currentBlockData = actionTable[armorIndex]?.[partIndex]?.[index];
+        const isFade = currentBlockData?.linear === 1;
 
-          // 如果選取的方塊顏色和預設選取框顏色相似，就改變選取框顏色
-          if (colorDistance(color, { R: 255, G: 165, B: 0 }) < colorThreshold) {
-            selectionBorderColor = "#00FFFF"; // 改成青色
-          }
+        // 定義背景
+        let backgroundStyle;
+        if (isFade) {
+          const partTimeline = actionTable[armorIndex]?.[partIndex];
+          const nextBlock = partTimeline?.[index + 1];
+          const nextNextBlock = partTimeline?.[index + 2];
+          const isBlack = (c) => c && c.R === 0 && c.G === 0 && c.B === 0;
+          let endColor = { R: 0, G: 0, B: 0, A: 1 };
+          if (nextBlock && !isBlack(nextBlock.color)) endColor = nextBlock.color;
+          else if (nextNextBlock) endColor = nextNextBlock.color;
+          backgroundStyle = `linear-gradient(to right, rgba(${color.R},${color.G},${color.B},${color.A}), rgba(${endColor.R},${endColor.G},${endColor.B},${endColor.A}))`;
+        } else {
+          backgroundStyle = `rgba(${color.R}, ${color.G}, ${color.B}, ${color.A})`;
+        }
 
-          const currentBlockData = actionTable[armorIndex]?.[partIndex]?.[index];
-          const isFade = currentBlockData?.linear === 1;
-
-          let backgroundStyle;
-
-          if (isFade) {
-            const partTimeline = actionTable[armorIndex]?.[partIndex];
-            const nextBlock = partTimeline?.[index + 1];
-            const nextNextBlock = partTimeline?.[index + 2];
-            const isBlack = (c) => c && c.R === 0 && c.G === 0 && c.B === 0;
-
-            let endColor = { R: 0, G: 0, B: 0, A: 1 }; // Default to black
-
-            if (nextBlock && !isBlack(nextBlock.color)) {
-              endColor = nextBlock.color;
-            } else if (nextNextBlock) {
-              endColor = nextNextBlock.color;
-            }
-
-            const startColorString = `rgba(${color.R}, ${color.G}, ${color.B}, ${color.A})`;
-            const endColorString = `rgba(${endColor.R}, ${endColor.G}, ${endColor.B}, ${endColor.A})`;
-            backgroundStyle = `linear-gradient(to right, ${startColorString}, ${endColorString})`;
-          } else {
-            backgroundStyle = `rgba(${color.R}, ${color.G}, ${color.B}, ${color.A})`;
-          }
+        // 計算框線顏色
+        const colorDistance = (c1, c2) => Math.sqrt(
+          Math.pow((c1.R||0)-(c2.R||0),2) + Math.pow((c1.G||0)-(c2.G||0),2) + Math.pow((c1.B||0)-(c2.B||0),2)
+        );
+        let selectionBorderColor = "#FFA500"; // 橘色
+        if (colorDistance(color, { R: 255, G: 165, B: 0 }) < 200) {
+          selectionBorderColor = "#00FFFF"; // 改為青色
+        }
 
           // 設定 blockStyle
           const blockStyle = {
@@ -541,8 +532,11 @@ const Timeline = forwardRef(
             position: "relative",
             borderRadius: "7px",
             // border: isSelected || isMultiSelected ? `3px solid ${selectionBorderColor}` : "none",
-            border: isPasteTarget ? "4px solid #00FF00"  // 複製目標顯示綠色框
-                        : (isSelected || isMultiSelected ? `3px solid ${selectionBorderColor}` : "none"),
+            zIndex: (isPasteTarget || isCopySource) ? 10 : 1,
+            // 優先權：貼上目標(綠) > 複製來源(橘) > 普通選取
+            border: isPasteTarget 
+              ? "4px solid #00FF00" 
+              : (isCopySource || isNormalSelected ? `3px solid ${selectionBorderColor}` : "none"),
             boxSizing: "border-box",
             zIndex: 1,
           };
