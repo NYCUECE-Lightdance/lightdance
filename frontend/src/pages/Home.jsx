@@ -27,6 +27,50 @@ const generateInitialTable = () => Array.from({ length: 7 }, () =>
   ])
 );
 
+const cleanActionTableByDuration = (currentTable, maxDuration) => {
+  if (!currentTable || typeof currentTable !== "object" || maxDuration <= 0) return currentTable;
+
+  const cleanedTable = {};
+  let hasChanged = false; // 用來標記是否真的有變動
+
+  Object.entries(currentTable).forEach(([armorIdx, parts]) => {
+    cleanedTable[armorIdx] = {};
+    
+    Object.entries(parts).forEach(([partIdx, timeline]) => {
+      if (Array.isArray(timeline)) {
+        // 1. 先過濾掉超過 duration 的點
+        let newTimeline = timeline.filter((point) => point.time < maxDuration);
+        
+        // 2. 判斷是否需要補上終點黑色塊
+        // 檢查現存最後一個點是否已經是 duration 處的黑色塊
+        const lastPoint = newTimeline[newTimeline.length - 1];
+        const isLastBlackEnd = lastPoint && 
+                               lastPoint.time === maxDuration && 
+                               lastPoint.color.R === 0 && 
+                               lastPoint.color.G === 0 && 
+                               lastPoint.color.B === 0;
+
+        if (!isLastBlackEnd) {
+          // 在精確的 duration 位置補上黑色塊
+          newTimeline.push({
+            time: maxDuration,
+            color: { R: 0, G: 0, B: 0, A: 1 },
+            linear: 0
+          });
+          hasChanged = true;
+        }
+
+        // 3. 確保時間排序正確
+        newTimeline.sort((a, b) => a.time - b.time);
+        cleanedTable[armorIdx][partIdx] = newTimeline;
+      } else {
+        cleanedTable[armorIdx][partIdx] = timeline;
+      }
+    });
+  });
+
+  return hasChanged ? cleanedTable : currentTable;
+};
 function Home({ rgba, setRgba, setButtonState }) {
   const navigate = useNavigate();
   const dispatch = useDispatch();
@@ -36,6 +80,7 @@ function Home({ rgba, setRgba, setButtonState }) {
   const musicFilename = data.music_filename ?? "";
   const userName = useSelector((state) => state.profiles.user);
   const autoRefresh = useSelector((state) => state.profiles.autoRefresh);
+  const duration = useSelector((state) => state.profiles.duration); 
   const [isDirty, setIsDirty] = useState(false);
   const [isLoaded, setIsLoaded] = useState(false);
   const [showSaveModal, setShowSaveModal] = useState(false);
@@ -326,6 +371,20 @@ function Home({ rgba, setRgba, setButtonState }) {
       setShowNewProjectMenu(false);
     }
   };
+
+  useEffect(() => {
+    if (duration > 0 && actionTable) {
+      const cleaned = cleanActionTableByDuration(actionTable, duration);
+      
+      // 檢查是否有資料真的被刪除了，避免無限迴圈更新
+      const isDifferent = JSON.stringify(cleaned) !== JSON.stringify(actionTable);
+      
+      if (isDifferent) {
+        console.log(">>> 檢測到超出音樂長度的資料點，正在執行自動清洗...");
+        dispatch(updateActionTable(cleaned));
+      }
+    }
+  }, [duration, dispatch]);
 
   const handleModalAction = async (action) => {
     if (action === "save") {

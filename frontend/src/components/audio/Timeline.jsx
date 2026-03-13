@@ -3,11 +3,9 @@ import { useDispatch, useSelector } from "react-redux";
 import {
   updateActionTable,
   updateTimelineBlocks,
-  updateSelectedBlock,
   updateTempActionTable,
   updateIsColorChangeActive,
   updateMultiSelectedBlocks,
-  updateMoveMode,
 } from "../../redux/actions";
 import cloneDeep from "lodash/cloneDeep";
 import { produce } from "immer";
@@ -16,27 +14,30 @@ import {
   faWandMagicSparkles,
 } from "@fortawesome/free-solid-svg-icons";
 
+const colorDistance = (color1, color2) => {
+  return Math.sqrt(
+    Math.pow((color1.R || 0) - (color2.R || 0), 2) +
+    Math.pow((color1.G || 0) - (color2.G || 0), 2) +
+    Math.pow((color1.B || 0) - (color2.B || 0), 2)
+  );
+};
 // Timeline 組件
 const Timeline = forwardRef(
-  ({ zoomValue, height, armorIndex, partIndex, hidden }, timelineRef) => {
+  ({ zoomValue, height, armorIndex, partIndex, hidden, isCopying }, timelineRef) => {
     const dispatch = useDispatch();
 
     // **狀態變數**
 
     // 方塊相關狀態
+    const [hoveredBlock, setHoveredBlock] = useState({
+      leftedge: false, // 是否在左邊緣
+      rightedge: false, // 是否在右邊緣
+      leftindex: null, // 左邊緣的方塊索引
+      rightindex: null, // 右邊緣的方塊索引
+    });
     const [dragging, setDragging] = useState(false); // 是否正在拖動方塊
     const [draggedBlockIndex, setDraggedBlockIndex] = useState(null); // 被拖動的方塊索引
     const [dragStartpoint, setDragStartpoint] = useState(null); // 拖動的起始點
-
-    // move mode ref and state
-    const [movingBlockIdx, setMovingBlockIdx] = useState(null); 
-    const movingBlockIdxRef = useRef(null);  // 與 movingBlockIdx 同步的 ref，供 callback 讀取
-    const moveDragPixelsRef = useRef(0);     
-    const draggedBlockDomRef = useRef(null); 
-    const moveDragStartRef = useRef(0);      
-    const minDragPxRef = useRef(-Infinity);  
-    const maxDragPxRef = useRef(Infinity);   
-    const commitMoveRef = useRef(null);
 
     // 畫布相關狀態
     const canvasRef = useRef(null); // timeline 的畫布引用
@@ -52,9 +53,8 @@ const Timeline = forwardRef(
       (state) => state.profiles.tempActionTable
     ); // 臨時動作表
     const duration = useSelector((state) => state.profiles.duration); // 總時長
-    const selectedBlock = useSelector((state) => state.profiles.selectedBlock); // 全局選中方塊
     const multiSelectedBlocks = useSelector((state) => state.profiles.multiSelectedBlocks); // 全局多選中方塊
-    const moveMode = useSelector((state) => state.profiles.moveMode); // 移動模式
+    const clipboard = useSelector((state) => state.profiles.clipboard);
     const blackthreshold = 10;
 
     // 左、右箭頭的樣式
@@ -108,7 +108,6 @@ const Timeline = forwardRef(
           !e.target.closest(".effect-wrapper")
         ) {
           console.log("click outside");
-          dispatch(updateSelectedBlock({})); // 更新 Redux
           dispatch(updateMultiSelectedBlocks([])); // 清除多選
           dispatch(updateIsColorChangeActive(false)); // 更新 Redux
         }
@@ -158,7 +157,7 @@ const Timeline = forwardRef(
       tempActionTable[armorIndex][partIndex].forEach((entry, index) => {
         const startTime = entry.time;
         const nextStartTime =
-          tempActionTable[armorIndex][partIndex]?.[index + 1]?.time ?? duration;
+          tempActionTable[armorIndex][partIndex]?.[index + 1]?.time || duration;
 
         const { R, G, B, A } = entry.color || {};
         const newBlock = {
@@ -188,246 +187,270 @@ const Timeline = forwardRef(
       );
     }, [tempActionTable, duration, armorIndex, partIndex, dispatch]);
 
-    const commitMove = () => {
-      const blockIdx = movingBlockIdxRef.current;
-      if (blockIdx === null) return;
-
-      const rect = timelineRef.current?.getBoundingClientRect();
-      if (rect) {
-        const orig = actionTable[armorIndex][partIndex];
-        const blockStart = orig[blockIdx]?.time;
-        const blockEnd   = orig[blockIdx + 1]?.time;
-
-        if (blockStart !== undefined && blockEnd !== undefined) {
-          const leftBoundary  = orig[blockIdx - 1]?.time ?? 0;
-          const rightBoundary = orig[blockIdx + 2]?.time ?? duration;
-          const timeDelta = Math.floor((moveDragPixelsRef.current / rect.width * duration) / 50) * 50;
-
-          let clampedDelta = timeDelta;
-          if (blockStart + clampedDelta < leftBoundary)  clampedDelta = leftBoundary - blockStart;
-          if (blockEnd   + clampedDelta > rightBoundary) clampedDelta = rightBoundary - blockEnd;
-          // 絕對邊界安全夾：確保不超出音軌範圍
-          if (blockStart + clampedDelta < 0)        clampedDelta = -blockStart;
-          if (blockEnd   + clampedDelta > duration) clampedDelta = duration - blockEnd;
-          // 嚴格順序保證：blockStart 不能等於左鄰居時間（避免兩 entry 時間相同）
-          if (blockStart + clampedDelta === leftBoundary && blockIdx > 0) {
-            const adjusted = clampedDelta + 50;
-            if (blockEnd + adjusted <= rightBoundary && blockEnd + adjusted <= duration) {
-              clampedDelta = adjusted;
-            }
-          }
-          if (clampedDelta !== 0) {
-            const finalTable = produce(actionTable, (draft) => {
-              draft[armorIndex][partIndex][blockIdx].time     = blockStart + clampedDelta;
-              draft[armorIndex][partIndex][blockIdx + 1].time = blockEnd   + clampedDelta;
-            });
-            dispatch(updateActionTable(finalTable));
-          }
-        }
-      }
-
-      if (draggedBlockDomRef.current) {
-        draggedBlockDomRef.current.style.transform = "";
-        draggedBlockDomRef.current.style.zIndex    = "";
-        draggedBlockDomRef.current = null;
-      }
-      moveDragPixelsRef.current    = 0;
-      movingBlockIdxRef.current    = null;
-      setMovingBlockIdx(null);
-      dispatch(updateMoveMode(false)); // 退出移動模式
-    };
-    commitMoveRef.current = commitMove; 
-
-    // tracking mousemove 
-    useEffect(() => {
-      if (movingBlockIdx === null) return;
-
-      const onMouseMove = (e) => {
-        const rawDelta = e.clientX - moveDragStartRef.current;
-        const clamped  = Math.max(minDragPxRef.current, Math.min(maxDragPxRef.current, rawDelta));
-        moveDragPixelsRef.current = clamped;
-        if (draggedBlockDomRef.current) {
-          draggedBlockDomRef.current.style.transform = `translateX(${clamped}px)`;
-          draggedBlockDomRef.current.style.zIndex    = "10";
-        }
-      };
-
-      document.addEventListener("mousemove", onMouseMove);
-      return () => document.removeEventListener("mousemove", onMouseMove);
-    }, [movingBlockIdx]);
-
-    useEffect(() => {
-      if (!moveMode) {
-        // moveMode is cancelled（press M or icon）
-        if (movingBlockIdxRef.current !== null) {
-          commitMoveRef.current();
-        }
-        return;
-      }
-
-      const onMouseDown = () => {
-        if (movingBlockIdxRef.current !== null) {
-          commitMoveRef.current(); // MOVING → commit 位置並退出
-        } else {
-          dispatch(updateMoveMode(false)); // READY → 直接退出，不須 commit
-        }
-      };
-
-      document.addEventListener("mousedown", onMouseDown);
-      return () => document.removeEventListener("mousedown", onMouseDown);
-    }, [moveMode]);
-
     // 處理鼠標按下事件
     const handleMouseDown = (e, index) => {
       e.stopPropagation();
 
       const block = timelineBlocks[index];
-      const isBlack = block.color.R === 0 && block.color.G === 0 && block.color.B === 0;
 
-      if (isBlack) {
-        dispatch(updateSelectedBlock({}));
+      if (isCopying) {
+        // 關鍵：在尋找貼上目標時，僅更新單選(綠框目標)
+        dispatch(updateMultiSelectedBlocks([{ armorIndex, partIndex, blockIndex: index }]));
+        return;
+      }
+      // If a black block is clicked, clear all selections.
+      if (block.color.R === 0 && block.color.G === 0 && block.color.B === 0) {
         dispatch(updateMultiSelectedBlocks([]));
         return;
       }
 
-      // ── 移動模式：點擊選取方塊，開始跟隨滑鼠 ──────────────────────────
-      if (moveMode) {
-        // 阻止此 mousedown 傳遞到 document 的 onMouseDown（避免立即 commit）
-        e.nativeEvent.stopImmediatePropagation();
+      // Shift-click multi-selection logic
+      const anchorBlock = multiSelectedBlocks[0];
+      if (e.shiftKey && anchorBlock && anchorBlock.armorIndex === armorIndex && anchorBlock.partIndex === partIndex) {
+        const startIdx = anchorBlock.blockIndex;
+        const endIdx = index;
 
-        // 若已有方塊在移動，先 commit 它再退出
-        if (movingBlockIdxRef.current !== null) {
-          commitMoveRef.current();
-          return;
-        }
+        const selectionStart = Math.min(startIdx, endIdx);
+        const selectionEnd = Math.max(startIdx, endIdx);
 
-        dispatch(updateSelectedBlock({ armorIndex, partIndex, blockIndex: index }));
-        dispatch(updateMultiSelectedBlocks([]));
-
-        draggedBlockDomRef.current = e.currentTarget;
-        moveDragStartRef.current = e.clientX;
-        moveDragPixelsRef.current = 0;
-
-        // 預算左右邊界（像素），供 mousemove 夾緊用
-        if (timelineRef?.current) {
-          const rect = timelineRef.current.getBoundingClientRect();
-          const orig = actionTable[armorIndex][partIndex];
-          const bs = orig[index]?.time;
-          const be = orig[index + 1]?.time;
-          if (bs !== undefined && be !== undefined) {
-            const scale = rect.width / duration;
-            const neighborMin = (orig[index - 1]?.time ?? 0)       - bs;
-            const neighborMax = (orig[index + 2]?.time ?? duration) - be;
-            const trackMin    = 0        - bs; // blockStart 不能低於 0
-            const trackMax    = duration - be; // blockEnd 不能超過 duration
-            minDragPxRef.current = Math.max(neighborMin, trackMin) * scale;
-            maxDragPxRef.current = Math.min(neighborMax, trackMax) * scale;
-          } else {
-            minDragPxRef.current = 0;
-            maxDragPxRef.current = 0;
-          }
-        }
-
-        movingBlockIdxRef.current = index;
-        setMovingBlockIdx(index); // 觸發 useEffect 掛載全域事件
-        return;
-      }
-
-      // ── 一般模式：Shift 多選 或 單選 + 拖曳縮放 ──────────────────────
-      if (e.shiftKey && selectedBlock && selectedBlock.armorIndex === armorIndex && selectedBlock.partIndex === partIndex) {
-        const selectionStart = Math.min(selectedBlock.blockIndex, index);
-        const selectionEnd   = Math.max(selectedBlock.blockIndex, index);
         const newMultiSelected = [];
         for (let i = selectionStart; i <= selectionEnd; i++) {
-          const b = timelineBlocks[i];
-          if (!(b.color.R === 0 && b.color.G === 0 && b.color.B === 0)) {
+          const currentBlock = timelineBlocks[i];
+          // Filter out black blocks (transition blocks)
+          const isBlackTransition = currentBlock.color.R === 0 && currentBlock.color.G === 0 && currentBlock.color.B === 0;
+          if (!isBlackTransition) {
             newMultiSelected.push({ armorIndex, partIndex, blockIndex: i });
           }
         }
         dispatch(updateMultiSelectedBlocks(newMultiSelected));
+
       } else {
-        dispatch(updateMultiSelectedBlocks([]));
+        // Single-select logic
         setDragging(true);
         setDraggedBlockIndex(index);
         setDragStartpoint(e.clientX);
-        draggedBlockDomRef.current = e.currentTarget;
-        moveDragPixelsRef.current = 0;
-        dispatch(updateSelectedBlock({ armorIndex, partIndex, blockIndex: index }));
+
+        // Notify parent component to update global selected state
+        dispatch(updateMultiSelectedBlocks([{ armorIndex, partIndex, blockIndex: index }]));
       }
     };
 
     // 處理鼠標放開事件
     const handleMouseUp = () => {
-      if (!dragging) return;
-      dispatch(updateActionTable(tempActionTable));
-      setDragging(false);
-      setDraggedBlockIndex(null);
+      if (dragging) {
+        setDragging(false); // 停止拖動
+        setDraggedBlockIndex(null);
+        dispatch(updateActionTable(tempActionTable)); // 更新 actionTable
+        // console.log(tempActionTable);
+      }
     };
 
     // 處理鼠標移動事件，用於拖動方塊
     const handleMouseMove = (e) => {
+      // 如果没有拖动行为或没有正在拖动的方块，直接返回
       if (!dragging || draggedBlockIndex === null) return;
+
+      // 确保 timelineRef 已经被初始化
       if (!timelineRef?.current) {
         console.warn("timelineRef is not initialized");
         return;
       }
 
-      // ── 一般拖曳（平移整個方塊）：更新 Redux 臨時狀態 ───────────────────
+      // 获取 timeline 容器的边界信息
       const rect = timelineRef.current.getBoundingClientRect();
-      const draggedDistance = e.clientX - dragStartpoint;
-      const draggedTime =
-        Math.floor(((draggedDistance / rect.width) * duration) / 50) * 50;
 
+      // 计算拖动的距离和对应的时间
+      const draggedDistance = e.clientX - dragStartpoint; // 拖动的像素距离
+      const draggedTime =
+        Math.floor(((draggedDistance / rect.width) * duration) / 50) * 50; // 将拖动距离转换为时间
+
+      // 使用 Immer 深拷贝并更新方块位置
       const updatedTable = produce(tempActionTable, (draft) => {
-        const partData = draft[armorIndex][partIndex];
-        const direction = e.clientX > dragStartpoint ? "right" : "left";
+        const direction = e.clientX > dragStartpoint ? "right" : "left"; // 判断拖动方向
+        const partData = draft[armorIndex][partIndex]; // 获取当前部位的数据
+
+        // 如果拖动方向是向右
         if (direction === "right") {
-          if (tempActionTable[armorIndex][partIndex][draggedBlockIndex + 2]) {
-            partData[draggedBlockIndex].time =
-              actionTable[armorIndex][partIndex][draggedBlockIndex].time + draggedTime;
-            const nextBlockTime =
-              tempActionTable[armorIndex][partIndex][draggedBlockIndex + 2].time;
-            const currentBlockTime =
-              tempActionTable[armorIndex][partIndex][draggedBlockIndex + 1].time;
-            if (nextBlockTime - currentBlockTime > blackthreshold) {
-              partData[draggedBlockIndex + 1].time =
-                actionTable[armorIndex][partIndex][draggedBlockIndex + 1].time + draggedTime;
-            } else {
-              partData[draggedBlockIndex + 1].time =
-                actionTable[armorIndex][partIndex][draggedBlockIndex + 1].time + draggedTime;
-              partData[draggedBlockIndex + 2].time =
-                actionTable[armorIndex][partIndex][draggedBlockIndex + 1].time + draggedTime + blackthreshold;
+          if (
+            hoveredBlock?.rightedge && // 当前拖动的方块是右边界
+            hoveredBlock?.rightindex === draggedBlockIndex // 并且是当前拖动的方块
+          ) {
+            // 如果存在下一个方块
+            if (tempActionTable[armorIndex][partIndex][draggedBlockIndex + 2]) {
+              const nextBlockTime =
+                tempActionTable[armorIndex][partIndex][draggedBlockIndex + 2]
+                  .time;
+              const currentBlockTime =
+                tempActionTable[armorIndex][partIndex][draggedBlockIndex + 1]
+                  .time;
+
+              // 检查当前和下一个方块之间的时间间隔是否大于 50
+              if (nextBlockTime - currentBlockTime > blackthreshold) {
+                partData[draggedBlockIndex + 1].time =
+                  actionTable[armorIndex][partIndex][draggedBlockIndex + 1]
+                    .time + draggedTime;
+              } else {
+                // 如果时间间隔不足 50，同时调整下一个方块的位置
+                partData[draggedBlockIndex + 1].time =
+                  actionTable[armorIndex][partIndex][draggedBlockIndex + 1]
+                    .time + draggedTime;
+                partData[draggedBlockIndex + 2].time =
+                  actionTable[armorIndex][partIndex][draggedBlockIndex + 1]
+                    .time +
+                  draggedTime +
+                  blackthreshold;
+              }
+            }
+          } else if (
+            hoveredBlock?.leftedge && // 当前拖动的方块是左边界
+            hoveredBlock?.leftindex === draggedBlockIndex
+          ) {
+            // 如果拖动后时间不会超过下一个方块的时间
+            if (
+              tempActionTable[armorIndex][partIndex][draggedBlockIndex].time +
+                draggedTime <
+              tempActionTable[armorIndex][partIndex][draggedBlockIndex + 1].time
+            ) {
+              partData[draggedBlockIndex].time =
+                actionTable[armorIndex][partIndex][draggedBlockIndex].time +
+                draggedTime;
             }
           } else {
-            if (actionTable[armorIndex][partIndex][draggedBlockIndex + 1].time + draggedTime < duration) {
+            // 普通情况下向右拖动
+            if (tempActionTable[armorIndex][partIndex][draggedBlockIndex + 2]) {
               partData[draggedBlockIndex].time =
-                actionTable[armorIndex][partIndex][draggedBlockIndex].time + draggedTime;
-              partData[draggedBlockIndex + 1].time =
-                actionTable[armorIndex][partIndex][draggedBlockIndex + 1].time + draggedTime;
+                actionTable[armorIndex][partIndex][draggedBlockIndex].time +
+                draggedTime;
+
+              const nextBlockTime =
+                tempActionTable[armorIndex][partIndex][draggedBlockIndex + 2]
+                  .time;
+              const currentBlockTime =
+                tempActionTable[armorIndex][partIndex][draggedBlockIndex + 1]
+                  .time;
+
+              if (nextBlockTime - currentBlockTime > blackthreshold) {
+                partData[draggedBlockIndex + 1].time =
+                  actionTable[armorIndex][partIndex][draggedBlockIndex + 1]
+                    .time + draggedTime;
+              } else {
+                partData[draggedBlockIndex + 1].time =
+                  actionTable[armorIndex][partIndex][draggedBlockIndex + 1]
+                    .time + draggedTime;
+                partData[draggedBlockIndex + 2].time =
+                  actionTable[armorIndex][partIndex][draggedBlockIndex + 1]
+                    .time +
+                  draggedTime +
+                  blackthreshold;
+              }
             } else {
-              partData[draggedBlockIndex + 1].time = duration;
+              // 如果没有后续方块
+              if (
+                actionTable[armorIndex][partIndex][draggedBlockIndex + 1].time +
+                  draggedTime <
+                duration
+              ) {
+                partData[draggedBlockIndex].time =
+                  actionTable[armorIndex][partIndex][draggedBlockIndex].time +
+                  draggedTime;
+                partData[draggedBlockIndex + 1].time =
+                  actionTable[armorIndex][partIndex][draggedBlockIndex + 1]
+                    .time + draggedTime;
+              } else {
+                partData[draggedBlockIndex + 1].time = duration; // 防止超出音频范围
+              }
             }
           }
         } else {
-          if (actionTable[armorIndex][partIndex][draggedBlockIndex].time + draggedTime > 0) {
-            partData[draggedBlockIndex + 1].time =
-              actionTable[armorIndex][partIndex][draggedBlockIndex + 1].time + draggedTime;
-            partData[draggedBlockIndex].time =
-              actionTable[armorIndex][partIndex][draggedBlockIndex].time + draggedTime;
-            if (tempActionTable[armorIndex][partIndex][draggedBlockIndex - 2]) {
-              const previousBlockTime =
-                tempActionTable[armorIndex][partIndex][draggedBlockIndex].time;
-              const secondPreviousBlockTime =
-                tempActionTable[armorIndex][partIndex][draggedBlockIndex - 1].time;
-              if (previousBlockTime - secondPreviousBlockTime < blackthreshold) {
-                partData[draggedBlockIndex - 1].time =
-                  actionTable[armorIndex][partIndex][draggedBlockIndex].time + draggedTime - blackthreshold;
+          // 如果拖动方向是向左
+          if (
+            hoveredBlock?.rightedge && // 当前拖动的方块是右边界
+            hoveredBlock?.rightindex === draggedBlockIndex
+          ) {
+            if (
+              tempActionTable[armorIndex][partIndex][draggedBlockIndex].time <
+              tempActionTable[armorIndex][partIndex][draggedBlockIndex + 1]
+                .time +
+                draggedTime
+            ) {
+              partData[draggedBlockIndex + 1].time =
+                actionTable[armorIndex][partIndex][draggedBlockIndex + 1].time +
+                draggedTime;
+            }
+          } else if (
+            hoveredBlock?.leftedge && // 当前拖动的方块是左边界
+            hoveredBlock?.leftindex === draggedBlockIndex
+          ) {
+            if (
+              actionTable[armorIndex][partIndex][draggedBlockIndex].time +
+                draggedTime >
+              0
+            ) {
+              partData[draggedBlockIndex].time =
+                actionTable[armorIndex][partIndex][draggedBlockIndex].time +
+                draggedTime;
+
+              if (
+                tempActionTable[armorIndex][partIndex][draggedBlockIndex - 2]
+              ) {
+                const previousBlockTime =
+                  tempActionTable[armorIndex][partIndex][draggedBlockIndex]
+                    .time;
+                const secondPreviousBlockTime =
+                  tempActionTable[armorIndex][partIndex][draggedBlockIndex - 1]
+                    .time;
+
+                if (
+                  previousBlockTime - secondPreviousBlockTime <
+                  blackthreshold
+                ) {
+                  partData[draggedBlockIndex - 1].time =
+                    actionTable[armorIndex][partIndex][draggedBlockIndex].time +
+                    draggedTime -
+                    blackthreshold;
+                }
+              }
+            }
+          } else {
+            // 普通情况下向左拖动
+            if (
+              actionTable[armorIndex][partIndex][draggedBlockIndex].time +
+                draggedTime >
+              0
+            ) {
+              partData[draggedBlockIndex + 1].time =
+                actionTable[armorIndex][partIndex][draggedBlockIndex + 1].time +
+                draggedTime;
+              partData[draggedBlockIndex].time =
+                actionTable[armorIndex][partIndex][draggedBlockIndex].time +
+                draggedTime;
+
+              if (
+                tempActionTable[armorIndex][partIndex][draggedBlockIndex - 2]
+              ) {
+                const previousBlockTime =
+                  tempActionTable[armorIndex][partIndex][draggedBlockIndex]
+                    .time;
+                const secondPreviousBlockTime =
+                  tempActionTable[armorIndex][partIndex][draggedBlockIndex - 1]
+                    .time;
+
+                if (
+                  previousBlockTime - secondPreviousBlockTime <
+                  blackthreshold
+                ) {
+                  partData[draggedBlockIndex - 1].time =
+                    actionTable[armorIndex][partIndex][draggedBlockIndex].time +
+                    draggedTime -
+                    blackthreshold;
+                }
               }
             }
           }
         }
       });
 
+      // 更新 Redux 中的临时 ActionTable
       dispatch(updateTempActionTable(updatedTable));
     };
 
@@ -449,65 +472,58 @@ const Timeline = forwardRef(
         onMouseMove={handleMouseMove}
         onMouseUp={handleMouseUp}
       >
-        {timelineBlocks.map((block, index) => {
-          const color = block.color || { R: 0, G: 0, B: 0, A: 1 };
-          const isSelected =
-            selectedBlock?.armorIndex === armorIndex &&
-            selectedBlock?.partIndex === partIndex &&
-            selectedBlock?.blockIndex === index;
+      {timelineBlocks.map((block, index) => {
+        // --- 1. 定義狀態變數 ---
+        // 是否在目前這條 Timeline 的選中清單中
+        const isCurrentlyInMultiSelect = multiSelectedBlocks.some(b => 
+          b.armorIndex === armorIndex && 
+          b.partIndex === partIndex && 
+          b.blockIndex === index
+        );
 
-          const isMultiSelected = multiSelectedBlocks.some(b => 
-              b.armorIndex === armorIndex && 
-              b.partIndex === partIndex && 
-              b.blockIndex === index
-          );
+        // A. 判斷是否為「貼上目標」(綠色)：在複製模式下且被點擊選中
+        const isPasteTarget = isCopying && isCurrentlyInMultiSelect;
 
-          // 計算顏色距離的函式
-          const colorDistance = (color1, color2) => {
-            return Math.sqrt(
-              Math.pow(color1.R - color2.R, 2) +
-                Math.pow(color1.G - color2.G, 2) +
-                Math.pow(color1.B - color2.B, 2)
-            );
-          };
+        // B. 判斷是否為「複製來源」(橘色)：從剪貼簿讀取當初 Ctrl+C 的位置
+        const isCopySource = isCopying && clipboard?.sourceBlocks?.some(b => 
+          b.armorIndex === armorIndex && 
+          b.partIndex === partIndex && 
+          b.blockIndex === index
+        );
 
-          // 預設選取框顏色
-          let selectionBorderColor = "#FFA500"; // 橘色
-          const colorThreshold = 200; // 設定距離閾值
+        // C. 判斷是否為「普通選取」(橘色)：非複製模式下的正常選取
+        const isNormalSelected = !isCopying && isCurrentlyInMultiSelect;
 
-          // 如果選取的方塊顏色和預設選取框顏色相似，就改變選取框顏色
-          if (colorDistance(color, { R: 255, G: 165, B: 0 }) < colorThreshold) {
-            selectionBorderColor = "#00FFFF"; // 改成青色
-          }
+        // --- 2. 顏色與樣式邏輯 ---
+        const color = block.color || { R: 0, G: 0, B: 0, A: 1 };
+        const currentBlockData = actionTable[armorIndex]?.[partIndex]?.[index];
+        const isFade = currentBlockData?.linear === 1;
 
-          const currentBlockData = actionTable[armorIndex]?.[partIndex]?.[index];
-          const isFade = currentBlockData?.linear === 1;
+        // 定義背景
+        let backgroundStyle;
+        if (isFade) {
+          const partTimeline = actionTable[armorIndex]?.[partIndex];
+          const nextBlock = partTimeline?.[index + 1];
+          const nextNextBlock = partTimeline?.[index + 2];
+          const isBlack = (c) => c && c.R === 0 && c.G === 0 && c.B === 0;
+          let endColor = { R: 0, G: 0, B: 0, A: 1 };
+          if (nextBlock && !isBlack(nextBlock.color)) endColor = nextBlock.color;
+          else if (nextNextBlock) endColor = nextNextBlock.color;
+          backgroundStyle = `linear-gradient(to right, rgba(${color.R},${color.G},${color.B},${color.A}), rgba(${endColor.R},${endColor.G},${endColor.B},${endColor.A}))`;
+        } else {
+          backgroundStyle = `rgba(${color.R}, ${color.G}, ${color.B}, ${color.A})`;
+        }
 
-          let backgroundStyle;
-
-          if (isFade) {
-            const partTimeline = actionTable[armorIndex]?.[partIndex];
-            const nextBlock = partTimeline?.[index + 1];
-            const nextNextBlock = partTimeline?.[index + 2];
-            const isBlack = (c) => c && c.R === 0 && c.G === 0 && c.B === 0;
-
-            let endColor = { R: 0, G: 0, B: 0, A: 1 }; // Default to black
-
-            if (nextBlock && !isBlack(nextBlock.color)) {
-              endColor = nextBlock.color;
-            } else if (nextNextBlock) {
-              endColor = nextNextBlock.color;
-            }
-
-            const startColorString = `rgba(${color.R}, ${color.G}, ${color.B}, ${color.A})`;
-            const endColorString = `rgba(${endColor.R}, ${endColor.G}, ${endColor.B}, ${endColor.A})`;
-            backgroundStyle = `linear-gradient(to right, ${startColorString}, ${endColorString})`;
-          } else {
-            backgroundStyle = `rgba(${color.R}, ${color.G}, ${color.B}, ${color.A})`;
-          }
+        // 計算框線顏色
+        const colorDistance = (c1, c2) => Math.sqrt(
+          Math.pow((c1.R||0)-(c2.R||0),2) + Math.pow((c1.G||0)-(c2.G||0),2) + Math.pow((c1.B||0)-(c2.B||0),2)
+        );
+        let selectionBorderColor = "#FFA500"; // 橘色
+        if (colorDistance(color, { R: 255, G: 165, B: 0 }) < 200) {
+          selectionBorderColor = "#00FFFF"; // 改為青色
+        }
 
           // 設定 blockStyle
-          const isBlackBlock = color.R === 0 && color.G === 0 && color.B === 0;
           const blockStyle = {
             display: "inline-block",
             background: backgroundStyle,
@@ -515,17 +531,51 @@ const Timeline = forwardRef(
             height: "90%",
             position: "relative",
             borderRadius: "7px",
-            border: isSelected || isMultiSelected ? `3px solid ${selectionBorderColor}` : "none",
+            // border: isSelected || isMultiSelected ? `3px solid ${selectionBorderColor}` : "none",
+            zIndex: (isPasteTarget || isCopySource) ? 10 : 1,
+            // 優先權：貼上目標(綠) > 複製來源(橘) > 普通選取
+            border: isPasteTarget 
+              ? "4px solid #00FF00" 
+              : (isCopySource || isNormalSelected ? `3px solid ${selectionBorderColor}` : "none"),
             boxSizing: "border-box",
             zIndex: 1,
-            cursor: moveMode && !isBlackBlock ? "grab" : "pointer",
           };
 
+          const handleMouseLeave2 = (edge) => {
+            setHoveredBlock((prev) => {
+              const updatedBlock = { ...prev, [edge]: false };
+              if (edge === "leftedge") updatedBlock.leftindex = null;
+              if (edge === "rightedge") updatedBlock.rightindex = null;
+              return updatedBlock;
+            });
+          };
+
+          const handleMouseMoveLeft = (index) => {
+            setHoveredBlock((prev) => ({
+              ...prev,
+              leftedge: true,
+              leftindex: index,
+            }));
+          };
+
+          const handleMouseMoveRight = (index) => {
+            setHoveredBlock((prev) => ({
+              ...prev,
+              rightedge: true,
+              rightindex: index,
+            }));
+          };
           return (
             <div
-              style={blockStyle}
+              key={index}
+              style={{
+                ...blockStyle,
+                ...(hoveredBlock?.index === index
+                  ? { opacity: 0.85 } // 懸停時透明度
+                  : { opacity: 1 }), // 預設透明度
+              }}
               className="timeline-block"
-              onMouseDown={(e) => handleMouseDown(e, index)}
+              onMouseDown={(e) => handleMouseDown(e, index)} // 點擊方塊選中
             >
               {currentBlockData?.linear === 1 && (
                 <FontAwesomeIcon

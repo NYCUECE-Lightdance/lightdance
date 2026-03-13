@@ -9,3 +9,21 @@
   transform: scale(1.0005); /* 鼠标悬停时放大 */
   transition: all 0.1s ease-in-out;
 }
+
+/* Timeline 方塊通用樣式 */
+.timeline-block {
+  transition: border 0.1s ease;
+}
+
+/* 綠色目標框：代表 Ctrl+V 會貼到這個部位 */
+.timeline-block[style*="rgb(0, 255, 0)"] {
+  box-shadow: 0 0 10px rgba(0, 255, 0, 0.8);
+  border: 4px solid #00FF00 !important;
+  z-index: 10;
+}
+
+/* 懸浮英文文字提示位置微調 */
+.shift-main-button:hover .tooltip {
+  width: 300px;
+  left: -120px;
+}
