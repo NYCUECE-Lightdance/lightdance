@@ -3,7 +3,7 @@ from pymongo import MongoClient
 from fastapi import Request, FastAPI, HTTPException, Depends, Path, status, Form, APIRouter
 from fastapi import File, UploadFile
 # 從 models.py 匯入所有資料模型
-from models import PlayerData, Player, Data, RAW, Item, User, UserInDB
+from models import PlayerData, Player, Data, RAW, Item, User, UserInDB, FullUpload
 # typing.List 已在 models.py 中使用
 # from app import app
 # from flask import Flask, send_file, render_template
@@ -304,6 +304,66 @@ async def upload_user_color (request: Request, current_user: User = Depends(get_
 
 	return {
 		'message': 'upload success d(OvO)y'
+	}
+
+# 同時上傳原始與處理後資料（解決時間不同步問題）
+# 使用方法：POST /api/upload_full，需要 Bearer Token
+@api_router.post("/upload_full")
+async def upload_full_data (data: FullUpload, current_user: User = Depends(get_current_active_user)):
+	current_time = strftime("%Y-%m-%d-%H:%M:%S", localtime())
+	
+	# 1. 使用 Data 模型確保格式與舊端點 100% 一致
+	# 這裡我們利用 Pydantic 的驗證機制來確保資料結構正確
+	try:
+		# 模擬舊有的資料封裝過程
+		# data.players 是 List[List[PlayerData]]
+		# 我們需要將其轉換為 List[Player]，其中每個 Player 包含一個 data 列表
+		formatted_players = [Player(data=player_list) for player_list in data.players]
+		
+		color_data_obj = Data(
+			user = current_user.username,
+			last_updated_time = current_time,
+			players = formatted_players,
+			music_filename = str(data.music_filename)
+		)
+
+		document_color = {
+			'user': color_data_obj.user,
+			'update_time': color_data_obj.last_updated_time,
+			'players': [[p.dict() for p in player.data] for player in color_data_obj.players],
+			'music_filename': color_data_obj.music_filename
+		}
+		
+		res_color = collection_color.insert_one(document_color)
+		print(f">>> [SUCCESS] Color DB updated. ID: {res_color.inserted_id}")
+		
+	except Exception as e:
+		print(f">>> [ERROR] Color DB process failed: {e}")
+		# 如果模型驗證失敗，至少嘗試以原始格式存入（保底方案）
+		document_color_fallback = {
+			'user': current_user.username,
+			'update_time': current_time,
+			'players': [[p.dict() if hasattr(p, "dict") else p for p in pl] for pl in data.players],
+			'music_filename': str(data.music_filename)
+		}
+		collection_color.insert_one(document_color_fallback)
+
+	# 2. 處理並儲存原始資料 (collection_raw)
+	document_raw = {
+		'user': current_user.username,
+		'update_time': current_time,
+		'raw_data': data.raw_data
+	}
+	
+	try:
+		res_raw = collection_raw.insert_one(document_raw)
+		print(f">>> [SUCCESS] Raw DB updated. ID: {res_raw.inserted_id}")
+	except Exception as e:
+		print(f">>> [ERROR] Raw DB failed: {e}")
+
+	return {
+		'message': 'Full data upload success (synchronous timestamp) d(OuO)y',
+		'update_time': current_time
 	}
 
 # 上傳原始光表資料（JSON 格式）

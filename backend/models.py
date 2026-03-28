@@ -72,6 +72,16 @@ class RAW(BaseModel):
     raw_data: str
 
 
+class FullUpload(BaseModel):
+    """
+    完整的上傳資料格式
+    同時包含原始資料與處理後供播放用的資料
+    """
+    raw_data: str
+    players: List[List[PlayerData]]
+    music_filename: Union[str, int]
+
+
 class Item(BaseModel):
     """
     時間軸項目資料

@@ -76,7 +76,7 @@ services:
       MONGO_INITDB_ROOT_PASSWORD: ${MONGO_PASSWORD:-password}
     volumes:
       # 使用 Docker volume 儲存資料庫,避免 Windows 檔案系統權限問題
-      - mongo_data:/data/db
+      - ./db:/data/db
       - ./mongo-init:/docker-entrypoint-initdb.d
     networks:
       app-network:
