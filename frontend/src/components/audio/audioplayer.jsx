@@ -391,7 +391,7 @@ function AudioPlayer({ setButtonState, timelineRef }) {
           applyBlinkEffect(userInput);
         }
       } else {
-        console.warn("Please select exactly one block to use Blink effect.");
+        alert("Please select exactly one block to use Blink effect.");
       }
     }
     if (event.key === "ArrowRight" || event.key === "ArrowLeft") {

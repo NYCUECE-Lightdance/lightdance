@@ -16,7 +16,7 @@ This document lists the available keyboard shortcuts for the Light Dance applica
 -   **Delete / Backspace**: Delete selected block(s).
 -   **C**: Cut the selected block at the current time (only when exactly one block is selected).
 -   **L**: Toggle the "Linear" (gradient) property for the selected block(s). When enabled, the color of the block will transition smoothly to the next block.
--   **B**: Open the "Blink" effect menu for the selected block (only when exactly one block is selected).
+-   **B**: Open a prompt to enter the "Blink" (strobe) interval in milliseconds (only when exactly one block is selected). The interval must be a multiple of 50.
 -   **M**: Open the color picker to change the color of the selected block(s).
 -   **Ctrl + Z**: Undo the last action.
 -   **Ctrl + Y**: Redo the undone action.
