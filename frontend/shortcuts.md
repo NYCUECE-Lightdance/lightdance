@@ -36,3 +36,21 @@ This document lists the available keyboard shortcuts for the Light Dance applica
 -   **Shift + C**: Copy the **entire** timeline of the selected track.
 -   **Shift + V**: Paste the **entire** timeline to the currently selected track (overwriting it).
 -   **Escape**: Cancel Copying Mode / Clear selection.
+
+## Selection & Multi-select
+
+-   **Click**: Select a single block. 
+    * If in **Copying Mode**, the clicked block becomes the **Paste Target** (highlighted with a **Green border**).
+    * Clicking a **Black block** (transition) will clear all current selections.
+-   **Shift + Click**: Select a range of blocks between the first selected block (anchor) and the clicked block.
+    * **Smart Filter**: Black transition blocks ($R=0, G=0, B=0$) within the range are automatically excluded from the selection to prevent accidental color overrides.
+-   **Click Empty Area**: Click any area outside the timeline blocks, palette, or controls to clear all selections and deactivate "Color Change" mode.
+
+## Visual Indicators
+
+| Border Color | Meaning |
+| :--- | :--- |
+| **Orange** | Normal selection or Copy Source (the block you just pressed Ctrl+C on). |
+| **Green** | Paste Target (the destination block when `isCopying` is active). |
+| **Cyan** | Selected block that is already close to Orange (auto-adjusted for visibility). |
+| **Wand Icon** | Indicates the block has the `Linear` (gradient) property enabled. |
