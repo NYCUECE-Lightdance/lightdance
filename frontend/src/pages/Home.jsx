@@ -136,35 +136,6 @@ function Home({ rgba, setRgba, setButtonState }) {
     navigate("/"); // Redirect to login page after logout
   };
 
-  async function handleOutputString(BearerToken) {
-    // Upload raw data
-    setIsDirty(false);
-    setIsLoaded(false);
-    console.log("-token- : ", BearerToken);
-    // let result = JSON.stringify(actionTable);
-    let result = JSON.stringify(data);
-    // console.log("upload(raw) : ", JSON.stringify(result));
-    const response = await fetch(API_ENDPOINTS.UPLOAD_RAW, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json", // 這是你後端需要的 Content-Type
-        Authorization: `Bearer ${BearerToken}`, // 如果需要授權，記得帶上 token
-      },
-      body: JSON.stringify({ raw_data: result }), // 轉換為 JSON 字串
-      mode: "cors",
-    });
-    if (!response.ok) {
-      alert("upload failed");
-      console.error("Response Error:", response.status, response.statusText);
-      const errorText = await response.text();
-      throw new Error(
-        `HTTP error! Status: ${response.status}, Message: ${errorText}`
-      );
-    } else {
-      alert("upload successful");
-    }
-  }
-
   async function handleOutput() {
     console.log("UPLOAD_RAW:", API_ENDPOINTS.UPLOAD_RAW);
     console.log("UPLOAD_ITEMS:", API_ENDPOINTS.UPLOAD_ITEMS);
@@ -320,21 +291,30 @@ function Home({ rgba, setRgba, setButtonState }) {
     let BearerToken = "";
     token === "" ? (BearerToken = " ") : (BearerToken = token);
   
-    handleOutputString(BearerToken);
-  
-    const response = await fetch(API_ENDPOINTS.UPLOAD_ITEMS, {
+    // 使用新的合併端點上傳，確保時間戳記一致
+    const fullUploadData = {
+      raw_data: JSON.stringify(data),
+      players: players,
+      music_filename: String(musicFilename)
+    };
+
+    const response = await fetch(API_ENDPOINTS.UPLOAD_FULL, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
         Authorization: `Bearer ${BearerToken}`,
       },
-      body: JSON.stringify(result),
+      body: JSON.stringify(fullUploadData),
       mode: "cors",
     });
+
     if (response.ok) {
-      // 這裡多加一個 alert，或是把 handleOutputString 裡的 alert 移到這裡
-      alert("原始檔與播放檔皆上傳成功！"); 
-      console.log("upload(translated) : ", JSON.stringify(result));
+      setIsDirty(false);
+      alert("原始檔與播放檔皆上傳成功！ (同步時間戳記)"); 
+      console.log("upload(full) : ", JSON.stringify(fullUploadData));
+    } else {
+      alert("上傳失敗");
+      console.error("Upload Error:", response.status);
     }
 
   }
