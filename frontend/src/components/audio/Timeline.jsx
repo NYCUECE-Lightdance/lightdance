@@ -476,7 +476,7 @@ const Timeline = forwardRef(
     //     dispatch(updateActionTable(tempActionTable));
     //   }
     // };
-
+    // stretch mode
     // 開始邊緣 resize：掛載全域 mousemove/mouseup，透過 DOM 直接更新寬度（零延遲）
     // edge: 'left' | 'right'，tlIdx: timelineBlocks index
     const startBlockResize = (e, tlIdx, edge) => {
