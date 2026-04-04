@@ -7,6 +7,12 @@ import App from "./App.jsx";
 import reportWebVitals from "./reportWebVitals";
 
 const root = ReactDOM.createRoot(document.getElementById("root"));
+// root.render(
+//   <Provider store={store}>
+//     <App />
+//   </Provider>
+// );
+console.log("Store:", store.getState())
 root.render(
   <Provider store={store}>
     <PersistGate loading={null} persistor={persistor}>
