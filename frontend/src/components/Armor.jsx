@@ -1,4 +1,4 @@
-import { useEffect, useMemo } from "react";
+import { useEffect } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import "./Armor.css";
 import {
@@ -6,43 +6,41 @@ import {
   updateCurrentTime,
 } from "../redux/actions";
 
-// 部位名稱常數（對應 Home.jsx 的輸出映射）
-const PART_NAMES = [
-  "hat",           // 0:帽子
-  "face",          // 1:臉部
-  "chestL",        // 2:左胸
-  "chestR",        // 3:右胸
-  "armL",          // 4:左手臂
-  "armR",          // 5:右手臂
-  "tie",           // 6:領帶
-  "belt",          // 7:腰帶
-  "gloveL",        // 8:左手套
-  "gloveR",        // 9:右手套
-  "legL",          // 10:左腿
-  "legR",          // 11:右腿
-  "shoeL",         // 12:左鞋
-  "shoeR",         // 13:右鞋
-  "board",         // 14:板子
-];
-
 const Armor = (props) => {
   const dispatch = useDispatch();
-  const actionTable = useSelector((state) => state.profiles.actionTable);
+  const data = useSelector((state) => state.profiles.data);
+  const actionTable = data?.actionTable || [];
   const time = useSelector((state) => state.profiles.currentTime);
   const duration = useSelector((state) => state.profiles.duration);
   const chosenColor = useSelector((state) => state.profiles.chosenColor);
-  const selectedBlock = useSelector((state) => state.profiles.selectedBlock);
+  const multiSelectedBlocks = useSelector((state) => state.profiles.multiSelectedBlocks);
   const myId = props.index;
   const blackthreshold = 10;
 
   useEffect(() => {
-    console.log("actionTable: ", actionTable);
-  }, [actionTable]);
+    console.log("data: ", data);
+  }, [data]);
 
-  // 使用 useMemo 確保在 time 或 actionTable 變化時重新計算顏色
-  const colors = useMemo(() => {
-    console.log(`[Armor ${myId}] Recalculating colors, time=${time}`);
+  // 新的部位名稱（對應 Home.jsx 的輸出映射）
+  const partNames = [
+    "hat",           // 0:帽子
+    "face",          // 1:臉部
+    "chestL",        // 2:左胸
+    "chestR",        // 3:右胸
+    "armL",          // 4:左手臂
+    "armR",          // 5:右手臂
+    "tie",           // 6:領帶
+    "belt",          // 7:腰帶
+    "gloveL",        // 8:左手套
+    "gloveR",        // 9:右手套
+    "legL",          // 10:左腿
+    "legR",          // 11:右腿
+    "shoeL",         // 12:左鞋
+    "shoeR",         // 13:右鞋
+    "board",         // 14:板子
+  ];
 
+<<<<<<< HEAD
     // 根據部位索引和當前時間計算顏色（支援時間漸變）
     const getColorForPart = (part) => {
       const partData = actionTable?.[myId]?.[part] || [];
@@ -51,11 +49,44 @@ const Armor = (props) => {
       const currentBlock = partData.find(
         (block) => block.startTime <= time && time < block.endTime
       );
+=======
+  // 根據部位名稱和當前時間計算顏色
+  const getColorForPart = (part) => {
+    const partData = actionTable?.[myId]?.[part] || [];
+    const timeIndex = binarySearchFirstGreater(partData, time);
+    const prevData = partData?.[timeIndex - 1];
+    const nextData = partData?.[timeIndex];
+>>>>>>> 7ca4da396943de1f136440c3745a54867cf826b5
 
-      if (!currentBlock) {
-        return `rgba(0, 0, 0, 1)`;
+    if (prevData && prevData.linear === 1 && nextData) {
+      const afterNextData = partData?.[timeIndex + 1];
+
+      const startTime = prevData.time;
+      const endTime = nextData.time;
+      const currentTime = time;
+
+      const startColor = prevData.color;
+      const endColor = afterNextData?.color || { R: 0, G: 0, B: 0, A: 1 };
+
+      if (endTime > startTime) {
+        const ratio = (currentTime - startTime) / (endTime - startTime);
+        const r = Math.round(
+          startColor.R * (1 - ratio) + endColor.R * ratio
+        );
+        const g = Math.round(
+          startColor.G * (1 - ratio) + endColor.G * ratio
+        );
+        const b = Math.round(
+          startColor.B * (1 - ratio) + endColor.B * ratio
+        );
+        const startA = startColor.A ?? 1;
+        const endA = endColor.A ?? 1;
+        const a = startA * (1 - ratio) + endA * ratio;
+        return `rgba(${r}, ${g}, ${b}, ${a})`;
       }
+    }
 
+<<<<<<< HEAD
       const color = currentBlock.color || { R: 0, G: 0, B: 0, A: 1 };
 
       // 如果當前光塊沒有啟用漸變，直接回傳顏色
@@ -91,12 +122,21 @@ const Armor = (props) => {
       }
 
       return `rgba(${interpolatedR}, ${interpolatedG}, ${interpolatedB}, ${interpolatedA})`;
+=======
+    const colorData = prevData?.color || {
+      R: 0,
+      G: 0,
+      B: 0,
+      A: 1,
+>>>>>>> 7ca4da396943de1f136440c3745a54867cf826b5
     };
+    
+    return `rgba(${colorData.R}, ${colorData.G}, ${colorData.B}, ${colorData.A})`;
+  };
 
-    return Object.fromEntries(
-      PART_NAMES.map((name, index) => [name, getColorForPart(index)])
-    );
-  }, [time, actionTable, myId]);
+  const colors = Object.fromEntries(
+    partNames.map((name, index) => [name, getColorForPart(index)])
+  );
 
   function insertArray(part) {
     const partData = actionTable?.[myId]?.[part] || [];
@@ -179,10 +219,9 @@ const Armor = (props) => {
 
 
   const isSelected = (part) => {
-    return (
-      selectedBlock &&
-      selectedBlock.armorIndex === myId &&
-      selectedBlock.partIndex === part
+    return multiSelectedBlocks.some(b => 
+      b.armorIndex === myId && 
+      b.partIndex === part
     );
   };
 

@@ -185,6 +185,7 @@
   display: flex;
   align-items: center;
   gap: 10px;
+  width: 250px;
 }
 .zoom-controls {
   display: flex;
@@ -235,8 +236,29 @@
 
 .time-display {
   color: white;
-  font-size: 16px;
-  margin-right: 20px;
+  /* font-size: 16px;
+  margin-right: 20px; */
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.current-time-box {
+  color: white;
+  width: 80px;      /* 根據你的格式固定寬度 */
+  text-align: right; /* 靠右對齊，這樣左邊增加位數時不會推擠到右邊 */
+}
+
+.duration-box {
+  color: white;
+  width: 80px;
+  text-align: left;  /* 總長度靠左對齊 */
+}
+
+.time-separator {
+  color: white;
+  width: 10px;
+  text-align: center;
 }
 
 .volume-slider {
@@ -326,32 +348,60 @@
   display: inline-block; /* 或者 flex / inline-flex，看你想怎麼排 */
 }
 
+/* 修改後的效果選單樣式 */
+
 .effect-menu {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  margin-bottom: 8px;
+  background-color: rgb(49, 47, 47); /* 與按鈕一致的實色背景 */
+  border: 1px solid rgb(70, 70, 70); /* 加入微細邊框增加層次感 */
+  border-radius: 5px;
+  padding: 4px 0;
+  z-index: 1000;
   display: flex;
   flex-direction: column;
-  align-items: flex-start;
-  gap: 4px;
-  position: absolute;
-  top: 100%; /* 正好在 wrapper 底部 */
-  left: 0; /* 跟按鈕左邊對齊 */
-  margin-top: 4px;
-  /* top: 40px;
-  right: 20px; */
-  background: #333;
-  border-radius: 6px;
-  padding: 8px;
-  z-index: 1000;
-  white-space: nowrap; /* 單行不換行 */
+  min-width: 110px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
 }
 
 .effect-menu-item {
-  padding: 6px 12px;
+  padding: 0px 15px;
   cursor: pointer;
-  color: #fff;
+  color: rgb(150, 146, 146); /* 未選取時的一致灰色 */
+  font-size: 14px;
+  white-space: nowrap;
+  position: relative;
+  transition: background-color 0.2s, color 0.2s;
+  background-color: rgb(49, 47, 47); /* 預設與背景同色 */
 }
 
-.effect-menu-item:hover {
-  background: #444;
+/* 選取/懸停時的樣式：顏色變白，背景加亮 */
+.effect-menu-item:hover, 
+.effect-menu-item.active {
+  background-color: rgb(70, 70, 70) !important; 
+  color: white !important;
+}
+
+/* 子選單容器：向右平移 */
+.effect-submenu {
+  position: absolute;
+  left: 100%; /* 從父項目右邊緣開始 */
+  top: -4px; /* 稍微向上校準對齊父項目頂部 */
+  margin-left: 2px; /* 子選單與母選單的小間隙 */
+  background-color: rgb(49, 47, 47); /* 顏色完全一致 */
+  border: 1px solid rgb(70, 70, 70);
+  border-radius: 5px;
+  padding: 4px 0;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 4px 0 12px rgba(0, 0, 0, 0.5);
+}
+
+/* 確保子選單內的項目寬度與間距一致 */
+.effect-submenu .effect-menu-item {
+  min-width: 90px;
 }
 
 .gradient-settings-popup {
@@ -399,4 +449,230 @@
 
 .gradient-settings-actions button:hover {
   color: #ffffff; /* 悬停背景色 */
+}
+
+/* 平移功能外層 */
+.shift-tool-wrapper {
+  display: flex;
+  align-items: center;
+}
+
+/* 主按鈕樣式 - 繼承自原本的 .cut-button 等 */
+.shift-main-button {
+  background-color: rgb(49, 47, 47);
+  color: rgb(150, 146, 146);
+  border: none;
+  border-radius: 5px;
+  padding: 5px 10px;
+  cursor: pointer;
+  z-index: 10;
+  transition: color 0.2s ease-in-out;
+}
+
+.shift-main-button:hover {
+  color: white;
+}
+
+/* 懸停 Tooltip (與原本 logic 相同) */
+.shift-main-button:hover .tooltip {
+  visibility: visible;
+  opacity: 1;
+}
+
+/* 引導面板樣式 */
+.shift-guide-panel {
+  display: flex;
+  align-items: center;
+  background: rgb(30, 30, 30);
+  border: 1px solid #0dcaf0;
+  border-radius: 5px;
+  padding: 4px 12px;
+  gap: 10px;
+  z-index: 100;
+  animation: pulse-border 1.5s infinite;
+}
+
+.shift-message {
+  color: #0dcaf0;
+  font-size: 14px;
+  font-weight: bold;
+  white-space: nowrap;
+}
+
+/* 面板內的確定/取消按鈕 */
+.shift-confirm-btn, .shift-cancel-btn {
+  background-color: rgb(49, 47, 47);
+  color: white;
+  border: none;
+  border-radius: 4px;
+  padding: 2px 8px;
+  cursor: pointer;
+  font-size: 13px;
+}
+
+.shift-confirm-btn:hover {
+  background-color: #0dcaf0;
+  color: black;
+}
+
+.shift-cancel-btn:hover {
+  background-color: #dc3545;
+}
+
+/* 動態發光效果 */
+@keyframes pulse-border {
+  0% { box-shadow: 0 0 0 0 rgba(13, 202, 240, 0.4); }
+  70% { box-shadow: 0 0 0 8px rgba(13, 202, 240, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(13, 202, 240, 0); }
+}
+
+/* 平移戳記通用樣式 */
+.shift-marker {
+  position: absolute;
+  bottom: 0;
+  width: 2px;
+  height: 100%; /* 貫穿整個波形與時間軸區域 */
+  z-index: 15;
+  pointer-events: none; /* 不影響滑鼠操作 */
+  transition: left 0.1s ease-out;
+}
+
+/* 戳記上方的文字標籤 */
+.marker-label {
+  position: absolute;
+  top: -20px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 10px;
+  padding: 2px 4px;
+  border-radius: 3px;
+  color: white;
+  white-space: nowrap;
+}
+
+/* 起始點樣式: 鮮綠色 */
+.start-marker {
+  background-color: #2ecc71;
+  box-shadow: 0 0 8px #2ecc71;
+}
+.start-marker .marker-label {
+  background-color: #2ecc71;
+}
+
+/* 結束點樣式: 亮橘色 */
+.end-marker {
+  background-color: #e67e22;
+  box-shadow: 0 0 8px #e67e22;
+}
+.end-marker .marker-label {
+  background-color: #e67e22;
+}
+
+/* 播放紅線樣式微調 (確保層級最高) */
+.progress-flag {
+  z-index: 20;
+  width: 3px;
+  box-shadow: 0 0 10px rgba(255, 0, 0, 0.7);
+}
+
+/* 區間複製模式下的提示標籤 (選填) */
+.copy-mode-overlay {
+  position: fixed;
+  top: 10px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(46, 204, 113, 0.9);
+  color: white;
+  padding: 8px 20px;
+  border-radius: 20px;
+  z-index: 1000;
+  font-weight: bold;
+  pointer-events: none;
+  box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+}
+
+/* 確保多選框與目標框有明顯區別 */
+.timeline-block {
+  transition: border 0.2s ease;
+}
+
+.copy-mode-banner {
+  position: fixed;
+  top: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: #27ae60;
+  color: white;
+  padding: 10px 20px;
+  border-radius: 30px;
+  box-shadow: 0 4px 15px rgba(0,0,0,0.4);
+  z-index: 2000;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  animation: slide-down 0.3s ease-out;
+}
+
+.hint-text {
+  font-size: 11px;
+  opacity: 0.8;
+  margin-top: 4px;
+}
+
+@keyframes slide-down {
+  from { top: -50px; opacity: 0; }
+  to { top: 20px; opacity: 1; }
+}
+
+/* 修改或新增以下樣式 */
+
+.effect-menu {
+  position: absolute;
+  bottom: 100%; /* 位於按鈕上方 */
+  left: 0;
+  margin-bottom: 5px; /* 與按鈕保持一點距離 */
+  background-color: rgb(49, 47, 47); /* 使用與按鈕一致的顏色 */
+  border-radius: 5px;
+  padding: 5px 0;
+  z-index: 1000;
+  display: flex;
+  flex-direction: column;
+  min-width: 100px;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.5);
+}
+
+.effect-menu-item {
+  padding: 8px 15px;
+  cursor: pointer;
+  color: rgb(150, 146, 146);
+  font-size: 14px;
+  white-space: nowrap;
+  position: relative; /* 為了讓 submenu 定位 */
+  transition: all 0.2s ease;
+}
+
+.effect-menu-item:hover, 
+.effect-menu-item.active {
+  background-color: rgb(70, 70, 70); /* Hover 時稍微變亮 */
+  color: white;
+}
+
+/* 向右延伸的子選單樣式 */
+.effect-submenu {
+  position: absolute;
+  left: 100%; /* 正好在父項目的右邊 */
+  top: 0;
+  margin-left: 2px; /* 稍微空出一點縫隙，避免視覺太擠 */
+  background-color: rgb(49, 47, 47); /* 顏色與原本一致 */
+  border-radius: 5px;
+  padding: 5px 0;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 4px 4px 8px rgba(0, 0, 0, 0.5);
+}
+
+/* 讓子選單中的項目也具備一樣的 Hover 效果 */
+.effect-submenu .effect-menu-item {
+  min-width: 80px;
+  border-bottom: none;
 }

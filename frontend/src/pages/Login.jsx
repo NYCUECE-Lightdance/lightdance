@@ -6,6 +6,7 @@ import { persistor } from "../redux/store.js"; // Assuming you have a persistor 
 import { useDispatch, useSelector } from "react-redux";
 import {
   updateAccessToken,
+  updateUser,
   updateUserName,
   updateAutoRefresh,
 } from "../redux/actions";
@@ -52,9 +53,11 @@ const Login = () => {
         dispatch({ type: "REFRESH" });
 
         dispatch(updateAccessToken(data.access_token));
+        dispatch(updateUser(idNumber));
         dispatch(updateUserName(idNumber));
         dispatch(updateAutoRefresh(2));
-        navigate("/home"); // Redirect to /home if login is successful
+        // navigate("/home"); // Redirect to /home if login is successful
+        navigate("/dashboard");
       } else {
         console.error("Login failed: Incorrect username or password");
         alert("Login failed: Incorrect username or password");
