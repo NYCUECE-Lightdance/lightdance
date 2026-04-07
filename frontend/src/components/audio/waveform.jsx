@@ -1,34 +1,6 @@
 import React, { useEffect, useRef, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { API_ENDPOINTS } from "../../config/api.js";
-import music from "./musicsrc/2026_funding.mp3";
-// 引入所有音樂檔案
-import music0 from "./musicsrc/2026_funding.mp3";
-import music1 from "./musicsrc/3.mp3";
-import music2 from "./musicsrc/4.mp3";
-import music3 from "./musicsrc/5.mp3";
-import music4 from "./musicsrc/Clean Bandit - Symphony.mp3";
-import music5 from "./musicsrc/fixed_audio.mp3";
-import music6 from "./musicsrc/lightdance V2.mp3";
-import music7 from "./musicsrc/lightdance V3.mp3";
-import music8 from "./musicsrc/SoundHelix-Song-9.mp3";
-import music9 from "./musicsrc/test1.mp3";
-import music10 from "./musicsrc/test2.mp3";
-import music11 from "./musicsrc/test3.m4a";
-import music12 from "./musicsrc/test4.m4a";
-
-// 1. 導出音樂清單
-export const musicList = [
-  music0, music1, music2, music3, music4, music5, music6, music7, music8, music9, music10, music11, music12
-];
-
-// 2. 導出易讀的檔名列表 (供選單顯示)
-export const musicNames = [
-  "2026 Funding", "Track 3", "Track 4", "Track 5", "Symphony", 
-  "Fixed Audio", "Lightdance V2", "Lightdance V3", "SoundHelix 9", 
-  "Test 1", "Test 2", "Test 3", "Test 4"
-];
-
 import {
   updateCurrentTime,
   updateDuration,

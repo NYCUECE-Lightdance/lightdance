@@ -18,7 +18,6 @@ const initialState = {
   redoStack: [], // 用于存储 redo 快照
   isColorChangeActive: false,
   playbackRate: 1,
-  magnetActive: false,
   showPart: [
     { id: 1, armorIndex: 0, partIndex: 0, hidden: false },
     { id: 2, armorIndex: 1, partIndex: 0, hidden: false },
@@ -150,25 +149,6 @@ export const profiles = (state = initialState, action) => {
     case "UPDATEPLAYBACKRATE":
       return { ...state, playbackRate: action.payload };
 
-    case "UPDATEMAGNETACTIVE":
-      return { ...state, magnetActive: action.payload };
-
-    case "UPDATEHISTORY": {
-      // 防止重复记录
-      if (
-        state.history.length > 0 &&
-        JSON.stringify(state.history[state.history.length - 1]) ===
-          JSON.stringify(state.data.actionTable)
-      ) {
-        return state; // 如果当前状态与上一个状态相同，跳过更新
-      }
-
-      return {
-        ...state,
-        history: [...state.history, state.data.actionTable], // 推入新的历史记录
-        redoStack: [], // 清空 redo 堆栈
-      };
-    }
     case "UPDATEUNDO": {
       // console.log(state.history);
 

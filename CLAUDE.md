@@ -275,6 +275,120 @@ Home 上方 Dropdown 列出 `/api/timelist/{username}`，選一筆 → `/api/raw
 | 存檔 | Output 按鈕（同時送 raw + items）|
 | 確認沒爆音樂長度 | 改 duration 後系統自動裁切超出的關鍵格 |
 
+## 色塊資料模型重構計畫 (進行中)
+
+> 詳細執行步驟與 checklist 見 [todo.md](todo.md)。本章節記錄設計動機與已拍板的決策，
+> 讓未來的協作者（與 Claude）一進專案就能看到方向。
+
+### 為什麼要改
+
+目前 `actionTable[armor][part] = [{time, color, linear}, ...]` 是「關鍵格 + 黑色哨兵」模型。
+為了表達「色塊在此結束、不要漸變到下一段」，必須在前後塞純黑斷點，導致：
+
+- [Armor.jsx `insertArray`](frontend/src/components/Armor.jsx) 有 5 分支判斷前/後是不是黑，
+  並用魔術數字 `blackthreshold = 10ms` 偷偷偏移使用者輸入的時間
+- [ControlPanel.jsx](frontend/src/components/ControlPanel.jsx) W/S/A/D 必須「自動跳過黑色」
+- [Home.jsx `cleanActionTableByDuration`](frontend/src/pages/Home.jsx) 要重新尋找/補上黑色終止格
+- 線性插值 (`handleOutput`) 要抓 prev/next/afterNext 三格才能算對顏色
+- 拖曳色塊 / resize / Ctrl 框選複製貼上 等 DAW 風功能 **幾乎做不到**，
+  因為「色塊」根本不是資料模型中的一級物件
+
+根因：**資料形狀沒有顯式表達色塊邊界**，整份程式碼一直在從「關鍵格序列 + 鄰居黑色」反推色塊在哪。
+
+### 新模型 (已拍板)
+
+```js
+actionTable[armor][part] = [
+  { id, start, end, colorStart: {R,G,B,A}, colorEnd: {R,G,B,A} },
+  ...
+]
+```
+
+**核心決策：**
+| 項目 | 決策 |
+|---|---|
+| segment 之間 | **可以有間隔**，間隔 = LED 關閉 (黑) |
+| 時間最小單位 | **50ms**，所有 `start` / `end` 都對齊 50ms 網格 |
+| 漸變語意 | **(A) 段內漸變** — `colorStart → colorEnd` 在 `[start, end]` 內線性插值；無漸變則 `colorEnd === colorStart` |
+| 拖曳碰撞策略 | **trim** — 新 segment 蓋到舊 segment 上時，舊 segment 被覆蓋的部分被裁掉 (可能 split 成兩段) |
+| 空白區域語意 | **黑色** (LED off)，與現況一致，硬體輸出不變 |
+| 後端格式 | **完全不變** — `upload_items` / `upload_raw` / mongo `color` & `raw_json` collection schema 維持原樣，**所有轉換在前端完成** |
+| 不變式 | segment 不重疊；`start <= end`；都對齊 50ms |
+| segment 識別 | 每段有穩定 `id`（uuid 或自增），方便多選、複製貼上、undo diff |
+
+### 對現有 UI 的影響（重構後）
+
+| 功能 | 重構前 | 重構後 |
+|---|---|---|
+| 點光衣放色 | 5 分支 + 10ms 黑色偏移 | `insertSegment(start, end, color)`，碰撞用 trim split，約 15 行 |
+| 渲染當前時間 | binary search keyframe → 看 linear → 看 afterNext → 三格內插 | 找包含 `t` 的 segment；有則 `lerp(colorStart, colorEnd, (t-start)/(end-start))`，無則黑 |
+| W/S/A/D 跳格 | 要 skip black | 直接 `segments[i±1]` |
+| `cleanActionTableByDuration` | 過濾 + 補黑 + 排序 | `segments.filter(s => s.start < dur).map(s => ({...s, end: min(s.end, dur)}))` |
+| 匯出壓平 (`handleOutput` 50ms 取樣) | 走 keyframe + linear 三格 | 對每個 tick `t` 找包含 `t` 的 segment（O(log n)），無則輸出黑色 0 |
+| Undo/Redo | reducer diff 整張 table | 可用 segment id 細粒度 diff，連續拖曳可 coalesce 成一筆 |
+
+### 重構後可解鎖的新功能
+
+- **拖曳移動色塊**（DAW 風）：改 `seg.start/end`，碰撞 trim
+- **拖邊 resize**：改單一端點
+- **Ctrl 框選多個色塊**：`selectedIds = Set<id>`
+- **複製 / 貼上 / 時間平移**：deep clone 後加 offset
+- **量化 / 對齊到節拍**
+
+### 遷移策略 (漸進式，每步可獨立 ship/rollback)
+
+1. 寫雙向轉換器 `keyframesToSegments()` / `segmentsToKeyframes()` 放 utils
+2. **驗證腳本**：對現有 raw_json 跑 `keyframes → segments → 壓平`，與直接從 keyframes 壓平的 `upload_items` payload 做 **byte-equal diff**，全綠才繼續
+3. 載入時 lazy migrate（後端格式不變，只在前端 in-memory 轉換）
+4. 依序改：Armor render → `insertArray` → EditActionTable → ControlPanel → `handleOutput`
+5. 移除 `blackthreshold` 與 `cleanActionTableByDuration` 補黑邏輯
+6. 開始加 DAW 風新功能
+
+### 注意事項
+
+- segment **不重疊** 是強制不變式，所有寫入路徑（insert / drag / resize / paste）都必須保證
+- 單 tick 閃爍：以 `end - start === 50` 表達（最小單位）
+- `keyframesToSegments` 轉換規則：遇到非黑 keyframe 開新 segment，下一個黑 keyframe 或下一個非黑 keyframe 為終點；若原 keyframe `linear === 1`，則 `colorEnd` 取自下一格顏色
+- **暫不支援鏈式漸變**（連續多個 `linear === 1`）：使用者若需相同效果，自行拉多個相鄰 segment。轉換器遇到鏈式時，把每段拆獨立 segment（中間 keyframe 同時當前段 end 與下段 start，邊界用半開區間 `[start, end)` 避免重複取樣）
+- 後端壓平輸出 (`upload_items`) 必須 byte-equal 等價於現況，否則硬體會看到不同畫面
+
+## 長期願景：多軌音訊（DAW 風）
+
+未來目標是讓**音軌也像色塊一樣可拖曳、可拼貼多個音軌**，修改音樂時不用重新上傳整首。
+
+### 為何寫進這份檔案
+這個願景會反向影響 segment 重構的介面設計：
+- segment utils 必須做成 **generic `Segment<T>`**，不能寫死 `colorStart/colorEnd`
+- 拖曳/resize/move 的 UI 邏輯（重構後的 Timeline）必須能被音軌複用
+- 50ms 量化、trim collision、id/多選/undo coalesce 都要 generic
+
+### 音訊 segment 草案
+```js
+audioTracks = [
+  {
+    id, name,
+    segments: [
+      { id, start, end, sourceFile, sourceOffset, volume, fadeIn, fadeOut },
+      ...
+    ]
+  },
+  ...
+]
+```
+與燈光 segment **幾乎同構**，只差 payload 欄位。
+
+### 與目前 waveform.jsx 的距離
+目前 [waveform.jsx](frontend/src/components/audio/waveform.jsx) 是「整條 timeline 只播一個音檔」的單軌設計（單一 sourceNode）。多軌時要改寫成：一個 AudioContext + N 個 AudioBufferSourceNode mix + 每軌獨立 gain node。Phase 0/0.5 拆檔時要避免把單軌假設更深地綁進新元件。
+
+### 與後端的關係
+- 後端音檔池 (`MUSIC_FILE_PATH=/music`，host 端是 `./music_file/`) 維持不變
+- 韌體不關心音訊（只吃 PlayerData），所以 `color` collection / `upload_items` 路徑完全不變
+- 新增「專案 ↔ 音軌 ↔ 音檔池」的關聯（mongo 新 collection 或塞進 `raw_json.tracks`）
+
+詳細執行步驟見 [todo.md](todo.md) Phase 6。
+
+> ⚠️ 死代碼提醒：[frontend/src/components/audio/musicsrc/](frontend/src/components/audio/musicsrc/) 是**前端 webpack bundle 的歷史遺留**，與後端音檔池完全無關，已在 Phase 0 cleanup 中刪除。未來多軌會走後端 API，不會回頭用 musicsrc。
+
 ## 典型使用流程
 
 1. `./start-dev.sh` 啟動 Docker (前端 3000 / 後端 8000 / Mongo 27017)

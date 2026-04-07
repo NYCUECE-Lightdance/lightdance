@@ -8,7 +8,7 @@ import {
   // updateMusicIndex,
 } from "../../redux/actions.js";
 import "./audioplayer.css";
-import Waveform, { musicNames } from "./waveform.jsx";
+import Waveform from "./waveform.jsx";
 import Timeline from "./Timeline.jsx";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import {

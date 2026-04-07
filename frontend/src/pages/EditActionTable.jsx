@@ -2,7 +2,6 @@ import React, { useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { updateActionTable } from "../redux/actions";
 import { useNavigate } from "react-router-dom"; // 🔹 加入 useNavigate
-import WaveSurferPlayer from "../components/audio/WaveSurferplayer"; // 🔹 引入音訊播放器
 
 function EditActionTable() {
   const dispatch = useDispatch();
@@ -187,8 +186,6 @@ function EditActionTable() {
         <button onClick={handleAddBlock}>+ Add Block</button>
         <button onClick={handleSave}>Save Changes</button>
       </div>
-      {/* 音訊播放器 */}
-      {/* <WaveSurferPlayer /> */}
     </div>
   );
 }
