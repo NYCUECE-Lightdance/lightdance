@@ -2,6 +2,7 @@ export const UPDATEUSER = "UPDATEUSER";
 export const UPDATEFULLPEAKS = "UPDATEFULLPEAKS";
 export const UPDATEDURATION = "UPDATEDURATION";
 export const UPDATEACTIONTABLE = "UPDATEACTIONTABLE";
+export const UPDATEMUSICFILENAME = "UPDATEMUSICFILENAME";
 export const UPDATETIMELINEBLOCKS = "UPDATETIMELINEBLOCKS";
 export const UPDATECHOSENCOLOR = "UPDATECHOSENCOLOR";
 export const UPDATECURRENTTIME = "UPDATECURRENTTIME";
@@ -11,7 +12,6 @@ export const UPDATETIMELINEBLOCK = "UPDATETIMELINEBLOCK";
 export const UPDATEAUTOREFRESH = "UPDATEAUTOREFRESH";
 export const UPDATETEMPACTIONTABLE = "UPDATETEMPACTIONTABLE";
 export const UPDATEPALETTECOLOR = "UPDATEPALETTECOLOR";
-export const UPDATESELECTEDBLOCK = "UPDATESELECTEDBLOCK";
 export const UPDATEHISTORY = "UPDATEHISTORY";
 export const UPDATEISCOLORCHANGEACTIVE = "UPDATEISCOLORCHANGEACTIVE";
 export const UPDATEPLAYBACKRATE = "UPDATEPLAYBACKRATE";
@@ -20,6 +20,7 @@ export const UPDATESHOWPART = "UPDATESHOWPART";
 export const UPDATEFAVORITECOLOR = "UPDATEFAVORITECOLOR";
 export const UPDATEDANCERVISIBILITY = "UPDATEDANCERVISIBILITY";
 export const UPDATECLIPBOARD = "UPDATECLIPBOARD";
+export const UPDATE_IS_DIRTY = "UPDATE_IS_DIRTY";
 
 export const updateUser = (value) => ({ type: UPDATEUSER, payload: value });
 export const updateFullpeaks = (value) => ({
@@ -37,16 +38,17 @@ export const updateActionTable = (payload, meta = {}) => ({
   meta,
 });
 
+export const updateMusicFilename = (value) => ({
+  type: UPDATEMUSICFILENAME,
+  payload: value,
+});
+
 export const updateTimelineBlocks = ({ armorIndex, partIndex, value }) => ({
   type: UPDATETIMELINEBLOCKS,
   payload: { armorIndex, partIndex, value },
 });
 export const updateChosenColor = (value) => ({
   type: UPDATECHOSENCOLOR,
-  payload: value,
-});
-export const updateSelectedBlock = (value) => ({
-  type: UPDATESELECTEDBLOCK,
   payload: value,
 });
 
@@ -125,4 +127,16 @@ export const updateDancerVisibility = (value) => ({
 export const updateClipboard = (value) => ({
   type: UPDATECLIPBOARD,
   payload: value,
+});
+
+export const updateIsDirty = (value) => ({
+  type: UPDATE_IS_DIRTY,
+  payload: value,
+});
+
+export const UPDATE_MULTI_SELECTED_BLOCKS = "UPDATE_MULTI_SELECTED_BLOCKS";
+
+export const updateMultiSelectedBlocks = (blocks) => ({
+  type: UPDATE_MULTI_SELECTED_BLOCKS,
+  payload: blocks,
 });

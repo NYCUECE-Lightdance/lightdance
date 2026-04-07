@@ -55,6 +55,7 @@ class Data(BaseModel):
     user: str
     last_updated_time: str
     players: List[Player] = []
+    music_filename: str
 
 
 # ============================================================================

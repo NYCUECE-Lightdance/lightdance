@@ -9,6 +9,7 @@ import { FiEdit } from "react-icons/fi";
 import { useEffect, useState } from "react";
 import { FaSignOutAlt } from "react-icons/fa";
 import { useDispatch, useSelector } from "react-redux";
+import { updateActionTable, updateMusicFilename } from "../redux/actions";
 import { persistor } from "../redux/store.js";
 import Dropdown from "../components/LoadData.jsx";
 import "bootstrap/dist/js/bootstrap.bundle.min.js";
@@ -17,17 +18,76 @@ import { updateAutoRefresh } from "../redux/actions";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faRobot } from "@fortawesome/free-solid-svg-icons";
 import { set } from "lodash";
+import { LuPlus, LuMusic, LuChevronRight } from "react-icons/lu";
 import { API_ENDPOINTS } from "../config/api.js";
 
+const generateInitialTable = () => Array.from({ length: 7 }, () =>
+  Array.from({ length: 14 }, () => [
+    { time: 0, color: { R: 0, G: 0, B: 0, A: 1 }, linear: 0 },
+  ])
+);
+
+const cleanActionTableByDuration = (currentTable, maxDuration) => {
+  if (!currentTable || typeof currentTable !== "object" || maxDuration <= 0) return currentTable;
+
+  const cleanedTable = {};
+  let hasChanged = false; // 用來標記是否真的有變動
+
+  Object.entries(currentTable).forEach(([armorIdx, parts]) => {
+    cleanedTable[armorIdx] = {};
+    
+    Object.entries(parts).forEach(([partIdx, timeline]) => {
+      if (Array.isArray(timeline)) {
+        // 1. 先過濾掉超過 duration 的點
+        let newTimeline = timeline.filter((point) => point.time < maxDuration);
+        
+        // 2. 判斷是否需要補上終點黑色塊
+        // 檢查現存最後一個點是否已經是 duration 處的黑色塊
+        const lastPoint = newTimeline[newTimeline.length - 1];
+        const isLastBlackEnd = lastPoint && 
+                               lastPoint.time === maxDuration && 
+                               lastPoint.color.R === 0 && 
+                               lastPoint.color.G === 0 && 
+                               lastPoint.color.B === 0;
+
+        if (!isLastBlackEnd) {
+          // 在精確的 duration 位置補上黑色塊
+          newTimeline.push({
+            time: maxDuration,
+            color: { R: 0, G: 0, B: 0, A: 1 },
+            linear: 0
+          });
+          hasChanged = true;
+        }
+
+        // 3. 確保時間排序正確
+        newTimeline.sort((a, b) => a.time - b.time);
+        cleanedTable[armorIdx][partIdx] = newTimeline;
+      } else {
+        cleanedTable[armorIdx][partIdx] = timeline;
+      }
+    });
+  });
+
+  return hasChanged ? cleanedTable : currentTable;
+};
 function Home({ rgba, setRgba, setButtonState }) {
   const navigate = useNavigate();
   const dispatch = useDispatch();
   const token = useSelector((state) => state.profiles.accessToken);
-  const actionTable = useSelector((state) => state.profiles.actionTable);
-  const userName = useSelector((state) => state.profiles.userName);
+  const data = useSelector((state) => state.profiles.data) || { actionTable: [], music_filename: "" };
+  const actionTable = data.actionTable || [];
+  const musicFilename = data.music_filename ?? "";
+  const userName = useSelector((state) => state.profiles.user);
   const autoRefresh = useSelector((state) => state.profiles.autoRefresh);
+  const duration = useSelector((state) => state.profiles.duration); 
   const [isDirty, setIsDirty] = useState(false);
   const [isLoaded, setIsLoaded] = useState(false);
+  const [showSaveModal, setShowSaveModal] = useState(false);
+  const [pendingMusic, setPendingMusic] = useState(null);
+  const initialTable = generateInitialTable();
+
+
 
   const editing = () => {
     navigate("/edit");
@@ -81,7 +141,8 @@ function Home({ rgba, setRgba, setButtonState }) {
     setIsDirty(false);
     setIsLoaded(false);
     console.log("-token- : ", BearerToken);
-    let result = JSON.stringify(actionTable);
+    // let result = JSON.stringify(actionTable);
+    let result = JSON.stringify(data);
     // console.log("upload(raw) : ", JSON.stringify(result));
     const response = await fetch(API_ENDPOINTS.UPLOAD_RAW, {
       method: "POST",
@@ -105,162 +166,248 @@ function Home({ rgba, setRgba, setButtonState }) {
   }
 
   async function handleOutput() {
-    // 生出光表給硬體用
+    console.log("UPLOAD_RAW:", API_ENDPOINTS.UPLOAD_RAW);
+    console.log("UPLOAD_ITEMS:", API_ENDPOINTS.UPLOAD_ITEMS);
     setIsDirty(false);
+  
     const players = [];
-    const armorIndices = Object.keys(actionTable); // 因為actiontable是物件，所以要先取出key
+    const armorIndices = Object.keys(actionTable);
+  
     for (let i = 0; i < armorIndices.length; i++) {
       const armorIndex = armorIndices[i];
-      const partGroup = actionTable[armorIndex]; // 一個人的所有部位
-      console.log(partGroup);
-
+      const partGroup = actionTable[armorIndex];
+  
       let times = new Set();
+  
       for (let key in partGroup) {
         const partArray = partGroup[key];
         if (!Array.isArray(partArray)) continue;
-
+  
         partArray.forEach((item) => {
           const roundedTime = Math.ceil(item.time / 50) * 50;
           times.add(roundedTime);
         });
       }
-
-      // 生成唯一的時間點數組並排序
+  
       let uniqueTimes = [...times]
-        .map((time) => Math.round(time))
+        .map((t) => Math.round(t))
         .sort((a, b) => a - b);
-
+  
       let mergedResults = [];
-
-      // 遍歷 uniqueTimes 中的每個時間點
+  
       for (let j = 0; j < uniqueTimes.length; j++) {
-        // 每個人的每個時間點
-        let mergedItem = {
-          time: uniqueTimes[j],
+        const time = uniqueTimes[j];
+  
+        const mergedItem = {
+          time: Math.floor(time / 50),
         };
+  
         for (let key in partGroup) {
-          // 每個人的每個部位
-          let itemsAtSameTime = partGroup[key].filter(
-            (el) => Math.ceil(el.time / 50) * 50 === uniqueTimes[j]
-          );
-          let item =
-            itemsAtSameTime.find(
-              (el) =>
-                el.color?.R !== 0 || el.color?.G !== 0 || el.color?.B !== 0
-            ) || itemsAtSameTime[0]; // 如果都黑色，就選第一個
-
-          if (item) {
-            // 將對應的 item 的數據合併到 mergedItem 中
-            mergedItem[key] = item.color;
+          const partTimeline = partGroup[key];
+          if (!Array.isArray(partTimeline) || partTimeline.length === 0) continue;
+  
+          let activeBlock = null;
+          let activeIndex = -1;
+  
+          for (let k = 0; k < partTimeline.length; k++) {
+            if (partTimeline[k].time <= time) {
+              activeBlock = partTimeline[k];
+              activeIndex = k;
+            } else {
+              break;
+            }
           }
+  
+          let R = 0,
+            G = 0,
+            B = 0,
+            A = 1,
+            linear = 0;
+  
+          if (activeBlock) {
+            if (activeBlock.linear === 1) {
+              const nextBlock = partTimeline[activeIndex + 1];
+  
+              if (nextBlock && nextBlock.time > activeBlock.time) {
+                const f =
+                  (time - activeBlock.time) /
+                  (nextBlock.time - activeBlock.time);
+  
+                R = Math.round(
+                  activeBlock.color.R * (1 - f) + nextBlock.color.R * f
+                );
+                G = Math.round(
+                  activeBlock.color.G * (1 - f) + nextBlock.color.G * f
+                );
+                B = Math.round(
+                  activeBlock.color.B * (1 - f) + nextBlock.color.B * f
+                );
+                A = activeBlock.color.A * (1 - f) + nextBlock.color.A * f;
+                linear = 1;
+              } else {
+                R = activeBlock.color.R;
+                G = activeBlock.color.G;
+                B = activeBlock.color.B;
+                A = activeBlock.color.A;
+                linear = 1;
+              }
+            } else {
+              R = activeBlock.color.R;
+              G = activeBlock.color.G;
+              B = activeBlock.color.B;
+              A = activeBlock.color.A;
+              linear = 0;
+            }
+          }
+  
+          const alpha7 = Math.min(Math.floor(A * 128), 127);
+          const packedByte = (alpha7 << 1) | (linear & 1);
+  
+          const color32 =
+            ((R & 0xff) << 24) |
+            ((G & 0xff) << 16) |
+            ((B & 0xff) << 8) |
+            (packedByte & 0xff);
+  
+          mergedItem[key] = color32 >>> 0;
         }
+  
         mergedResults.push({
-          time: Math.floor(mergedItem.time / 50),
-          hat: mergedItem[0],      // 0: 帽子
-          face: mergedItem[1],     // 1: 臉部
-          chestL: mergedItem[2],   // 2: 左胸
-          chestR: mergedItem[3],   // 3: 右胸
-          armL: mergedItem[4],     // 4: 左手臂
-          armR: mergedItem[5],     // 5: 右手臂
-          tie: mergedItem[6],      // 6: 領帶
-          belt: mergedItem[7],     // 7: 腰帶
-          gloveL: mergedItem[8],   // 8: 左手套
-          gloveR: mergedItem[9],   // 9: 右手套
-          legL: mergedItem[10],    // 10: 左腿
-          legR: mergedItem[11],    // 11: 右腿
-          shoeL: mergedItem[12],   // 12: 左鞋
-          shoeR: mergedItem[13],   // 13: 右鞋
+          time: mergedItem.time,
+          hat: mergedItem[0] ?? 0,
+          face: mergedItem[1] ?? 0,
+          chestL: mergedItem[2] ?? 0,
+          chestR: mergedItem[3] ?? 0,
+          armL: mergedItem[4] ?? 0,
+          armR: mergedItem[5] ?? 0,
+          tie: mergedItem[6] ?? 0,
+          belt: mergedItem[7] ?? 0,
+          gloveL: mergedItem[8] ?? 0,
+          gloveR: mergedItem[9] ?? 0,
+          legL: mergedItem[10] ?? 0,
+          legR: mergedItem[11] ?? 0,
+          shoeL: mergedItem[12] ?? 0,
+          shoeR: mergedItem[13] ?? 0,
           board: 0,
         });
       }
-      console.log(mergedResults);
-
+  
       for (let j = 0; j < mergedResults.length; j++) {
-        for (let item in mergedResults[j]) {
-          if (item !== "time") {
-            let target = mergedResults[j][item];
-            if (target) {
-              // Scale A to fit in 7 bits (0-127)
-              const alphaVal = Math.min(Math.floor(target.A * 128), 127);
-              
-              // Get the linear value, default to 0
-              const linearVal = target.linear || 0;
-
-              // Pack A into bits [7:1] and linear into bit [0]
-              const packedByte = (alphaVal << 1) | linearVal;
-
-              const color =
-                ((target.R & 0xff) << 24) |
-                ((target.G & 0xff) << 16) |
-                ((target.B & 0xff) << 8) |
-                (packedByte & 0xff);
-              let unsignedColor = color >>> 0;
-              mergedResults[j][item] = unsignedColor;
+        if (j > 0) {
+          for (let k in mergedResults[j - 1]) {
+            if (
+              !(k in mergedResults[j]) ||
+              mergedResults[j][k] === undefined ||
+              mergedResults[j][k] === null
+            ) {
+              mergedResults[j][k] = mergedResults[j - 1][k];
             }
           }
         }
       }
-      // console.log(mergedResults);
+  
       players.push(mergedResults);
     }
-
-    let newPlayer = [];
-
-    players.forEach((group) => {
-      let newGroup = [];
-      let prevElement = null;
-
-      group.forEach((element) => {
-        if (prevElement !== null) {
-          for (let key in prevElement) {
-            // If the key is missing in the current element, copy it from prevElement
-            if (!(key in element) || element[key] === undefined) {
-              element[key] = prevElement[key];
-            }
-          }
-        }
-        prevElement = element;
-        // console.log(prevElement);
-        newGroup.push(element);
-      });
-      newPlayer.push(newGroup);
-    });
-
-    // console.log(JSON.stringify(newPlayer, null, 2));
-
-    // 生成 JSON 對象
-    const result = {
+    
+    console.log("players : ", players);
+    console.log(">>> [1] 上傳的原始資料 (Raw Data):", data);
+    const result = {  
       players,
+      music_filename: musicFilename
     };
-    // console.log(JSON.stringify(result, null, 2));
-
+    
+    console.log(">>> [2] 上傳的播放資料 (Translated Items):", result);
     let BearerToken = "";
     token === "" ? (BearerToken = " ") : (BearerToken = token);
-
-    // console.log(token);
+  
     handleOutputString(BearerToken);
-
+  
     const response = await fetch(API_ENDPOINTS.UPLOAD_ITEMS, {
       method: "POST",
       headers: {
-        "Content-Type": "application/json", // 這是你後端需要的 Content-Type
-        Authorization: `Bearer ${BearerToken}`, // 如果需要授權，記得帶上 token
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${BearerToken}`,
       },
       body: JSON.stringify(result),
       mode: "cors",
     });
-    if (!response.ok) {
-      alert("upload failed");
-      console.error("Response Error:", response.status, response.statusText);
-      const errorText = await response.text();
-      throw new Error(
-        `HTTP error! Status: ${response.status}, Message: ${errorText}`
-      );
-    } else {
-      // alert("upload successful");
+    if (response.ok) {
+      // 這裡多加一個 alert，或是把 handleOutputString 裡的 alert 移到這裡
+      alert("原始檔與播放檔皆上傳成功！"); 
       console.log("upload(translated) : ", JSON.stringify(result));
     }
+
   }
+
+  const [musicList, setMusicList] = useState([]);
+  const [showNewProjectMenu, setShowNewProjectMenu] = useState(false);
+
+  // 1. 點擊「新建專案」時切換音樂選單
+  const handleToggleNewProject = async () => {
+    if (!showNewProjectMenu) {
+      try {
+        const response = await fetch(`${API_ENDPOINTS.BASE}/get_music_list/${userName}`);
+        const data = await response.json();
+        setMusicList(data.music_list || []);
+        setShowNewProjectMenu(true);
+      } catch (error) {
+        console.error("Fetch music error:", error);
+      }
+    } else {
+      setShowNewProjectMenu(false);
+    }
+  };
+
+  // 2. 核心邏輯：選定音樂後的檢查機制
+  const handleSelectNewMusic = async (filename) => {
+
+    if (isDirty) {
+      setPendingMusic(filename);
+      setShowSaveModal(true); // 有變動，跳出自訂彈窗
+    } else {
+      // 沒變動，直接新建
+      dispatch(updateMusicFilename(filename));
+      dispatch(updateActionTable(initialTable));
+      setShowNewProjectMenu(false);
+    }
+  };
+
+  useEffect(() => {
+    if (duration > 0 && actionTable) {
+      const cleaned = cleanActionTableByDuration(actionTable, duration);
+      
+      // 檢查是否有資料真的被刪除了，避免無限迴圈更新
+      const isDifferent = JSON.stringify(cleaned) !== JSON.stringify(actionTable);
+      
+      if (isDifferent) {
+        console.log(">>> 檢測到超出音樂長度的資料點，正在執行自動清洗...");
+        dispatch(updateActionTable(cleaned));
+      }
+    }
+  }, [duration, dispatch]);
+
+  const handleModalAction = async (action) => {
+    if (action === "save") {
+      try {
+        await handleOutput(); // 執行你原本的儲存邏輯
+        dispatch(updateMusicFilename(pendingMusic));
+        dispatch(updateActionTable(initialTable));
+        console.log("actionTable to save:", actionTable);
+      } catch (e) {
+        alert("儲存失敗，已取消新建。");
+        return;
+      }
+    } else if (action === "discard") {
+      dispatch(updateMusicFilename(pendingMusic));
+      dispatch(updateActionTable(initialTable));
+    }
+    
+    // 如果是 "cancel"，就直接關閉 Modal，不做任何 dispatch
+    setShowSaveModal(false);
+    setIsDirty(false); // 只有在 save 或 discard 時重置 dirty
+    setShowNewProjectMenu(false);
+  };
+    
 
   const listitem = [<Palette key="palette-1" rgba={rgba} setRgba={setRgba} />]; // 添加 key
 
@@ -268,6 +415,7 @@ function Home({ rgba, setRgba, setButtonState }) {
     <div>
       <div className="homepage">
         <div className="panel">
+
           <button className="output-button" onClick={handleOutput}>
             Output <MdOutput className="output-icon" />
           </button>
@@ -303,10 +451,31 @@ function Home({ rgba, setRgba, setButtonState }) {
               ⚠️ 有尚未儲存的變更
             </div>
           )}
+          <div className={`home-creation-bar ${showNewProjectMenu ? "expanded" : ""}`}>
+            {/* 音樂清單放在前面，實現向左延伸 */}
+            {showNewProjectMenu && (
+              <div className="home-music-extension">
+                <div className="home-music-list-scroll">
+                  {musicList.map((file, i) => (
+                    <div key={i} className="home-music-item" onClick={() => handleSelectNewMusic(file)}>
+                      <LuMusic className="item-icon" />
+                      <span>{file}</span>
+                    </div>
+                  ))}
+                </div>
+                <LuChevronRight className="divider-icon" style={{ transform: 'rotate(180deg)' }} />
+              </div>
+            )}
+
+            <div className="home-main-action" onClick={handleToggleNewProject}>
+              <LuPlus className="action-icon" />
+              <span className="action-text">New Project</span>
+            </div>
+          </div>
           <button className="device-info-button">
             <FontAwesomeIcon icon={faRobot} size="lg" />
           </button>
-          <h1 className="title">NYCUEE Light Dance</h1>
+          <button type="button" className="title" onClick={handleLogout} style={{ backgroundColor: 'black', color: 'white' }}>NYCUEE Light Dance</button>
           {listitem}
           <div className="people-container">
             <People />
@@ -319,6 +488,25 @@ function Home({ rgba, setRgba, setButtonState }) {
           setButtonState={setButtonState}
         />
       </div>
+          {showSaveModal && (
+      <div className="custom-modal-overlay">
+        <div className="custom-modal-content">
+          <h4 className="modal-title">確認新建專案</h4>
+          <p className="modal-body">目前有尚未儲存的變更，請問要如何處理？</p>
+          <div className="modal-footer-buttons">
+            <button className="btn-save" onClick={() => handleModalAction("save")}>
+              儲存並新建
+            </button>
+            <button className="btn-discard" onClick={() => handleModalAction("discard")}>
+              放棄變更並新建
+            </button>
+            <button className="btn-cancel" onClick={() => setShowSaveModal(false)}>
+              取消返回
+            </button>
+          </div>
+        </div>
+      </div>
+    )}
     </div>
   );
 }
