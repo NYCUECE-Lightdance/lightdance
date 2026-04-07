@@ -130,6 +130,151 @@ MongoDB collections：
 - **store.js**：configureStore + redux-persist
 - **actions.js**：`updateActionTable / updateCurrentTime / updateDuration / updateChosenColor / updateMultiSelectedBlocks / updateMusicFilename / updateAutoRefresh ...`
 
+## 光表編輯器 UI 功能與實現邏輯
+
+光表 (actionTable) 是整個系統的核心資料結構：
+`actionTable[armorIdx (0-6)][partIdx (0-13)] = [{time, color:{R,G,B,A}, linear}, ...]`
+代表「7 位舞者 × 14 個部位 × 一條時間軸關鍵格序列」。所有 UI 操作的本質都是在
+編輯這個三維結構，前端用 redux-persist 即時持久化到 localStorage。
+
+### 1. 取色 (Palette) — [Palette.jsx](frontend/src/components/Palette.jsx)
+- **HTML colorpicker**：點 `#colorWell` 開原生選色器，回傳 hex → 轉成 `{R,G,B,A}` → `dispatch(updateChosenColor)`
+- **TransparentButton**：調整 Alpha (亮度/透明度)
+- **我的最愛色盤** (`favoriteColor`)：4×2 = 8 格，預設白色
+  - 「填色」模式：點格子 → 讀取該格顏色為 `chosenColor`
+  - 「取色」模式：點格子 → 把目前 `chosenColor` 寫入該格
+  - 用底部 range slider 切換兩種模式 (`toggleState`)
+- **unsignedColor 顯示**：把 `chosenColor` 打包成 `RRGGBBAA` 32-bit 整數顯示，方便對韌體 debug
+
+### 2. 點擊光衣放色 (Armor) — [Armor.jsx](frontend/src/components/Armor.jsx)
+**這是最常用的編輯動作。** 按一下舞者身上的某個部位 → 在當前時間 `currentTime`
+插入一個 `chosenColor` 關鍵格。
+
+`insertArray(part)` 邏輯：
+1. `nowTime = floor(currentTime/50) * 50`（時間會對齊到 50ms 網格 → 對應後端壓平時的單位）
+2. 用 `binarySearchFirstGreater` 找到該時間應插入的位置
+3. 智能插入「黑色斷點」確保色塊不會無意中漸變到鄰居：
+   - 若 `nowTime` 已存在 → 直接覆寫顏色
+   - 若前格非黑、後格是黑 → 在新色塊前 `nowTime - 10ms` 插入黑色
+   - 若前後都不是黑 → 前 10ms 插黑、後一格 -10ms 插黑（夾住新色塊）
+   - 若前是黑、後不是黑 → 後一格 -10ms 插黑
+4. 排序、`dispatch(updateActionTable)`
+
+**渲染**：`getColorForPart(part)` 用 `binarySearchFirstGreater(partData, currentTime)` 取
+「currentTime 之前最近的關鍵格」；若該格 `linear === 1` 則對「下下一格」做線性插值
+(R/G/B/A 都用 `start*(1-r) + end*r`)，回傳 `rgba(...)` 給 SVG `fill`。
+
+`partNames` (Armor 內部 0-14)：`hat, face, chestL, chestR, armL, armR, tie, belt, gloveL, gloveR, legL, legR, shoeL, shoeR, board`
+
+### 3. 時間軸 / 控制台 (ControlPanel) — [ControlPanel.jsx](frontend/src/components/ControlPanel.jsx)
+左側 Timeline 設定區、右側 AudioPlayer 波形 + 多軌時間軸。
+
+**Timeline 管理**
+- `showPart`: Redux 中目前顯示的時間軌列表 `[{id, armorIndex, partIndex, hidden}, ...]`
+- **Choose-Timeline (faSliders)**：開啟 7×14 矩陣 modal，可以：
+  - 整列 / 整欄 All 按鈕快速全選
+  - 個別勾選 → Apply → 更新 `showPart`
+- **Add Timeline (faPlus)**：新增一條空 timeline
+- **上/下箭頭**：調整 timeline 顯示順序
+- **眼睛圖示**：切換該軌 `hidden`
+- **垃圾桶**：刪除該軌
+- 每軌可重新選 `armorIndex (1-7)` 與 `partIndex (帽子...右鞋)` 下拉
+
+**鍵盤快捷鍵**（全域）
+| 按鍵 | 動作 |
+|---|---|
+| W | 選取的關鍵格往「上一條 timeline」對應時間移動 |
+| S | 往「下一條 timeline」對應時間移動 |
+| A | 往左一格（會自動跳過孤立黑色斷點）|
+| D | 往右一格（同上）|
+| Ctrl+Z | Undo (`updateUndo`) |
+| Ctrl+Y | Redo (`updateRedo`) |
+
+W/S/A/D 移動的是 `multiSelectedBlocks[0]`，並會自動避開純黑斷點 (R=G=B=0)，
+這樣 hop 時不會卡在分隔用的黑塊上。
+
+**Undo/Redo**：透過 redux reducer 維護 history stack。
+
+**時間軸捲動同步**：左右兩個容器 (`settingRef` / `.timeline-container`) scroll 互相同步，
+讓設定列與時間軌一直對齊。
+
+### 4. AudioPlayer / 時間軸（音樂同步）
+- `AudioPlayer` 用 `<audio>` + WaveSurfer 顯示波形
+- 播放時持續 `dispatch(updateCurrentTime(ms))` → 整個 UI（Armor、Timeline 游標）即時跟著跑
+- `duration` 來自音樂長度，存進 redux
+- [Home.jsx:30](frontend/src/pages/Home.jsx#L30) `cleanActionTableByDuration` 會在 duration 改變時：
+  1. 過濾掉所有 `time >= duration` 的關鍵格
+  2. 在 `duration` 處補一個黑色終止格
+  3. 防止匯出資料超過音樂長度
+
+### 5. 進階表格編輯 (EditActionTable) — [EditActionTable.jsx](frontend/src/pages/EditActionTable.jsx)
+從 Home 點 `Edit` 按鈕進入 `/edit`，提供「逐格修改」的精確編輯介面：
+- 下拉選 Armor / Part
+- 表格列出該 part 的每個 block：Block Index / Time (number input) / Color (color input) / Delete
+- `+ Add Block` 新增一筆預設白色 time=0 的 block
+- `Save Changes` 排序並寫回 redux
+- 內建獨立的 history stack（不與 ControlPanel 的 undo 共用）
+- `← 返回` 回到 Home
+
+### 6. 舞者切換 (People / DancerToggle)
+- **People.jsx**：渲染 7 個 `Armor` 元件（也就是 7 位舞者光衣），點選後設定當前焦點舞者
+- **DancerToggle.jsx**：顯示/隱藏特定舞者，方便聚焦編輯
+
+### 7. 載入舊版 (LoadData / Dropdown) — [LoadData.jsx](frontend/src/components/LoadData.jsx)
+Home 上方 Dropdown 列出 `/api/timelist/{username}`，選一筆 → `/api/raw/{user}/{time}`
+還原 `actionTable` + `musicFilename` 到 redux（會檢查 `isDirty` 提示存檔）。
+
+### 8. 新建專案 (Home 內 New Project)
+- 點 `+ New Project` → `GET /api/get_music_list/{username}` 列出該帳號上傳過的 MP3
+- 選一首 → 若 `isDirty`，跳出 `showSaveModal` 三選一：
+  - **儲存並新建**：先 `handleOutput()` 上傳再清空 actionTable
+  - **放棄變更並新建**：直接清空
+  - **取消返回**
+- 清空時用 `generateInitialTable()` 生成 `7×14`，每格只有一個 `time:0` 黑色起始點
+
+### 9. 匯出 / 上傳 (Output) — [Home.jsx:168](frontend/src/pages/Home.jsx#L168)
+按 `Output` 按鈕同時做兩件事：
+
+**(A) `handleOutputString` → POST `/api/upload_raw`**
+直接 `JSON.stringify(data)` 包成 `{raw_data: ...}`，後端原樣存到 `raw_json` collection。
+這份保留 `actionTable` 完整結構供「下次載入回 UI」。
+
+**(B) `handleOutput` → POST `/api/upload_items`**：壓平成硬體格式
+1. 對每位舞者，收集所有 part 的關鍵格時間，`Math.ceil(t/50)*50` 對齊到 50ms 網格 → 取 unique
+2. 對每個對齊後的時間 t，每個 part 都做：
+   - 找到 `time <= t` 的最後一個 active block
+   - 若 `linear === 1` → 與下一個 block 線性插值算出 RGBA
+   - 否則直接用 active block 顏色
+3. **打包成 32-bit 整數**：
+   ```
+   alpha7    = min(floor(A*128), 127)        // A 量化到 7-bit
+   packedByte = (alpha7 << 1) | (linear & 1) // 第 0 bit 是 linear flag
+   color32   = (R<<24) | (G<<16) | (B<<8) | packedByte
+   ```
+   `>>> 0` 確保 unsigned。
+4. 每筆 record 變成 `{time: t/50, hat, face, chestL, chestR, armL, armR, tie, belt, gloveL, gloveR, legL, legR, shoeL, shoeR, board:0}`
+5. 對相鄰兩筆做「forward fill」: 若某 key 在下一筆缺值，從上一筆繼承
+6. 包成 `{players: [[...], ...], music_filename}` POST
+
+> 注意 `time: Math.floor(t/50)` — 後端拿到的時間單位是「50ms 為 1」，韌體側按此間隔取資料下發 LED。
+
+### 10. 操作 cheat sheet（給編舞者）
+
+| 想做 | 怎麼做 |
+|---|---|
+| 選顏色 | Palette colorpicker，或點我的最愛色塊（填色模式）|
+| 存常用色 | 切到「取色」模式，點任一格 |
+| 在某時間給某部位上色 | 拖時間軸到目標時間 → 點該舞者光衣上的部位 |
+| 做漸變效果 | 進 Edit 頁或在 Timeline 上把該關鍵格 `linear` 設為 1，下一個關鍵格作為終點 |
+| 多軌顯示某些 part | Choose-Timeline → 勾選 → Apply |
+| 微調時間 | 進 Edit Action Table，直接改 number input |
+| 平移選取 | A/D 左右、W/S 上下 timeline，自動跳過黑色 |
+| 撤銷/重做 | Ctrl+Z / Ctrl+Y |
+| 換音樂開新檔 | + New Project → 選 MP3（會問是否先存）|
+| 載入舊版本 | 上方 Dropdown 選 user/時間 |
+| 存檔 | Output 按鈕（同時送 raw + items）|
+| 確認沒爆音樂長度 | 改 duration 後系統自動裁切超出的關鍵格 |
+
 ## 典型使用流程
 
 1. `./start-dev.sh` 啟動 Docker (前端 3000 / 後端 8000 / Mongo 27017)
