@@ -81,11 +81,7 @@ function Home({ rgba, setRgba, setButtonState }) {
   const musicFilename = data.music_filename ?? "";
   const userName = useSelector((state) => state.profiles.user);
   const autoRefresh = useSelector((state) => state.profiles.autoRefresh);
-<<<<<<< HEAD
   const duration = useSelector((state) => state.profiles.duration);
-=======
-  const duration = useSelector((state) => state.profiles.duration); 
->>>>>>> 7ca4da396943de1f136440c3745a54867cf826b5
   const [isDirty, setIsDirty] = useState(false);
   const [isLoaded, setIsLoaded] = useState(false);
   const [showSaveModal, setShowSaveModal] = useState(false);
@@ -141,7 +137,6 @@ function Home({ rgba, setRgba, setButtonState }) {
     navigate("/"); // Redirect to login page after logout
   };
 
-<<<<<<< HEAD
   async function handleOutputString(BearerToken) {
     // Upload raw data
     setIsDirty(false);
@@ -175,8 +170,7 @@ function Home({ rgba, setRgba, setButtonState }) {
     }
   }
 
-=======
->>>>>>> 7ca4da396943de1f136440c3745a54867cf826b5
+
   async function handleOutput() {
     console.log("UPLOAD_RAW:", API_ENDPOINTS.UPLOAD_RAW);
     console.log("UPLOAD_ITEMS:", API_ENDPOINTS.UPLOAD_ITEMS);

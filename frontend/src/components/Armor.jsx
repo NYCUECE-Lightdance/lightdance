@@ -40,7 +40,7 @@ const Armor = (props) => {
     "board",         // 14:板子
   ];
 
-<<<<<<< HEAD
+
     // 根據部位索引和當前時間計算顏色（支援時間漸變）
     const getColorForPart = (part) => {
       const partData = actionTable?.[myId]?.[part] || [];
@@ -49,14 +49,7 @@ const Armor = (props) => {
       const currentBlock = partData.find(
         (block) => block.startTime <= time && time < block.endTime
       );
-=======
-  // 根據部位名稱和當前時間計算顏色
-  const getColorForPart = (part) => {
-    const partData = actionTable?.[myId]?.[part] || [];
-    const timeIndex = binarySearchFirstGreater(partData, time);
-    const prevData = partData?.[timeIndex - 1];
-    const nextData = partData?.[timeIndex];
->>>>>>> 7ca4da396943de1f136440c3745a54867cf826b5
+
 
     if (prevData && prevData.linear === 1 && nextData) {
       const afterNextData = partData?.[timeIndex + 1];
@@ -86,7 +79,6 @@ const Armor = (props) => {
       }
     }
 
-<<<<<<< HEAD
       const color = currentBlock.color || { R: 0, G: 0, B: 0, A: 1 };
 
       // 如果當前光塊沒有啟用漸變，直接回傳顏色
@@ -122,13 +114,7 @@ const Armor = (props) => {
       }
 
       return `rgba(${interpolatedR}, ${interpolatedG}, ${interpolatedB}, ${interpolatedA})`;
-=======
-    const colorData = prevData?.color || {
-      R: 0,
-      G: 0,
-      B: 0,
-      A: 1,
->>>>>>> 7ca4da396943de1f136440c3745a54867cf826b5
+
     };
     
     return `rgba(${colorData.R}, ${colorData.G}, ${colorData.B}, ${colorData.A})`;

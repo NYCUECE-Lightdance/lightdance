@@ -22,13 +22,9 @@ import {
   faCircleHalfStroke,
   faPause,
   faWandMagicSparkles,
-<<<<<<< HEAD
-  faLink,
-=======
   faCheck,
   faTimes,
   faArrowsLeftRight,
->>>>>>> 7ca4da396943de1f136440c3745a54867cf826b5
 } from "@fortawesome/free-solid-svg-icons";
 import { produce } from "immer";
 import {
@@ -709,89 +705,6 @@ function AudioPlayer({ setButtonState, timelineRef }) {
     setVolume(newVolume);
   };
 
-<<<<<<< HEAD
-  const ClickedDelete = () => {
-    console.log("Delete clicked");
-    console.log("selectedBlock:", selectedBlock);
-
-    // 確保選中的 block 有效
-    if (
-      !selectedBlock ||
-      selectedBlock.armorIndex === undefined ||
-      selectedBlock.partIndex === undefined ||
-      selectedBlock.blockIndex === undefined
-    ) {
-      console.warn("No block selected or invalid block index.");
-      return;
-    }
-
-    const { armorIndex, partIndex, blockIndex } = selectedBlock;
-
-    // 直接從 actionTable 取得選中的色塊
-    const timeline = actionTable?.[armorIndex]?.[partIndex];
-    if (!timeline || !Array.isArray(timeline)) {
-      console.warn("Timeline not found or invalid.");
-      return;
-    }
-
-    const blockToDelete = timeline[blockIndex];
-    if (!blockToDelete) {
-      console.warn("Selected block not found in actionTable.");
-      return;
-    }
-
-    // **更新 actionTable - 簡單刪除，不移動其他色塊**
-    const updatedActionTable = produce(actionTable, (draft) => {
-      const draftTimeline = draft[armorIndex][partIndex];
-      // 直接刪除選中的色塊，保持其他色塊的 startTime 和 endTime 不變
-      draftTimeline.splice(blockIndex, 1);
-    });
-
-    console.log("[Delete] Deleted block at index", blockIndex);
-    console.log("[Delete] Updated actionTable:", updatedActionTable);
-    dispatch(updateActionTable(updatedActionTable));
-    dispatch(updateSelectedBlock({})); // 清空選中
-  };
-
-  // 手動合併相鄰的相同顏色色塊
-  const handleMergeBlocks = () => {
-    if (
-      !selectedBlock ||
-      selectedBlock.armorIndex === undefined ||
-      selectedBlock.partIndex === undefined ||
-      selectedBlock.blockIndex === undefined
-    ) {
-      console.warn("No valid block selected for merging");
-      return;
-    }
-
-    const { armorIndex, partIndex, blockIndex } = selectedBlock;
-    const timeline = actionTable[armorIndex]?.[partIndex];
-
-    if (!timeline || blockIndex === undefined || blockIndex >= timeline.length - 1) {
-      console.warn("Cannot merge: no next block or invalid selection");
-      return;
-    }
-
-    const currentBlock = timeline[blockIndex];
-    const nextBlock = timeline[blockIndex + 1];
-
-    // 檢查兩個色塊之間是否有間隙
-    if (currentBlock.endTime !== nextBlock.startTime) {
-      console.warn(`Cannot merge: there is a gap between blocks (${currentBlock.endTime}ms to ${nextBlock.startTime}ms)`);
-      return;
-    }
-
-    // 合併兩個色塊 - 將當前色塊的 endTime 設為下一個色塊的 endTime，並刪除下一個色塊
-    const updatedActionTable = produce(actionTable, (draft) => {
-      const draftTimeline = draft[armorIndex][partIndex];
-      draftTimeline[blockIndex].endTime = draftTimeline[blockIndex + 1].endTime;
-      draftTimeline.splice(blockIndex + 1, 1);
-    });
-
-    dispatch(updateActionTable(updatedActionTable));
-    console.log(`Merged block ${blockIndex} (${currentBlock.startTime}-${currentBlock.endTime}ms) with block ${blockIndex + 1} (${nextBlock.startTime}-${nextBlock.endTime}ms)`);
-=======
   const handleMultiDelete = () => {
     console.log("Blacking out multiple blocks:", multiSelectedBlocks);
   
@@ -856,7 +769,6 @@ function AudioPlayer({ setButtonState, timelineRef }) {
   const ClickedDelete = () => {
     if (multiSelectedBlocks.length === 0) return;
     handleMultiDelete();
->>>>>>> 7ca4da396943de1f136440c3745a54867cf826b5
   };
 
   const handleSetLinear = () => {
@@ -1079,7 +991,6 @@ function AudioPlayer({ setButtonState, timelineRef }) {
       console.warn("Cut operation is only valid when exactly one block is selected.");
       return;
     }
-<<<<<<< HEAD
 
     const { armorIndex, partIndex, blockIndex } = selectedBlock;
 
@@ -1144,78 +1055,21 @@ function AudioPlayer({ setButtonState, timelineRef }) {
 
       // 在原始位置後插入新色塊
       draftTimeline.splice(blockIndex + 1, 0, rightBlock);
-=======
-    
-    const { armorIndex, partIndex, blockIndex } = multiSelectedBlocks[0];
-    
-    const updatedActionTable = produce(actionTable, (draft) => {
-      const timeline = draft[armorIndex]?.[partIndex];
-      const originalBlock = timeline?.[blockIndex];
-      const nextBlock = timeline?.[blockIndex + 1];
-      
-      if (!originalBlock || !nextBlock || currentTime <= originalBlock.time || currentTime >= nextBlock.time) {
-        console.warn("Cut operation is not valid at the current time.");
-        return;
-      }
-  
-      let newBlockColor = originalBlock.color;
-      const isOriginalLinear = originalBlock.linear === 1;
-  
-      if (isOriginalLinear) {
-        const gradientTargetBlock = timeline[blockIndex + 2];
-        const startColor = originalBlock.color;
-        const endColor = gradientTargetBlock?.color || { R: 0, G: 0, B: 0, A: 1 };
-        const startTime = originalBlock.time;
-        const endTime = nextBlock.time;
-  
-        if (endTime > startTime) {
-          const ratio = (currentTime - startTime) / (endTime - startTime);
-          newBlockColor = {
-            R: Math.round(startColor.R * (1 - ratio) + endColor.R * ratio),
-            G: Math.round(startColor.G * (1 - ratio) + endColor.G * ratio),
-            B: Math.round(startColor.B * (1 - ratio) + endColor.B * ratio),
-            A: ((startColor.A ?? 1) * (1 - ratio) + (endColor.A ?? 1) * ratio),
-          };
-        }
-        originalBlock.linear = 1;
-      }
-      
-      const newBlackBlock = {
-        time: currentTime - blackthreshold,
-        color: { R: 0, G: 0, B: 0, A: 1 },
-        linear: 0,
-      };
-      
-      const newBlock = {
-        time: currentTime,
-        color: newBlockColor,
-        linear: isOriginalLinear ? 1 : 0,
-      };
-  
-      timeline.splice(blockIndex + 1, 0, newBlackBlock, newBlock);
-      timeline.sort((a, b) => a.time - b.time);
->>>>>>> 7ca4da396943de1f136440c3745a54867cf826b5
+
     });
   
     dispatch(updateActionTable(updatedActionTable));
-<<<<<<< HEAD
     console.log("Action table after cut:", updatedActionTable);
 
     // 更新選中的區塊到新插入的右半部分
-=======
-    
->>>>>>> 7ca4da396943de1f136440c3745a54867cf826b5
+
     dispatch(
       updateMultiSelectedBlocks([{
         armorIndex,
         partIndex,
-<<<<<<< HEAD
-        blockIndex: blockIndex + 1, // +1 新色塊
-      })
-=======
         blockIndex: blockIndex + 2,
       }])
->>>>>>> 7ca4da396943de1f136440c3745a54867cf826b5
+
     );
   };
 
@@ -1300,13 +1154,9 @@ function AudioPlayer({ setButtonState, timelineRef }) {
       updateMultiSelectedBlocks([{
         armorIndex: targetArmorIndex,
         partIndex: targetPartIndex,
-<<<<<<< HEAD
-        blockIndex: 0,
-      })
-=======
+
         blockIndex: newBlockIndex,
       }])
->>>>>>> 7ca4da396943de1f136440c3745a54867cf826b5
     );
   };
 

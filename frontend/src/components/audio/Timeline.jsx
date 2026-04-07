@@ -184,27 +184,7 @@ const Timeline = forwardRef(
 
     // 處理鼠標按下事件（中心拖動）
     const handleMouseDown = (e, index) => {
-<<<<<<< HEAD
-      // 如果點擊在右邊緣（調整寬度區域），則忽略拖動邏輯
-      const blockRect = e.currentTarget.getBoundingClientRect();
-      const distanceFromRight = blockRect.right - e.clientX;
-      if (distanceFromRight <= 10) {
-        // 右邊緣調整，不執行拖動邏輯
-        return;
-      }
 
-      e.stopPropagation();
-
-      const partData = tempActionTable?.[armorIndex]?.[partIndex];
-      if (!partData || !partData[index]) return;
-
-      const currentBlock = partData[index];
-
-      setDragging(true);
-      setDraggedBlockIndex(index);
-      setDragStartpoint(e.clientX); // 記錄鼠標按下的位置
-      setDragStartTime(currentBlock.startTime); // 記錄色塊的初始 startTime
-=======
       e.stopPropagation();
 
       const block = timelineBlocks[index];
@@ -225,7 +205,6 @@ const Timeline = forwardRef(
       if (e.shiftKey && anchorBlock && anchorBlock.armorIndex === armorIndex && anchorBlock.partIndex === partIndex) {
         const startIdx = anchorBlock.blockIndex;
         const endIdx = index;
->>>>>>> 7ca4da396943de1f136440c3745a54867cf826b5
 
         const selectionStart = Math.min(startIdx, endIdx);
         const selectionEnd = Math.max(startIdx, endIdx);
@@ -456,23 +435,7 @@ const Timeline = forwardRef(
         onMouseMove={handleMouseMove}
         onMouseUp={handleMouseUp}
       >
-<<<<<<< HEAD
-        {timelineBlocks.map((block, index) => {
-          let backgroundStyle;
-          const isSelected =
-            selectedBlock?.armorIndex === armorIndex &&
-            selectedBlock?.partIndex === partIndex &&
-            selectedBlock?.blockIndex === index;
-          // 預設選取框顏色
-          let selectionBorderColor = "#FFA500"; // 橘色
-          const colorThreshold = 200; // 設定距離閾值
 
-          // 取得對應的原始資料（可能為 undefined）和漸變標記
-          const currentBlockData = actionTable[armorIndex]?.[partIndex]?.[index];
-          const isFade = currentBlockData?.linear === 1;
-
-          const color = block.color || { R: 0, G: 0, B: 0, A: 1 };
-=======
       {timelineBlocks.map((block, index) => {
         // --- 1. 定義狀態變數 ---
         // 是否在目前這條 Timeline 的選中清單中
@@ -481,35 +444,10 @@ const Timeline = forwardRef(
           b.partIndex === partIndex && 
           b.blockIndex === index
         );
->>>>>>> 7ca4da396943de1f136440c3745a54867cf826b5
 
         // A. 判斷是否為「貼上目標」(綠色)：在複製模式下且被點擊選中
         const isPasteTarget = isCopying && isCurrentlyInMultiSelect;
 
-<<<<<<< HEAD
-          // 如果選取的方塊顏色和預設選取框顏色相似，就改變選取框顏色
-          if (colorDistance(color, { R: 255, G: 165, B: 0 }) < colorThreshold) {
-            selectionBorderColor = "#00FFFF"; // 改成青色
-          }
-
-          if (isFade) {
-            const partTimeline = actionTable[armorIndex]?.[partIndex];
-            const nextBlock = partTimeline?.[index + 1];
-
-            // 新方案：直接使用下一個塊的顏色，或默認為黑色
-            let endColor = { R: 0, G: 0, B: 0, A: 1 }; // Default to black
-
-            if (nextBlock) {
-              endColor = nextBlock.color;
-            }
-
-            const startColorString = `rgba(${color.R}, ${color.G}, ${color.B}, ${color.A})`;
-            const endColorString = `rgba(${endColor.R}, ${endColor.G}, ${endColor.B}, ${endColor.A})`;
-            backgroundStyle = `linear-gradient(to right, ${startColorString}, ${endColorString})`;
-          } else {
-            backgroundStyle = `rgba(${color.R}, ${color.G}, ${color.B}, ${color.A})`;
-          }
-=======
         // B. 判斷是否為「複製來源」(橘色)：從剪貼簿讀取當初 Ctrl+C 的位置
         const isCopySource = isCopying && clipboard?.sourceBlocks?.some(b => 
           b.armorIndex === armorIndex && 
@@ -548,7 +486,7 @@ const Timeline = forwardRef(
         if (colorDistance(color, { R: 255, G: 165, B: 0 }) < 200) {
           selectionBorderColor = "#00FFFF"; // 改為青色
         }
->>>>>>> 7ca4da396943de1f136440c3745a54867cf826b5
+
 
           // 設定 blockStyle - 使用絕對定位以正確顯示色塊位置
           const blockStyle = {

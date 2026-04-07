@@ -12,12 +12,9 @@ function Dropdown({ userName, setIsDirty, isDirty, setIsLoaded, isLoaded }) {
   const [userList, setUserList] = useState([]);
   const [anchorIndex, setAnchorIndex] = useState(0);
   const dispatch = useDispatch();
-<<<<<<< HEAD
-  const actionTable = useSelector((state) => state.profiles.actionTable);
-  const duration = useSelector((state) => state.profiles.duration);
-=======
   const actionTable = useSelector((state) => state.profiles.data?.actionTable || []);
->>>>>>> 7ca4da396943de1f136440c3745a54867cf826b5
+  const duration = useSelector((state) => state.profiles.duration);
+
 
   async function fetchAvailableDataList() {
     // Define the API endpoint
@@ -138,7 +135,7 @@ function Dropdown({ userName, setIsDirty, isDirty, setIsLoaded, isLoaded }) {
         console.log("Final ActionData:", actionData);
         console.log("Final MusicFilename:", musicFilename);
 
-<<<<<<< HEAD
+
         console.log("getData (old format):", getData);
 
         // 轉換為新格式 (startTime, endTime)
@@ -146,10 +143,7 @@ function Dropdown({ userName, setIsDirty, isDirty, setIsLoaded, isLoaded }) {
         console.log("[LoadData] Converted to new format:", newFormatActionTable);
 
         dispatch(updateActionTable(newFormatActionTable));
-=======
-        dispatch(updateActionTable(actionData));
-        dispatch(updateMusicFilename(musicFilename))
->>>>>>> 7ca4da396943de1f136440c3745a54867cf826b5
+
       })
       .catch((error) => {
         // This will now catch both HTTP errors and backend errors from the response body
