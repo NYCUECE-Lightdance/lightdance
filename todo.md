@@ -1,3 +1,10 @@
+## 🐛 Phase 0.5 驗收回報的待辦事項
+
+- [ ] **Blink 不要拆成 N 對 keyframe**：使用者回報目前 `applyBlink` 把單一 block 展開成多個彩/黑 keyframe 後，難以選取與修改。
+  - **新規格**：閃爍應該是 segment 的 metadata（例如 `seg.effect = { type: 'blink', period: 100 }`），硬體輸出 (`upload_items`) 時才展開成實際的 50ms 取樣序列；UI 上仍然是「一個 block」可整段選取/拖曳/刪除。
+  - **依賴**：需要 Phase 4 segment 模型先到位，才能在 segment 上掛 effect 欄位。在那之前 `applyBlink` 維持現狀。
+  - **回報日期**：2026-04-08
+
 ## 🚨 重構前置：需要使用者回答的問題 (Phase 1 Audit)
 
 > 在開始 segment 重構前，必須先對齊以下資訊。每答完一題就在這裡記錄答案。
@@ -197,6 +204,156 @@
 
 ### Phase 0  Cleanup PR (純減法)
 見上方「Phase 0」清單
+
+### Phase 0.5  抽 utils + 拆 audioplayer.jsx（已規劃 2026-04-07）
+
+> 詳細規劃：把 1761 行的 audioplayer.jsx 拆成 9 個元件 + 8 個 utils 純函式。
+> 為 Phase 4 segment 重構與 Phase 6 多軌音訊鋪路。
+> 每一步可獨立 ship/rollback，每步都跑驗收 checklist。
+
+#### Step 1：抽 utils 純函式（無 React，無 redux）
+
+每個 util 簽名一律 `(actionTable, args) => newActionTable`，呼叫端負責 dispatch。
+**設計約束**：第一個參數是「資料」，不寫死「色塊」字眼，未來換 segment 改 payload 不改簽名。
+
+- [ ] `utils/actionTable/search.js` — 來源：Armor.jsx + audioplayer.jsx 兩份 `binarySearchFirstGreater`
+  - 簽名：`(arr, target) => index`
+- [ ] `utils/actionTable/insertColor.js` — 來源：Armor `insertArray` + audioplayer `insertFavoriteColorArray`
+  - 簽名：`(actionTable, {armor, part, time, color, duration}) => newTable`
+  - **兩份重複實作合一**，5 分支黑點邏輯封裝
+- [ ] `utils/actionTable/cut.js` — 來源：audioplayer `handleCut`
+  - 簽名：`(actionTable, {armor, part, blockIndex, currentTime}) => newTable`
+  - 含 linear 段插值計算
+- [ ] `utils/actionTable/blink.js` — 來源：audioplayer `applyBlinkEffect`
+  - 簽名：`(actionTable, {armor, part, blockIndex, period, viewBlock, isLinear, targetEndBlock}) => newTable`
+  - viewBlock 從 timelineBlocks 算出後傳入，util 不碰 redux
+- [ ] `utils/actionTable/gradient.js` — 來源：audioplayer `applyGradientEffect`
+  - 簽名：`(actionTable, {armor, part, blockIndex, startColor, endColor}) => newTable`
+  - **重新規格 (B6)**：改成首尾顏色，預設取前後最近色塊
+- [ ] `utils/actionTable/shift.js` — 來源：audioplayer `executeTimeShift`
+  - 簽名：`(actionTable, {start, end, target}) => newTable`
+- [ ] `utils/actionTable/paste.js` — 來源：audioplayer `executeAdvancedPaste` + `ensureBlackBefore`
+  - 簽名：`(actionTable, {targetArmor, targetPart, offset, copiedData, blackthreshold}) => newTable`
+- [ ] `utils/actionTable/deleteRange.js` — 來源：audioplayer `handleMultiDelete` + `removeDuplicateBlackBlocks`
+  - 簽名：`(actionTable, {selections, timelineBlocks}) => newTable`
+
+**單元測試（vitest 或 jest）**：每個 util 寫 2–4 個 test
+- 正常 case
+- Edge：空 actionTable、邊界 time（0 / duration）、連續黑色斷點
+- Edge：選中色塊在頭/尾
+- 對 `gradient.js` 測「無前後最近色塊」的 fallback
+
+#### Step 2：audioplayer.jsx 內改呼叫 utils（不拆檔）
+
+- [ ] `handleCut` → `cutAt(actionTable, ...)`
+- [ ] `applyBlinkEffect` → `applyBlink(actionTable, ...)`
+- [ ] `applyGradientEffect` → `applyGradient(actionTable, ...)`（同步改成新規格）
+- [ ] `executeTimeShift` → `shift(actionTable, ...)`
+- [ ] `executeAdvancedPaste` → `paste(actionTable, ...)`
+- [ ] `handleMultiDelete` → `deleteRange(actionTable, ...)`
+- [ ] `insertFavoriteColorArray` → `insertColor(actionTable, ...)`
+- [ ] Armor.jsx `insertArray` → `insertColor(actionTable, ...)`（順手把兩份合一）
+- [ ] **手測完整驗收 checklist**，行為應與重構前完全相同
+
+#### Step 3：UI 元件拆分（依依賴順序，每拆一個跑一次驗收）
+
+| # | 新元件 | 行數估 | 從 audioplayer 搬走什麼 |
+|---|---|---|---|
+| 1 | `MusicSelector.jsx` | ~50 | fetchMusicList + handleMusicChange + dropdown JSX |
+| 2 | `PlayerControls.jsx` | ~120 | Play/Pause、Speed、Volume、Zoom、Time 顯示 |
+| 3 | `EffectMenu.jsx` | ~150 | effect 按鈕 + 子選單 + 漸變 popup |
+| 4 | `ShiftTool.jsx` | ~100 | shift 三步驟引導 + markers |
+| 5 | `TrackToolbar.jsx` | ~150 | ← → / Cut / Delete / Brightness / Color |
+| 6 | `CopyPasteManager.jsx` | ~200 | handleCopy / executeAdvancedPaste / Whole 系列 + copy mode banner + isCopying state |
+| 7 | `KeyboardShortcuts.jsx` | ~150 | 整段 handleKeyDown |
+| 8 | `AudioPlayer.jsx`（重構後外殼） | ~150 | 剩下：state 容器 + 組合 + Waveform/Timeline layout |
+
+- [ ] # 1 MusicSelector.jsx
+- [ ] # 2 PlayerControls.jsx
+- [ ] # 3 EffectMenu.jsx
+- [ ] # 4 ShiftTool.jsx
+- [ ] # 5 TrackToolbar.jsx
+- [ ] # 6 CopyPasteManager.jsx
+- [ ] # 7 KeyboardShortcuts.jsx
+- [ ] # 8 AudioPlayer.jsx 收尾
+
+**狀態歸屬**
+| state | 新家 | 理由 |
+|---|---|---|
+| `isPlaying`, `sourceNode`, `prevTimeRef`, `isExternalSeekRef` | `AudioPlayer.jsx` (lift up) | 多元件需要 |
+| `volume`, `zoomLevel` | `PlayerControls.jsx` | 只與 Waveform 共用 |
+| `brightness` | `TrackToolbar.jsx` | 只有它用 |
+| `effectMenuVisible`/`effectType`/`gradientSettingsVisible`/`startBrightness`/`interval`/`endBrightness` | `EffectMenu.jsx` | 完全內封 |
+| `shiftStep`/`shiftTimes` | `ShiftTool.jsx` | 完全內封 |
+| `apiMusicList` | `MusicSelector.jsx` | 完全內封 |
+| `isCopying` | `CopyPasteManager.jsx` 用 Context 提供（**不放 redux**） | UI ephemeral state，重新整理該歸零 |
+
+**跨元件溝通：Context + useSelector 混用**
+- 頻繁變動的資料（actionTable / currentTime / multiSelectedBlocks / duration）→ 各元件直接 `useSelector` 拉，靠 redux selector memo 控 re-render
+- 穩定的 callback handlers → 放 `EditorContext`，value 用 `useMemo` 包，內部用 `store.getState()` 即時取資料避免依賴牽連
+- isCopying 與相關 callback → 開獨立 `CopyPasteContext`（作用域只有 audio editor 子樹）
+- **不**為了求方便把所有東西塞 redux
+
+#### Step 4：統一 keydown listener
+
+- [ ] 列出 audioplayer.jsx 全部快捷鍵 vs ControlPanel.jsx 全部快捷鍵的對照表
+- [ ] 把 ControlPanel 的 W/S/A/D + Ctrl+Z/Y 搬進 KeyboardShortcuts.jsx
+- [ ] 移除 ControlPanel 自己的 document keydown listener
+- [ ] 用 keymap 物件統一 dispatch，避免雙 listener 撞鍵
+
+#### Step 5：最終資料夾結構
+
+```
+frontend/src/
+├── components/audio/
+│   ├── AudioPlayer.jsx          ← 重構後外殼
+│   ├── MusicSelector.jsx
+│   ├── PlayerControls.jsx
+│   ├── TrackToolbar.jsx
+│   ├── EffectMenu.jsx
+│   ├── ShiftTool.jsx
+│   ├── CopyPasteManager.jsx
+│   ├── KeyboardShortcuts.jsx
+│   ├── EditorContext.js
+│   ├── Timeline.jsx              ← 不動（留 Phase 4）
+│   └── waveform.jsx              ← 不動
+└── utils/actionTable/
+    ├── search.js
+    ├── insertColor.js
+    ├── cut.js
+    ├── blink.js
+    ├── gradient.js
+    ├── shift.js
+    ├── paste.js
+    └── deleteRange.js
+```
+
+#### 驗收 checklist（每個 step 都跑）
+
+- [ ] 點光衣放色 → 時間軸顯示色塊
+- [ ] 拖曳色塊邊緣 resize
+- [ ] click 選色塊、shift+click 多選
+- [ ] Ctrl+C / Ctrl+V 區間複製貼上
+- [ ] Shift+C / Shift+V 整條複製貼上
+- [ ] L 鍵切 linear，預覽看到漸變
+- [ ] B 鍵頻閃
+- [ ] Shift 工具三步驟平移
+- [ ] Cut / Delete
+- [ ] W/S/A/D 跨軌跳格
+- [ ] Ctrl+Z / Ctrl+Y
+- [ ] Output 上傳，PlayerData 與重構前 byte-equal（mongo diff）
+
+#### 風險與對策
+
+| 風險 | 對策 |
+|---|---|
+| 拆檔過程行為改變難察覺 | 每拆一個元件就跑驗收 checklist |
+| Context 過度 re-render | EditorContext value 用 useMemo + 內部 store.getState()，依賴只放 dispatch |
+| Timeline.jsx 內部還在直接讀 redux | Phase 0.5 不動 Timeline.jsx 內部，留 Phase 4 |
+| utils 簽名定錯，Phase 4 又要改 | 設計時模擬「換成 segments[] 簽名還合理嗎」 |
+| ControlPanel 快捷鍵搬走後漏掉 case | 搬之前先做對照表 |
+
+---
 
 ### Phase 1  Audit & Spec
 - [ ] 使用者回答上方 Q1~Q5

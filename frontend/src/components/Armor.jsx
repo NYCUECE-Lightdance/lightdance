@@ -5,6 +5,8 @@ import {
   updateActionTable,
   updateCurrentTime,
 } from "../redux/actions";
+import { insertColor } from "../utils/actionTable/insertColor.js";
+import { binarySearchFirstGreater } from "../utils/actionTable/search.js";
 
 const Armor = (props) => {
   const dispatch = useDispatch();
@@ -15,7 +17,6 @@ const Armor = (props) => {
   const chosenColor = useSelector((state) => state.profiles.chosenColor);
   const multiSelectedBlocks = useSelector((state) => state.profiles.multiSelectedBlocks);
   const myId = props.index;
-  const blackthreshold = 10;
 
   useEffect(() => {
     console.log("data: ", data);
@@ -90,124 +91,15 @@ const Armor = (props) => {
   );
 
   function insertArray(part) {
-    const partData = actionTable?.[myId]?.[part] || [];
-    const indexToCopy = binarySearchFirstGreater(partData, time);
-    const nowTime = Math.floor(time / 50) * 50;
-    dispatch(updateCurrentTime(nowTime));
-
-    const updatedActionTableEntries = Object.entries(actionTable).map(
-      ([playerIndex, player]) => {
-        playerIndex = Number(playerIndex);
-        if (playerIndex === myId) {
-          const updatedPlayer = { ...player };
-          let updatedPartData = [...(player[part] || [])];
-
-          const newEntry = {
-            time: nowTime,
-            color: { ...chosenColor },
-            linear: 0
-          };
-
-          const nextElement = updatedPartData[indexToCopy];
-          const previousElement =
-            updatedPartData[indexToCopy - 1] || updatedPartData[indexToCopy];
-
-          const isNextBlack =
-            !nextElement ||
-            (nextElement?.color?.R === 0 &&
-              nextElement?.color?.G === 0 &&
-              nextElement?.color?.B === 0);
-
-          const isPreviousBlack =
-            !previousElement ||
-            (previousElement?.color?.R === 0 &&
-              previousElement?.color?.G === 0 &&
-              previousElement?.color?.B === 0);
-
-          const existingIndex = updatedPartData.findIndex(
-            (entry) => entry.time === nowTime
-          );
-
-          if (existingIndex !== -1) {
-            updatedPartData = updatedPartData.map((entry, index) =>
-              index === existingIndex
-                ? { ...entry, color: { ...chosenColor } }
-                : entry
-            );
-          } else if (indexToCopy === 0) {
-            const blackArray2 = {
-              time: duration,
-              color: { R: 0, G: 0, B: 0, A: 1 },
-              linear: 0,
-            };
-            updatedPartData.splice(partData.length, 0, newEntry, blackArray2);
-          } else if (!isPreviousBlack && isNextBlack) {
-            const blackArray = {
-              time: nowTime - blackthreshold,
-              color: { R: 0, G: 0, B: 0, A: 1 },
-              linear: 0,
-            };
-            updatedPartData.splice(indexToCopy + 1, 0, blackArray, newEntry);
-          } else if (!isPreviousBlack && !isNextBlack) {
-            const blackArray = {
-              time: nowTime - blackthreshold,
-              color: { R: 0, G: 0, B: 0, A: 1 },
-              linear: 0,
-            };
-            const blackArray2 = {
-              time:
-                nextElement?.time - blackthreshold || nowTime + blackthreshold,
-              color: { R: 0, G: 0, B: 0, A: 1 },
-              linear: 0,
-            };
-            updatedPartData.splice(
-              indexToCopy + 1,
-              0,
-              blackArray,
-              newEntry,
-              blackArray2
-            );
-          } else if (isPreviousBlack && !isNextBlack) {
-            const blackArray2 = {
-              time:
-                nextElement?.time - blackthreshold || nowTime + blackthreshold,
-              color: { R: 0, G: 0, B: 0, A: 1 },
-              linear: 0,
-            };
-            updatedPartData.splice(indexToCopy + 1, 0, newEntry, blackArray2);
-          } else {
-            updatedPartData.splice(partData.length, 0, newEntry);
-          }
-
-          updatedPartData.sort((a, b) => a.time - b.time);
-          updatedPlayer[part] = updatedPartData;
-          return [playerIndex, updatedPlayer];
-        }
-        return [playerIndex, player];
-      }
-    );
-
-    const updatedActionTable = Object.fromEntries(updatedActionTableEntries);
-    dispatch(updateActionTable(updatedActionTable));
-  }
-
-  // 二分搜尋找到對應時間
-  function binarySearchFirstGreater(arr, target) {
-    if (!arr) return;
-    let left = 0;
-    let right = arr?.length - 1;
-    let result = 0;
-
-    while (left <= right) {
-      let mid = Math.floor((left + right) / 2);
-      if (arr[mid].time > target) {
-        result = mid;
-        right = mid - 1;
-      } else {
-        left = mid + 1;
-      }
-    }
-    return result;
+    const { table, alignedTime } = insertColor(actionTable, {
+      armor: myId,
+      part,
+      time,
+      color: chosenColor,
+      duration,
+    });
+    dispatch(updateCurrentTime(alignedTime));
+    dispatch(updateActionTable(table));
   }
 
   const isSelected = (part) => {
