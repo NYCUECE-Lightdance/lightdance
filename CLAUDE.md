@@ -8,15 +8,403 @@
 
 ## 專案概述
 
-這是一個**全端 Web 應用程式**，用於設計和控制燈光舞蹈表演。專案採用現代化的微服務架構，透過 Docker 容器化技術確保環境一致性。
+這是一個**全端 Web 應用程式**，用於設計、編輯與控制穿戴式 LED 燈光舞蹈表演。
+舞者身上穿著由多個 LED 部位組成的「光衣」(Armor)，編舞者透過此系統在時間軸上為每個部位
+編排顏色變化，搭配音樂同步，最終把資料下發到硬體 (Pico) 上播放。
 
 ### 技術架構
 
 ```
-前端 (React 18) ←→ 後端 (FastAPI) ←→ 資料庫 (MongoDB)
-     ↑                    ↑                 ↑
-  Port 3000           Port 8000         Port 27017
+前端 (React 18 + Redux) ←→ 後端 (FastAPI) ←→ 資料庫 (MongoDB)
+     ↑                          ↑                  ↑
+  Port 3000                 Port 8000          Port 27017
+                                ↓
+                          音樂檔 (MUSIC_FILE_PATH，預設 /music)
 ```
+
+## 系統核心邏輯
+
+### 資料模型 ([backend/models.py](backend/models.py))
+一場表演的資料結構：
+- **PlayerData**：單一舞者在「某個時間點」的燈光快照，含 15 個部位整數顏色值
+  (`hat, face, chestL, chestR, armL, armR, tie, belt, gloveL, gloveR, legL, legR, shoeL, shoeR, board`)
+- **Player**：一位舞者的完整時間序列 = `List[PlayerData]`
+- **Data**：完整表演 = `user + last_updated_time + List[Player] + music_filename`
+- **RAW**：前端編輯中的原始 JSON 字串 (含 actionTable/duration/線性插值資訊)，未壓平成 PlayerData
+
+MongoDB collections：
+- `color`：壓平後可下發給硬體的 PlayerData 序列（`upload_items` 寫入）
+- `raw_json`：前端編輯中的完整原始狀態（`upload_raw` 寫入），方便載入時還原 UI
+- `music`：音樂 metadata（音檔本身存在檔案系統 `MUSIC_FILE_PATH`）
+- `pico`：硬體相關
+- `users`：帳號（⚠️ 密碼明文儲存，token 直接 = username，見安全章節）
+
+### 前端資料流 (Redux)
+- [frontend/src/redux/store.js](frontend/src/redux/store.js) 用 redux-persist 將編輯狀態存到 localStorage
+- 主要 state：`profiles.data.actionTable`、`currentTime`、`duration`、`chosenColor`、
+  `multiSelectedBlocks`、`musicFilename`
+- actionTable 結構：`actionTable[armorIdx][partIdx] = [{time, color:{R,G,B,A}, linear}, ...]`
+  - `linear` 標記該段是否漸變到下一個關鍵點
+- 上傳時前端把 RGBA + 時間壓平成後端 PlayerData 的整數格式
+
+## 後端 API 功能總覽
+
+所有 API 都在 `/api` 前綴下 ([backend/main.py](backend/main.py))。
+
+### 身份驗證
+| Method | Path | 用途 |
+|---|---|---|
+| POST | `/api/token` | 登入 (form: username, password)，回傳 access_token |
+| GET | `/api/users/me` | 取得當前使用者，需 Bearer Token |
+
+### 系統
+| Method | Path | 用途 |
+|---|---|---|
+| GET | `/api/` | 健康檢查 |
+
+### 光表資料 (Color / 處理後)
+| Method | Path | 用途 |
+|---|---|---|
+| GET | `/api/timelist/` | 列出所有使用者所有版本 |
+| GET | `/api/timelist/{username}` | 列出某使用者的所有版本 |
+| GET | `/api/items/{username}/{query_time}` | 取單一版本完整資料；`query_time=LATEST` 取最新 |
+| GET | `/api/items/{username}/{query_time}/player={player}/chunk={chunk}` | 分塊載入某 player (CHUNK_SIZE=10) |
+| GET | `/api/items/{username}/{query_time}/{player_ID}` | 取某玩家整段資料 |
+| POST | `/api/upload_items` | 上傳壓平後的 PlayerData 序列，需登入 |
+
+### 原始資料 (Raw / 編輯狀態)
+| Method | Path | 用途 |
+|---|---|---|
+| GET | `/api/raw/{username}/{query_time}` | 取得原始 actionTable JSON，給編輯器還原 |
+| POST | `/api/upload_raw` | 上傳原始編輯狀態，需登入 |
+
+> ⚠️ `upload_items` 與 `upload_raw` 內「保留最近 5 筆」舊資料淘汰邏輯被註解掉，
+> 目前會無限累積，是已知 TODO。
+
+### 音樂
+| Method | Path | 用途 |
+|---|---|---|
+| POST | `/api/upload_music` | 上傳 MP3，需登入；存到 `MUSIC_FILE_PATH/{username}/` |
+| GET | `/api/get_music_list` | 列出所有使用者的音樂目錄 |
+| GET | `/api/get_music_list/{username}` | 列出特定使用者的音樂檔 |
+| GET | `/api/get_music/{username}/{filename}` | 串流下載 MP3 |
+
+### 測試與生成工具
+| Method | Path | 用途 |
+|---|---|---|
+| GET | `/api/get_rand_lightlist/cnt={cnt}/seed={seed}` | 指定種子的隨機光表 (1≤cnt≤1500) |
+| GET | `/api/get_rand_lightlist/cnt={cnt}` | 隨機光表 |
+| GET | `/api/get_rand_lightlist/json/cnt={cnt}` | JSON 格式隨機光表 |
+| GET | `/api/get_test_lightlist/cnt={cnt}` | 固定位元樣式測試資料 |
+| GET | `/api/get_test_lightlist/cnt={cnt}/chunk={chunk}` | 分塊版本，CHUNK_SIZE=100 |
+| GET | `/api/test/get_test_color` | 給韌體組的固定顏色字串 |
+
+## 前端功能與頁面流程
+
+### 路由 / 頁面 ([frontend/src/pages/](frontend/src/pages/))
+- **[Welcome.jsx](frontend/src/pages/Welcome.jsx)**：開場動畫
+- **[Login.jsx](frontend/src/pages/Login.jsx)**：登入畫面，呼叫 `POST /api/token`
+- **[Dashboard.jsx](frontend/src/pages/Dashboard.jsx)**：登入後主入口
+  - `GET /api/timelist/{username}` 顯示「舊專案列表」
+  - 「+ 新專案」：選音樂 → 進入 `/home`
+  - 點舊專案：`GET /api/raw/{user}/{time}` 還原 actionTable + musicFilename → 進入 `/home`
+- **[Home.jsx](frontend/src/pages/Home.jsx)**：主編輯器頁面
+  - 載入 Palette / People / ControlPanel / DancerToggle / Armor 等元件
+  - 提供匯入、匯出、編輯模式、登出、自動刷新
+  - 上傳時將 actionTable 轉成 PlayerData，POST 至 `/api/upload_items` 與 `/api/upload_raw`
+- **[EditActionTable.jsx](frontend/src/pages/EditActionTable.jsx)**：細部編輯介面
+- **[model.jsx](frontend/src/pages/model.jsx)**：3D 預覽
+
+### 元件 ([frontend/src/components/](frontend/src/components/))
+- **Armor.jsx**：單一舞者光衣視覺化 (15 部位 hat/face/chestL...board)，依 `currentTime` 顯示對應顏色，可點選部位
+- **Palette.jsx**：取色盤，更新 `chosenColor`
+- **ControlPanel.jsx**：播放列、時間軸、duration 控制，與音樂同步
+- **People.jsx**：所有舞者列表
+- **DancerToggle.jsx**：切換顯示舞者
+- **DisplayContent.jsx**：時間軸關鍵格顯示
+- **LoadData.jsx**：載入既有專案 dropdown
+- **ApiDebugPanel.jsx**：API 偵錯面板
+- **WelcomeMotion/, audio/**：動畫與音效素材
+
+### Redux ([frontend/src/redux/](frontend/src/redux/))
+- **store.js**：configureStore + redux-persist
+- **actions.js**：`updateActionTable / updateCurrentTime / updateDuration / updateChosenColor / updateMultiSelectedBlocks / updateMusicFilename / updateAutoRefresh ...`
+
+## 光表編輯器 UI 功能與實現邏輯
+
+光表 (actionTable) 是整個系統的核心資料結構：
+`actionTable[armorIdx (0-6)][partIdx (0-13)] = [{time, color:{R,G,B,A}, linear}, ...]`
+代表「7 位舞者 × 14 個部位 × 一條時間軸關鍵格序列」。所有 UI 操作的本質都是在
+編輯這個三維結構，前端用 redux-persist 即時持久化到 localStorage。
+
+### 1. 取色 (Palette) — [Palette.jsx](frontend/src/components/Palette.jsx)
+- **HTML colorpicker**：點 `#colorWell` 開原生選色器，回傳 hex → 轉成 `{R,G,B,A}` → `dispatch(updateChosenColor)`
+- **TransparentButton**：調整 Alpha (亮度/透明度)
+- **我的最愛色盤** (`favoriteColor`)：4×2 = 8 格，預設白色
+  - 「填色」模式：點格子 → 讀取該格顏色為 `chosenColor`
+  - 「取色」模式：點格子 → 把目前 `chosenColor` 寫入該格
+  - 用底部 range slider 切換兩種模式 (`toggleState`)
+- **unsignedColor 顯示**：把 `chosenColor` 打包成 `RRGGBBAA` 32-bit 整數顯示，方便對韌體 debug
+
+### 2. 點擊光衣放色 (Armor) — [Armor.jsx](frontend/src/components/Armor.jsx)
+**這是最常用的編輯動作。** 按一下舞者身上的某個部位 → 在當前時間 `currentTime`
+插入一個 `chosenColor` 關鍵格。
+
+`insertArray(part)` 邏輯：
+1. `nowTime = floor(currentTime/50) * 50`（時間會對齊到 50ms 網格 → 對應後端壓平時的單位）
+2. 用 `binarySearchFirstGreater` 找到該時間應插入的位置
+3. 智能插入「黑色斷點」確保色塊不會無意中漸變到鄰居：
+   - 若 `nowTime` 已存在 → 直接覆寫顏色
+   - 若前格非黑、後格是黑 → 在新色塊前 `nowTime - 10ms` 插入黑色
+   - 若前後都不是黑 → 前 10ms 插黑、後一格 -10ms 插黑（夾住新色塊）
+   - 若前是黑、後不是黑 → 後一格 -10ms 插黑
+4. 排序、`dispatch(updateActionTable)`
+
+**渲染**：`getColorForPart(part)` 用 `binarySearchFirstGreater(partData, currentTime)` 取
+「currentTime 之前最近的關鍵格」；若該格 `linear === 1` 則對「下下一格」做線性插值
+(R/G/B/A 都用 `start*(1-r) + end*r`)，回傳 `rgba(...)` 給 SVG `fill`。
+
+`partNames` (Armor 內部 0-14)：`hat, face, chestL, chestR, armL, armR, tie, belt, gloveL, gloveR, legL, legR, shoeL, shoeR, board`
+
+### 3. 時間軸 / 控制台 (ControlPanel) — [ControlPanel.jsx](frontend/src/components/ControlPanel.jsx)
+左側 Timeline 設定區、右側 AudioPlayer 波形 + 多軌時間軸。
+
+**Timeline 管理**
+- `showPart`: Redux 中目前顯示的時間軌列表 `[{id, armorIndex, partIndex, hidden}, ...]`
+- **Choose-Timeline (faSliders)**：開啟 7×14 矩陣 modal，可以：
+  - 整列 / 整欄 All 按鈕快速全選
+  - 個別勾選 → Apply → 更新 `showPart`
+- **Add Timeline (faPlus)**：新增一條空 timeline
+- **上/下箭頭**：調整 timeline 顯示順序
+- **眼睛圖示**：切換該軌 `hidden`
+- **垃圾桶**：刪除該軌
+- 每軌可重新選 `armorIndex (1-7)` 與 `partIndex (帽子...右鞋)` 下拉
+
+**鍵盤快捷鍵**（全域）
+| 按鍵 | 動作 |
+|---|---|
+| W | 選取的關鍵格往「上一條 timeline」對應時間移動 |
+| S | 往「下一條 timeline」對應時間移動 |
+| A | 往左一格（會自動跳過孤立黑色斷點）|
+| D | 往右一格（同上）|
+| Ctrl+Z | Undo (`updateUndo`) |
+| Ctrl+Y | Redo (`updateRedo`) |
+
+W/S/A/D 移動的是 `multiSelectedBlocks[0]`，並會自動避開純黑斷點 (R=G=B=0)，
+這樣 hop 時不會卡在分隔用的黑塊上。
+
+**Undo/Redo**：透過 redux reducer 維護 history stack。
+
+**時間軸捲動同步**：左右兩個容器 (`settingRef` / `.timeline-container`) scroll 互相同步，
+讓設定列與時間軌一直對齊。
+
+### 4. AudioPlayer / 時間軸（音樂同步）
+- `AudioPlayer` 用 `<audio>` + WaveSurfer 顯示波形
+- 播放時持續 `dispatch(updateCurrentTime(ms))` → 整個 UI（Armor、Timeline 游標）即時跟著跑
+- `duration` 來自音樂長度，存進 redux
+- [Home.jsx:30](frontend/src/pages/Home.jsx#L30) `cleanActionTableByDuration` 會在 duration 改變時：
+  1. 過濾掉所有 `time >= duration` 的關鍵格
+  2. 在 `duration` 處補一個黑色終止格
+  3. 防止匯出資料超過音樂長度
+
+### 5. 進階表格編輯 (EditActionTable) — [EditActionTable.jsx](frontend/src/pages/EditActionTable.jsx)
+從 Home 點 `Edit` 按鈕進入 `/edit`，提供「逐格修改」的精確編輯介面：
+- 下拉選 Armor / Part
+- 表格列出該 part 的每個 block：Block Index / Time (number input) / Color (color input) / Delete
+- `+ Add Block` 新增一筆預設白色 time=0 的 block
+- `Save Changes` 排序並寫回 redux
+- 內建獨立的 history stack（不與 ControlPanel 的 undo 共用）
+- `← 返回` 回到 Home
+
+### 6. 舞者切換 (People / DancerToggle)
+- **People.jsx**：渲染 7 個 `Armor` 元件（也就是 7 位舞者光衣），點選後設定當前焦點舞者
+- **DancerToggle.jsx**：顯示/隱藏特定舞者，方便聚焦編輯
+
+### 7. 載入舊版 (LoadData / Dropdown) — [LoadData.jsx](frontend/src/components/LoadData.jsx)
+Home 上方 Dropdown 列出 `/api/timelist/{username}`，選一筆 → `/api/raw/{user}/{time}`
+還原 `actionTable` + `musicFilename` 到 redux（會檢查 `isDirty` 提示存檔）。
+
+### 8. 新建專案 (Home 內 New Project)
+- 點 `+ New Project` → `GET /api/get_music_list/{username}` 列出該帳號上傳過的 MP3
+- 選一首 → 若 `isDirty`，跳出 `showSaveModal` 三選一：
+  - **儲存並新建**：先 `handleOutput()` 上傳再清空 actionTable
+  - **放棄變更並新建**：直接清空
+  - **取消返回**
+- 清空時用 `generateInitialTable()` 生成 `7×14`，每格只有一個 `time:0` 黑色起始點
+
+### 9. 匯出 / 上傳 (Output) — [Home.jsx:168](frontend/src/pages/Home.jsx#L168)
+按 `Output` 按鈕同時做兩件事：
+
+**(A) `handleOutputString` → POST `/api/upload_raw`**
+直接 `JSON.stringify(data)` 包成 `{raw_data: ...}`，後端原樣存到 `raw_json` collection。
+這份保留 `actionTable` 完整結構供「下次載入回 UI」。
+
+**(B) `handleOutput` → POST `/api/upload_items`**：壓平成硬體格式
+1. 對每位舞者，收集所有 part 的關鍵格時間，`Math.ceil(t/50)*50` 對齊到 50ms 網格 → 取 unique
+2. 對每個對齊後的時間 t，每個 part 都做：
+   - 找到 `time <= t` 的最後一個 active block
+   - 若 `linear === 1` → 與下一個 block 線性插值算出 RGBA
+   - 否則直接用 active block 顏色
+3. **打包成 32-bit 整數**：
+   ```
+   alpha7    = min(floor(A*128), 127)        // A 量化到 7-bit
+   packedByte = (alpha7 << 1) | (linear & 1) // 第 0 bit 是 linear flag
+   color32   = (R<<24) | (G<<16) | (B<<8) | packedByte
+   ```
+   `>>> 0` 確保 unsigned。
+4. 每筆 record 變成 `{time: t/50, hat, face, chestL, chestR, armL, armR, tie, belt, gloveL, gloveR, legL, legR, shoeL, shoeR, board:0}`
+5. 對相鄰兩筆做「forward fill」: 若某 key 在下一筆缺值，從上一筆繼承
+6. 包成 `{players: [[...], ...], music_filename}` POST
+
+> 注意 `time: Math.floor(t/50)` — 後端拿到的時間單位是「50ms 為 1」，韌體側按此間隔取資料下發 LED。
+
+### 10. 操作 cheat sheet（給編舞者）
+
+| 想做 | 怎麼做 |
+|---|---|
+| 選顏色 | Palette colorpicker，或點我的最愛色塊（填色模式）|
+| 存常用色 | 切到「取色」模式，點任一格 |
+| 在某時間給某部位上色 | 拖時間軸到目標時間 → 點該舞者光衣上的部位 |
+| 做漸變效果 | 進 Edit 頁或在 Timeline 上把該關鍵格 `linear` 設為 1，下一個關鍵格作為終點 |
+| 多軌顯示某些 part | Choose-Timeline → 勾選 → Apply |
+| 微調時間 | 進 Edit Action Table，直接改 number input |
+| 平移選取 | A/D 左右、W/S 上下 timeline，自動跳過黑色 |
+| 撤銷/重做 | Ctrl+Z / Ctrl+Y |
+| 換音樂開新檔 | + New Project → 選 MP3（會問是否先存）|
+| 載入舊版本 | 上方 Dropdown 選 user/時間 |
+| 存檔 | Output 按鈕（同時送 raw + items）|
+| 確認沒爆音樂長度 | 改 duration 後系統自動裁切超出的關鍵格 |
+
+## 色塊資料模型重構計畫 (進行中)
+
+> 詳細執行步驟與 checklist 見 [todo.md](todo.md)。本章節記錄設計動機與已拍板的決策，
+> 讓未來的協作者（與 Claude）一進專案就能看到方向。
+
+### 為什麼要改
+
+目前 `actionTable[armor][part] = [{time, color, linear}, ...]` 是「關鍵格 + 黑色哨兵」模型。
+為了表達「色塊在此結束、不要漸變到下一段」，必須在前後塞純黑斷點，導致：
+
+- [Armor.jsx `insertArray`](frontend/src/components/Armor.jsx) 有 5 分支判斷前/後是不是黑，
+  並用魔術數字 `blackthreshold = 10ms` 偷偷偏移使用者輸入的時間
+- [ControlPanel.jsx](frontend/src/components/ControlPanel.jsx) W/S/A/D 必須「自動跳過黑色」
+- [Home.jsx `cleanActionTableByDuration`](frontend/src/pages/Home.jsx) 要重新尋找/補上黑色終止格
+- 線性插值 (`handleOutput`) 要抓 prev/next/afterNext 三格才能算對顏色
+- 拖曳色塊 / resize / Ctrl 框選複製貼上 等 DAW 風功能 **幾乎做不到**，
+  因為「色塊」根本不是資料模型中的一級物件
+
+根因：**資料形狀沒有顯式表達色塊邊界**，整份程式碼一直在從「關鍵格序列 + 鄰居黑色」反推色塊在哪。
+
+### 新模型 (已拍板)
+
+```js
+actionTable[armor][part] = [
+  { id, start, end, colorStart: {R,G,B,A}, colorEnd: {R,G,B,A} },
+  ...
+]
+```
+
+**核心決策：**
+| 項目 | 決策 |
+|---|---|
+| segment 之間 | **可以有間隔**，間隔 = LED 關閉 (黑) |
+| 時間最小單位 | **50ms**，所有 `start` / `end` 都對齊 50ms 網格 |
+| 漸變語意 | **(A) 段內漸變** — `colorStart → colorEnd` 在 `[start, end]` 內線性插值；無漸變則 `colorEnd === colorStart` |
+| 拖曳碰撞策略 | **trim** — 新 segment 蓋到舊 segment 上時，舊 segment 被覆蓋的部分被裁掉 (可能 split 成兩段) |
+| 空白區域語意 | **黑色** (LED off)，與現況一致，硬體輸出不變 |
+| 後端格式 | **完全不變** — `upload_items` / `upload_raw` / mongo `color` & `raw_json` collection schema 維持原樣，**所有轉換在前端完成** |
+| 不變式 | segment 不重疊；`start <= end`；都對齊 50ms |
+| segment 識別 | 每段有穩定 `id`（uuid 或自增），方便多選、複製貼上、undo diff |
+
+### 對現有 UI 的影響（重構後）
+
+| 功能 | 重構前 | 重構後 |
+|---|---|---|
+| 點光衣放色 | 5 分支 + 10ms 黑色偏移 | `insertSegment(start, end, color)`，碰撞用 trim split，約 15 行 |
+| 渲染當前時間 | binary search keyframe → 看 linear → 看 afterNext → 三格內插 | 找包含 `t` 的 segment；有則 `lerp(colorStart, colorEnd, (t-start)/(end-start))`，無則黑 |
+| W/S/A/D 跳格 | 要 skip black | 直接 `segments[i±1]` |
+| `cleanActionTableByDuration` | 過濾 + 補黑 + 排序 | `segments.filter(s => s.start < dur).map(s => ({...s, end: min(s.end, dur)}))` |
+| 匯出壓平 (`handleOutput` 50ms 取樣) | 走 keyframe + linear 三格 | 對每個 tick `t` 找包含 `t` 的 segment（O(log n)），無則輸出黑色 0 |
+| Undo/Redo | reducer diff 整張 table | 可用 segment id 細粒度 diff，連續拖曳可 coalesce 成一筆 |
+
+### 重構後可解鎖的新功能
+
+- **拖曳移動色塊**（DAW 風）：改 `seg.start/end`，碰撞 trim
+- **拖邊 resize**：改單一端點
+- **Ctrl 框選多個色塊**：`selectedIds = Set<id>`
+- **複製 / 貼上 / 時間平移**：deep clone 後加 offset
+- **量化 / 對齊到節拍**
+
+### 遷移策略 (漸進式，每步可獨立 ship/rollback)
+
+1. 寫雙向轉換器 `keyframesToSegments()` / `segmentsToKeyframes()` 放 utils
+2. **驗證腳本**：對現有 raw_json 跑 `keyframes → segments → 壓平`，與直接從 keyframes 壓平的 `upload_items` payload 做 **byte-equal diff**，全綠才繼續
+3. 載入時 lazy migrate（後端格式不變，只在前端 in-memory 轉換）
+4. 依序改：Armor render → `insertArray` → EditActionTable → ControlPanel → `handleOutput`
+5. 移除 `blackthreshold` 與 `cleanActionTableByDuration` 補黑邏輯
+6. 開始加 DAW 風新功能
+
+### 注意事項
+
+- segment **不重疊** 是強制不變式，所有寫入路徑（insert / drag / resize / paste）都必須保證
+- 單 tick 閃爍：以 `end - start === 50` 表達（最小單位）
+- `keyframesToSegments` 轉換規則：遇到非黑 keyframe 開新 segment，下一個黑 keyframe 或下一個非黑 keyframe 為終點；若原 keyframe `linear === 1`，則 `colorEnd` 取自下一格顏色
+- **暫不支援鏈式漸變**（連續多個 `linear === 1`）：使用者若需相同效果，自行拉多個相鄰 segment。轉換器遇到鏈式時，把每段拆獨立 segment（中間 keyframe 同時當前段 end 與下段 start，邊界用半開區間 `[start, end)` 避免重複取樣）
+- 後端壓平輸出 (`upload_items`) 必須 byte-equal 等價於現況，否則硬體會看到不同畫面
+
+## 長期願景：多軌音訊（DAW 風）
+
+未來目標是讓**音軌也像色塊一樣可拖曳、可拼貼多個音軌**，修改音樂時不用重新上傳整首。
+
+### 為何寫進這份檔案
+這個願景會反向影響 segment 重構的介面設計：
+- segment utils 必須做成 **generic `Segment<T>`**，不能寫死 `colorStart/colorEnd`
+- 拖曳/resize/move 的 UI 邏輯（重構後的 Timeline）必須能被音軌複用
+- 50ms 量化、trim collision、id/多選/undo coalesce 都要 generic
+
+### 音訊 segment 草案
+```js
+audioTracks = [
+  {
+    id, name,
+    segments: [
+      { id, start, end, sourceFile, sourceOffset, volume, fadeIn, fadeOut },
+      ...
+    ]
+  },
+  ...
+]
+```
+與燈光 segment **幾乎同構**，只差 payload 欄位。
+
+### 與目前 waveform.jsx 的距離
+目前 [waveform.jsx](frontend/src/components/audio/waveform.jsx) 是「整條 timeline 只播一個音檔」的單軌設計（單一 sourceNode）。多軌時要改寫成：一個 AudioContext + N 個 AudioBufferSourceNode mix + 每軌獨立 gain node。Phase 0/0.5 拆檔時要避免把單軌假設更深地綁進新元件。
+
+### 與後端的關係
+- 後端音檔池 (`MUSIC_FILE_PATH=/music`，host 端是 `./music_file/`) 維持不變
+- 韌體不關心音訊（只吃 PlayerData），所以 `color` collection / `upload_items` 路徑完全不變
+- 新增「專案 ↔ 音軌 ↔ 音檔池」的關聯（mongo 新 collection 或塞進 `raw_json.tracks`）
+
+詳細執行步驟見 [todo.md](todo.md) Phase 6。
+
+> ⚠️ 死代碼提醒：[frontend/src/components/audio/musicsrc/](frontend/src/components/audio/musicsrc/) 是**前端 webpack bundle 的歷史遺留**，與後端音檔池完全無關，已在 Phase 0 cleanup 中刪除。未來多軌會走後端 API，不會回頭用 musicsrc。
+
+## 典型使用流程
+
+1. `./start-dev.sh` 啟動 Docker (前端 3000 / 後端 8000 / Mongo 27017)
+2. 開啟 `http://localhost:3000` → Welcome → Login（帳密在 mongo `users` collection）
+3. **Dashboard**：
+   - 上傳音樂：`POST /api/upload_music` (MP3)
+   - 「新專案」：選音樂 → 進編輯器
+   - 「舊專案」：選版本 → `GET /api/raw/...` 還原 → 進編輯器
+4. **Home 編輯器**：
+   - 用 Palette 選顏色，在 Armor / EditActionTable 上對「舞者 × 部位 × 時間點」放色塊
+   - ControlPanel 播放音樂預覽，currentTime 同步更新光衣顏色
+   - 可設定 linear (漸變) 或單點切換
+5. **儲存**：
+   - `POST /api/upload_raw`：保存原始編輯狀態 (供下次載入回 UI)
+   - `POST /api/upload_items`：保存壓平後 PlayerData (供硬體播放)
+6. **硬體端 (Pico)** 透過 `/api/items/...` 或分塊 API 拉資料下發到 LED 板
 
 ## 開發環境指令
 
@@ -35,6 +423,28 @@ docker compose -f docker-compose.dev.yml logs -f
 # 使用 Ctrl+C 或
 docker compose -f docker-compose.dev.yml down
 ```
+
+### 資料備份與自動還原
+
+本地 mongo 資料 (`mongo_data` volume) 偶爾會因 `down -v` / `volume prune` / Docker Desktop reset 等操作整個消失。為避免每次都要手動重建,專案採用「**遠端 dump → 本地自動 restore**」流程:
+
+- **備份來源**:遠端正式機 `light_dance_main` (140.113.160.136:13420),ssh config alias 已設好
+- **備份檔位置**:`backups/remote-test.gz` (gitignored)
+- **音樂檔**:`music_file/` 從遠端 scp,本地檔案系統存放,gitignored
+
+**手動更新 backup(從遠端拉最新資料)**:
+```bash
+ssh light_dance_main "docker exec mongo mongodump -u root -p nycuee --authenticationDatabase admin --db test --archive --gzip" > ./backups/remote-test.gz
+scp -r light_dance_main:~/lightdance/music_file ./
+```
+
+**自動還原行為** ([start-dev.sh](start-dev.sh) 步驟 3.5):
+- 每次 `./start-dev.sh` 啟動後,檢查 `test.users` collection
+- `count == 0` (volume 是空的) → 自動從 `backups/remote-test.gz` `mongorestore --drop`
+- `count > 0` → 跳過,不會覆蓋你正在編輯的本地資料
+- 找不到 backup 檔 → 顯示警告但不中斷啟動
+
+這個機制讓「重灌 docker / 換機器 / 不小心 `down -v`」之後,只要 `./start-dev.sh` 一條指令就能回到可用狀態。
 
 ### 故障排除指令
 ```bash

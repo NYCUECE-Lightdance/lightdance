@@ -2,6 +2,9 @@
 
 # 個人用的文件、腳本等等
 local/
+run-deploy.sh
+start-dev.sh
+stop-dev.sh
 
 # Python 相關
 __pycache__/
@@ -25,6 +28,7 @@ dist/
 music_file/
 db/
 logs/
+backups/
 
 # IDE 與作業系統產生的檔案
 .vscode/
