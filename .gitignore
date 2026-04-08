@@ -28,6 +28,7 @@ dist/
 music_file/
 db/
 logs/
+backups/
 
 # IDE 與作業系統產生的檔案
 .vscode/

@@ -424,6 +424,28 @@ docker compose -f docker-compose.dev.yml logs -f
 docker compose -f docker-compose.dev.yml down
 ```
 
+### 資料備份與自動還原
+
+本地 mongo 資料 (`mongo_data` volume) 偶爾會因 `down -v` / `volume prune` / Docker Desktop reset 等操作整個消失。為避免每次都要手動重建,專案採用「**遠端 dump → 本地自動 restore**」流程:
+
+- **備份來源**:遠端正式機 `light_dance_main` (140.113.160.136:13420),ssh config alias 已設好
+- **備份檔位置**:`backups/remote-test.gz` (gitignored)
+- **音樂檔**:`music_file/` 從遠端 scp,本地檔案系統存放,gitignored
+
+**手動更新 backup(從遠端拉最新資料)**:
+```bash
+ssh light_dance_main "docker exec mongo mongodump -u root -p nycuee --authenticationDatabase admin --db test --archive --gzip" > ./backups/remote-test.gz
+scp -r light_dance_main:~/lightdance/music_file ./
+```
+
+**自動還原行為** ([start-dev.sh](start-dev.sh) 步驟 3.5):
+- 每次 `./start-dev.sh` 啟動後,檢查 `test.users` collection
+- `count == 0` (volume 是空的) → 自動從 `backups/remote-test.gz` `mongorestore --drop`
+- `count > 0` → 跳過,不會覆蓋你正在編輯的本地資料
+- 找不到 backup 檔 → 顯示警告但不中斷啟動
+
+這個機制讓「重灌 docker / 換機器 / 不小心 `down -v`」之後,只要 `./start-dev.sh` 一條指令就能回到可用狀態。
+
 ### 故障排除指令
 ```bash
 # 重新建置並啟動

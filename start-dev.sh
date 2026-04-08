@@ -109,6 +109,29 @@ fi
 echo -e "📦 ${BLUE}正在建置並啟動所有開發服務 (in background)...${NC}"
 docker compose -f ${COMPOSE_FILE} --env-file ${ENV_FILE} up --build -d
 
+# 3.5 若 mongo 是空的，自動從 backups/remote-test.gz 還原資料
+BACKUP_FILE="./backups/remote-test.gz"
+if [ -f "$BACKUP_FILE" ]; then
+    echo -e "🗄️  ${BLUE}檢查 mongo 資料狀態...${NC}"
+    # 等 mongo 起來 (最多 60 秒)
+    for i in $(seq 1 30); do
+        if docker compose -f ${COMPOSE_FILE} exec -T mongo mongosh -u root -p nycuee --authenticationDatabase admin --quiet --eval "db.adminCommand('ping')" >/dev/null 2>&1; then
+            break
+        fi
+        sleep 2
+    done
+    USER_COUNT=$(docker compose -f ${COMPOSE_FILE} exec -T mongo mongosh -u root -p nycuee --authenticationDatabase admin --quiet --eval "db.getSiblingDB('test').users.countDocuments({})" 2>/dev/null | tr -d '[:space:]')
+    if [ "$USER_COUNT" = "0" ] || [ -z "$USER_COUNT" ]; then
+        echo -e "📥 ${YELLOW}mongo 是空的，從 ${BACKUP_FILE} 還原資料...${NC}"
+        docker compose -f ${COMPOSE_FILE} exec -T mongo mongorestore -u root -p nycuee --authenticationDatabase admin --archive --gzip --drop < "$BACKUP_FILE" 2>&1 | tail -3
+        echo -e "✅ ${GREEN}資料還原完成${NC}"
+    else
+        echo -e "✅ ${GREEN}mongo 已有資料 (${USER_COUNT} users)，跳過還原${NC}"
+    fi
+else
+    echo -e "⚠️  ${YELLOW}找不到 ${BACKUP_FILE}，跳過自動還原${NC}"
+fi
+
 # 4. 等待後端與前端服務啟動
 wait_for_service http://localhost:${API_PORT}/api "Backend API" || cleanup
 wait_for_service http://localhost:${FRONTEND_PORT} "Frontend" || cleanup
