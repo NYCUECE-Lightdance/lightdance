@@ -20,6 +20,7 @@ import { faRobot } from "@fortawesome/free-solid-svg-icons";
 import { set } from "lodash";
 import { LuPlus, LuMusic, LuChevronRight } from "react-icons/lu";
 import { API_ENDPOINTS } from "../config/api.js";
+import { localMusicFiles } from "../components/audio/musicData.js";
 
 const generateInitialTable = () => Array.from({ length: 7 }, () =>
   Array.from({ length: 14 }, () => [
@@ -325,14 +326,17 @@ function Home({ rgba, setRgba, setButtonState }) {
   // 1. 點擊「新建專案」時切換音樂選單
   const handleToggleNewProject = async () => {
     if (!showNewProjectMenu) {
+      let apiList = [];
       try {
         const response = await fetch(`${API_ENDPOINTS.BASE}/get_music_list/${userName}`);
-        const data = await response.json();
-        setMusicList(data.music_list || []);
-        setShowNewProjectMenu(true);
+        const json = await response.json();
+        apiList = json.music_list || [];
       } catch (error) {
         console.error("Fetch music error:", error);
       }
+      // 本地 musicsrc/ 的 mp3 永遠顯示，後端上傳的額外加進來
+      setMusicList([...new Set([...localMusicFiles, ...apiList])]);
+      setShowNewProjectMenu(true);
     } else {
       setShowNewProjectMenu(false);
     }

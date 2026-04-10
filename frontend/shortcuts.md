@@ -17,9 +17,18 @@ This document lists the available keyboard shortcuts for the Light Dance applica
 -   **C**: Cut the selected block at the current time (only when exactly one block is selected).
 -   **L**: Toggle the "Linear" (gradient) property for the selected block(s). When enabled, the color of the block will transition smoothly to the next block.
 -   **B**: Open the "Blink" effect menu for the selected block (only when exactly one block is selected).
--   **M**: Open the color picker to change the color of the selected block(s).
+-   **M**: Toggle **Move Mode**. While active, click a colored block to start tracking it, move the mouse left/right to reposition it, then click anywhere to commit the new position and exit Move Mode. Pressing M again also commits the current position and exits. The move icon button in the top-left corner also toggles Move Mode (highlights blue when active).
+-   **P**: Open the color picker to change the color of the selected block(s).
 -   **Ctrl + Z**: Undo the last action.
 -   **Ctrl + Y**: Redo the undone action.
+
+### Drag
+Click and hold a colored block, then drag left or right to reposition it along the timeline. Release the mouse button to commit the new position. The block moves as a whole unit (both its start and end times shift equally), and is constrained by the surrounding blocks.
+
+### Stretch Mode (Resize)
+First select a colored block (single click). Then hover near the **left or right edge** of the block — the cursor changes to a resize arrow (`↔`). Click and drag the edge to resize the block:
+
+The minimum block duration is **`STRETCH_MIN_MS = 50 ms`** (defined in `Timeline.jsx`). The block cannot be shrunk below this limit.
 
 ## Color and Brightness
 

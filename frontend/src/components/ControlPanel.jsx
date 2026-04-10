@@ -14,12 +14,14 @@ import {
   faAngleDown,
   faEyeSlash,
   faEye,
+  faArrowsLeftRight,
 } from "@fortawesome/free-solid-svg-icons";
 import {
   updateRedo,
   updateUndo,
   updateShowPart,
   updateMultiSelectedBlocks,
+  toggleMoveMode,
 } from "../redux/actions.js";
 
 function ControlPanel({ setButtonState }) {
@@ -30,6 +32,7 @@ function ControlPanel({ setButtonState }) {
   const [selectedTimelines, setSelectedTimelines] = useState([]);
   const [showModal, setShowModal] = useState(false);
   const multiSelectedBlocks = useSelector((state) => state.profiles.multiSelectedBlocks);
+  const moveMode = useSelector((state) => state.profiles.moveMode);
   const actionTable = useSelector((state) => state.profiles.data?.actionTable || []);
   const currentTime = useSelector((state) => state.profiles.currentTime);
   const showPart = useSelector((state) => state.profiles.showPart);
@@ -401,15 +404,16 @@ function ControlPanel({ setButtonState }) {
     const handleKeyDown = (event) => {
       // 檢查是否按下 Ctrl+Z（Undo）
       if (event.ctrlKey && event.key === "z") {
-        event.preventDefault(); // 阻止默認行為
+        event.preventDefault();
         undo();
       }
 
       // 檢查是否按下 Ctrl+Y（Redo）
       if (event.ctrlKey && event.key === "y") {
-        event.preventDefault(); // 阻止默認行為
+        event.preventDefault();
         redo();
       }
+
     };
 
     // 添加全局鍵盤事件監聽器
@@ -590,6 +594,13 @@ function ControlPanel({ setButtonState }) {
             <button className="add-timeline" onClick={addTimeline}>
               <FontAwesomeIcon icon={faPlus} size="lg" />
               <span className="tooltip">Add-Timeline</span>
+            </button>
+            <button
+              className={`move-mode-button ${moveMode ? "active" : ""}`}
+              onClick={() => dispatch(toggleMoveMode())}
+            >
+              <FontAwesomeIcon icon={faArrowsLeftRight} size="lg" />
+              <span className="tooltip">Move Mode ( M )</span>
             </button>
           </div>
           <div

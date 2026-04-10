@@ -19,6 +19,7 @@ const initialState = {
   isColorChangeActive: false,
   playbackRate: 1,
   magnetActive: false,
+  moveMode: false,
   showPart: [
     { id: 1, armorIndex: 0, partIndex: 0, hidden: false },
     { id: 2, armorIndex: 1, partIndex: 0, hidden: false },
@@ -152,6 +153,10 @@ export const profiles = (state = initialState, action) => {
 
     case "UPDATEMAGNETACTIVE":
       return { ...state, magnetActive: action.payload };
+    case "UPDATEMOVEMODE":
+      return { ...state, moveMode: action.payload };
+    case "TOGGLEMOVEMODE":
+      return { ...state, moveMode: !state.moveMode };
 
     case "UPDATEHISTORY": {
       // 防止重复记录

@@ -5,10 +5,12 @@ import {
   updateActionTable,
   updateClipboard,
   updateMultiSelectedBlocks,
+  toggleMoveMode,
   // updateMusicIndex,
 } from "../../redux/actions.js";
 import "./audioplayer.css";
-import Waveform, { musicNames } from "./waveform.jsx";
+import Waveform from "./waveform.jsx";
+import { musicNames } from "./musicData.js";
 import Timeline from "./Timeline.jsx";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import {
@@ -448,7 +450,11 @@ function AudioPlayer({ setButtonState, timelineRef }) {
     //   console.log("Shift + ArrowLeft pressed. Moving left.");
     //   handleGoLeft();
     // }
-    if (event.key === "m") {
+    if (event.key === "m" || event.key === "M") {
+      event.preventDefault();
+      dispatch(toggleMoveMode());
+    }
+    if (event.key === "p" || event.key === "P") {
       event.preventDefault();
       ClickedColorChange();
     }
@@ -1626,7 +1632,7 @@ function AudioPlayer({ setButtonState, timelineRef }) {
         </div>
         <button className="color-button" onClick={ClickedColorChange}>
           <FontAwesomeIcon icon={faPalette} size="lg" /> {/* 调色板图标 */}
-          <span className="tooltip">Color( M )</span>
+          <span className="tooltip">Color( P )</span>
         </button>
         {/* 下拉式选单 */}
         <div className="dropdown">
