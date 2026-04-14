@@ -88,11 +88,41 @@ function Home({ rgba, setRgba, setButtonState }) {
   const [pendingMusic, setPendingMusic] = useState(null);
   const initialTable = generateInitialTable();
 
-
+  const sizeInMB = (JSON.stringify(data).length / 1024 / 1024).toFixed(2);
+  console.log(`目前資料大小: ${sizeInMB} MB`);
 
   const editing = () => {
     navigate("/edit");
   };
+
+    // 自動清理 30 天前的舊備份
+  useEffect(() => {
+    const cleanOldBackups = () => {
+      const THIRTY_DAYS = 30 * 24 * 60 * 60 * 1000; // 30天的毫秒數
+      const now = new Date().getTime();
+
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        
+        // 只檢查我們存的 local_backup 開頭的 Key
+        if (key && key.startsWith("local_backup_")) {
+          try {
+            const item = JSON.parse(localStorage.getItem(key));
+            // 如果時間超過 30 天，就刪除
+            if (item.timestamp && (now - item.timestamp > THIRTY_DAYS)) {
+              localStorage.removeItem(key);
+              console.log(`已清理過期備份: ${key}`);
+            }
+          } catch (e) {
+            // 如果資料格式毀損無法解析，也順便清掉
+            localStorage.removeItem(key);
+          }
+        }
+      }
+    };
+
+    cleanOldBackups();
+  }, []); // 只在進入 Home 頁面時執行一次
 
   useEffect(() => {
     setIsDirty(true);
@@ -141,7 +171,16 @@ function Home({ rgba, setRgba, setButtonState }) {
     console.log("UPLOAD_RAW:", API_ENDPOINTS.UPLOAD_RAW);
     console.log("UPLOAD_ITEMS:", API_ENDPOINTS.UPLOAD_ITEMS);
     setIsDirty(false);
+    const backupKey = `local_backup_${musicFilename}`;
   
+    // 1. 先存本地保險
+    const backupData = {
+      data: data, 
+      timestamp: new Date().getTime(), // 改用毫秒數，方便計算 30 天
+      displayTime: new Date().toLocaleString(), // 存一個好看的時間供顯示
+    };
+    localStorage.setItem(backupKey, JSON.stringify(backupData));
+
     const players = [];
     const armorIndices = Object.keys(actionTable);
   
@@ -299,23 +338,30 @@ function Home({ rgba, setRgba, setButtonState }) {
       music_filename: String(musicFilename)
     };
 
-    const response = await fetch(API_ENDPOINTS.UPLOAD_FULL, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${BearerToken}`,
-      },
-      body: JSON.stringify(fullUploadData),
-      mode: "cors",
-    });
+    try {
+      const response = await fetch(API_ENDPOINTS.UPLOAD_FULL, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${BearerToken}`,
+        },
+        body: JSON.stringify(fullUploadData),
+        mode: "cors",
+      });
 
-    if (response.ok) {
-      setIsDirty(false);
-      alert("原始檔與播放檔皆上傳成功！ (同步時間戳記)"); 
-      console.log("upload(full) : ", JSON.stringify(fullUploadData));
-    } else {
-      alert("上傳失敗");
-      console.error("Upload Error:", response.status);
+    
+      if (response.ok) {
+        setIsDirty(false);
+        localStorage.removeItem(backupKey);
+        alert("原始檔與播放檔皆上傳成功！ 本地端已清理(同步時間戳記)"); 
+        console.log("upload(full) : ", JSON.stringify(fullUploadData));
+      } else {
+        alert("上傳失敗，資料已自動備份至本地。");
+        console.error("Upload Error:", response.status);
+      }
+    } catch (error) {
+      alert("網路斷線，資料已自動備份至本地。");
+      console.error("Upload Exception:", error);
     }
 
   }
