@@ -12,8 +12,29 @@ function Dropdown({ userName, setIsDirty, isDirty, setIsLoaded, isLoaded }) {
   const [anchorIndex, setAnchorIndex] = useState(0);
   const dispatch = useDispatch();
   const actionTable = useSelector((state) => state.profiles.data?.actionTable || []);
+  const [localBackups, setLocalBackups] = useState([]);
 
   async function fetchAvailableDataList() {
+    // --- 部分 A: 抓取本地 localStorage 資料 ---
+    const backups = [];
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i);
+      if (key && key.startsWith("local_backup_")) {
+        try {
+          const item = JSON.parse(localStorage.getItem(key));
+          backups.push({
+            key: key,
+            music_filename: item.data?.music_filename || "Unknown",
+            displayTime: item.displayTime || "N/A",
+            rawData: item.data // 直接存放原始資料供載入
+          });
+        } catch (e) {
+          console.error("解析本地資料失敗", e);
+        }
+      }
+    }
+    setLocalBackups(backups);
+
     // Define the API endpoint
     const apiEndpoint = `${API_ENDPOINTS.TIMELIST}/${userName}`; // Example API
 
@@ -85,6 +106,19 @@ function Dropdown({ userName, setIsDirty, isDirty, setIsLoaded, isLoaded }) {
         console.error("Error fetching data:", error); // Handle any errors
       });
   }
+
+  const handleLoadLocal = (backup) => {
+    if (backup.rawData) {
+      // 根據你的資料結構解構
+      const actionData = backup.rawData.actionTable || backup.rawData;
+      const musicFile = backup.rawData.music_filename;
+
+      dispatch(updateActionTable(actionData));
+      dispatch(updateMusicFilename(musicFile));
+      setIsDirty(false); // 載入後暫時重置 dirty 狀態
+      alert(`已載入本地暫存: ${musicFile}`);
+    }
+  };
 
   async function fetchRawPlayerData(user, time) {
     // console.log(time);
@@ -259,6 +293,35 @@ function Dropdown({ userName, setIsDirty, isDirty, setIsLoaded, isLoaded }) {
             overflowY: "auto", // ✅ 垂直滾動
           }}
         >
+          {/* --- 區段 1: 本地暫存檔 --- */}
+          {localBackups.length > 0 && (
+            <>
+              <li><span className="dropdown-header text-danger" style={{ fontSize: "20px" }}>⚠️ 本地未上傳暫存</span></li>
+              {localBackups.map((backup) => (
+                <li key={backup.key}>
+                  <a
+                    className="dropdown-item d-flex justify-content-between align-items-center"
+                    style={{ fontSize: "16px", backgroundColor: "#fff3cd" }}
+                    onClick={() => handleLoadLocal(backup)}
+                  >
+                    <div>
+                      <span className="fw-bold">{backup.music_filename}</span>
+                      <br />
+                      <small className="text-muted">{backup.displayTime}</small>
+                    </div>
+                    <span className="badge bg-warning text-dark ms-2">Local</span>
+                  </a>
+                </li>
+              ))}
+              <li><hr className="dropdown-divider" /></li>
+            </>
+          )}
+
+          {/* --- 區段 2: 遠端資料庫檔 (你原本的渲染邏輯) --- */}
+          {timeList.length === 0 && localBackups.length === 0 && (
+            <li><span className="dropdown-item">無可用資料</span></li>
+          )}
+
           {timeList.map((option, index) => {
             const isNewUser =
               index === 0 || option.user !== timeList[index - 1].user;
