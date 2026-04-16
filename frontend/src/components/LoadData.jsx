@@ -29,7 +29,8 @@ function Dropdown({ userName, setIsDirty, isDirty, setIsLoaded, isLoaded }) {
           displayTime: item.displayTime || "N/A",
           timestamp: item.timestamp || 0,
           rawData: item.data,
-          source: "IndexedDB"
+          source: "IndexedDB",
+          uploaded: item.uploaded
         });
       });
     } catch (e) {
@@ -302,12 +303,15 @@ function Dropdown({ userName, setIsDirty, isDirty, setIsLoaded, isLoaded }) {
           {/* --- 區段 1: 本地暫存檔 --- */}
           {localBackups.length > 0 && (
             <>
-              <li><span className="dropdown-header text-danger" style={{ fontSize: "20px" }}>⚠️ 本地未上傳暫存</span></li>
+              <li><span className="dropdown-header text-primary" style={{ fontSize: "20px" }}>📦 本地備份檔</span></li>
               {localBackups.map((backup) => (
                 <li key={backup.key}>
                   <a
                     className="dropdown-item d-flex justify-content-between align-items-center"
-                    style={{ fontSize: "16px", backgroundColor: "#fff3cd" }}
+                    style={{ 
+                      fontSize: "16px", 
+                      backgroundColor: backup.uploaded ? "#f8f9fa" : "#fff3cd" // 已同步用淡灰色，未同步用淡橘色
+                    }}
                     onClick={() => handleLoadLocal(backup)}
                   >
                     <div>
@@ -315,9 +319,12 @@ function Dropdown({ userName, setIsDirty, isDirty, setIsLoaded, isLoaded }) {
                       <br />
                       <small className="text-muted">{backup.displayTime}</small>
                     </div>
-                    <span className={`badge ${backup.source === "IndexedDB" ? "bg-success" : "bg-warning"} text-dark ms-2`}>
-                      {backup.source === "IndexedDB" ? "IDB" : "Local"}
-                    </span>
+                    <div className="d-flex flex-column align-items-end">
+                      <span className={`badge ${backup.uploaded ? "bg-success" : "bg-warning"} text-dark mb-1`}>
+                        {backup.uploaded ? "已同步伺服器" : "待同步/上傳失敗"}
+                      </span>
+                      <small style={{ fontSize: "10px", color: "#888" }}>IDB</small>
+                    </div>
                   </a>
                 </li>
               ))}

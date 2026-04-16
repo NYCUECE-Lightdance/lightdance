@@ -168,12 +168,12 @@ function Home({ rgba, setRgba, setButtonState }) {
     const backupKey = `local_backup_${musicFilename}`;
   
     // 1. 本地備份 (IndexedDB + Try-Catch 隔離)
-    // 即使本地備份失敗，也不要影響後續的 Remote Output
     try {
       const backupData = {
         data: data, 
         timestamp: new Date().getTime(),
         displayTime: new Date().toLocaleString(),
+        uploaded: false, // 初始設為 false
       };
       await saveLocalBackup(backupKey, backupData);
       console.log("✅ 本地備份成功 (IndexedDB)");
@@ -352,6 +352,18 @@ function Home({ rgba, setRgba, setButtonState }) {
     
       if (response.ok) {
         setIsDirty(false);
+        // 更新本地備份狀態為已同步
+        try {
+          const syncData = {
+            data: data,
+            timestamp: new Date().getTime(),
+            displayTime: new Date().toLocaleString(),
+            uploaded: true,
+          };
+          await saveLocalBackup(backupKey, syncData);
+        } catch (e) {
+          console.error("更新本地同步狀態失敗:", e);
+        }
         alert("原始檔與播放檔皆上傳成功！"); 
         console.log("upload(full) : ", JSON.stringify(fullUploadData));
       }
