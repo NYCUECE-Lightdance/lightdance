@@ -38,6 +38,7 @@ const Armor = (props) => {
     "shoeL",         // 12:左鞋
     "shoeR",         // 13:右鞋
     "board",         // 14:板子
+    "weapon",        // 15:武器
   ];
 
 
@@ -45,39 +46,15 @@ const Armor = (props) => {
     const getColorForPart = (part) => {
       const partData = actionTable?.[myId]?.[part] || [];
 
-      // 新格式: 找到包含當前時間的色塊 (startTime <= time < endTime)
+      // 找到包含當前時間的色塊
       const currentBlock = partData.find(
         (block) => block.startTime <= time && time < block.endTime
       );
 
-
-    if (prevData && prevData.linear === 1 && nextData) {
-      const afterNextData = partData?.[timeIndex + 1];
-
-      const startTime = prevData.time;
-      const endTime = nextData.time;
-      const currentTime = time;
-
-      const startColor = prevData.color;
-      const endColor = afterNextData?.color || { R: 0, G: 0, B: 0, A: 1 };
-
-      if (endTime > startTime) {
-        const ratio = (currentTime - startTime) / (endTime - startTime);
-        const r = Math.round(
-          startColor.R * (1 - ratio) + endColor.R * ratio
-        );
-        const g = Math.round(
-          startColor.G * (1 - ratio) + endColor.G * ratio
-        );
-        const b = Math.round(
-          startColor.B * (1 - ratio) + endColor.B * ratio
-        );
-        const startA = startColor.A ?? 1;
-        const endA = endColor.A ?? 1;
-        const a = startA * (1 - ratio) + endA * ratio;
-        return `rgba(${r}, ${g}, ${b}, ${a})`;
+      // 如果沒找到對應色塊，回傳黑色
+      if (!currentBlock) {
+        return "rgba(0, 0, 0, 1)";
       }
-    }
 
       const color = currentBlock.color || { R: 0, G: 0, B: 0, A: 1 };
 
@@ -87,38 +64,30 @@ const Armor = (props) => {
       }
 
       // 漸變模式：計算隨時間變化的顏色
-      // 找到下一個色塊
       const currentIndex = partData.indexOf(currentBlock);
       const nextBlock = partData[currentIndex + 1];
 
-      // 新方案：直接使用下一個塊的顏色，或默認為黑色
       let endColor = { R: 0, G: 0, B: 0, A: 1 };
       if (nextBlock) {
         endColor = nextBlock.color;
       }
 
-      // 計算當前時間在光塊中的進度比例 (0 到 1)
       const startTime = currentBlock.startTime;
       const endTime = currentBlock.endTime;
       const progress = Math.min(Math.max((time - startTime) / (endTime - startTime), 0), 1);
 
-      // 線性插值計算當前時間對應的顏色
       const interpolatedR = Math.round(color.R + (endColor.R - color.R) * progress);
       const interpolatedG = Math.round(color.G + (endColor.G - color.G) * progress);
       const interpolatedB = Math.round(color.B + (endColor.B - color.B) * progress);
       const interpolatedA = color.A + (endColor.A - color.A) * progress;
 
       // 除錯：顯示漸變資訊
-      if (part === 6 && currentBlock.linear === 1) { // 領帶
+      if (part === 6 && currentBlock.linear === 1) {
         console.log(`[Armor ${myId}] 🎨 Part ${part} gradient: progress=${progress.toFixed(2)}, color=(${interpolatedR},${interpolatedG},${interpolatedB})`);
       }
 
       return `rgba(${interpolatedR}, ${interpolatedG}, ${interpolatedB}, ${interpolatedA})`;
-
     };
-    
-    return `rgba(${colorData.R}, ${colorData.G}, ${colorData.B}, ${colorData.A})`;
-  };
 
   const colors = Object.fromEntries(
     partNames.map((name, index) => [name, getColorForPart(index)])
@@ -438,6 +407,17 @@ const Armor = (props) => {
           height="15"
           fill={colors.shoeR}
           onClick={() => handleColorChange(13)}
+        />
+
+        {/*15:weapon - 武器 (長條狀)*/}
+        {isSelected(15) && renderHighlight(215, 103, 15, 130)}
+        <rect
+          x="215"
+          y="103"
+          width="15"
+          height="130"
+          fill={colors.weapon}
+          onClick={() => handleColorChange(15)}
         />
         </g>
       </svg>

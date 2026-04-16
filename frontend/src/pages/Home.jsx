@@ -23,7 +23,7 @@ import { API_ENDPOINTS } from "../config/api.js";
 import { convertActionTableNewToOld } from "../utils/dataConverter.js";
 
 const generateInitialTable = () => Array.from({ length: 7 }, () =>
-  Array.from({ length: 14 }, () => [
+  Array.from({ length: 16 }, () => [
     { time: 0, color: { R: 0, G: 0, B: 0, A: 1 }, linear: 0 },
   ])
 );
@@ -298,7 +298,8 @@ function Home({ rgba, setRgba, setButtonState }) {
           legR: mergedItem[11] ?? 0,
           shoeL: mergedItem[12] ?? 0,
           shoeR: mergedItem[13] ?? 0,
-          board: 0,
+          board: mergedItem[14] ?? 0,
+          weapon: mergedItem[15] ?? 0,
         });
       }
   
