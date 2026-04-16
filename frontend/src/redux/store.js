@@ -50,7 +50,7 @@ const persistConfig = {
   key: "root", // 可以使用任何鍵名稱，建議使用 root
   storage: localforage, // 這裡設置存儲方式為 localforage (IndexedDB)
   whitelist: ["profiles"],
-  transforms: [PeaksTransform],
+  // transforms: [PeaksTransform], // 暫時移除壓縮以測試效能
 };
 
 // 結合 reducers
