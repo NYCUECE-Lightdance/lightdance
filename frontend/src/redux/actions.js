@@ -140,3 +140,6 @@ export const updateMultiSelectedBlocks = (blocks) => ({
   type: UPDATE_MULTI_SELECTED_BLOCKS,
   payload: blocks,
 });
+
+export const toggleMoveMode = () => ({ type: "TOGGLEMOVEMODE" });
+export const updateMoveMode = (value) => ({ type: "UPDATEMOVEMODE", payload: value });

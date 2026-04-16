@@ -21,6 +21,8 @@ import { set } from "lodash";
 import { LuPlus, LuMusic, LuChevronRight } from "react-icons/lu";
 import { API_ENDPOINTS } from "../config/api.js";
 import { convertActionTableNewToOld } from "../utils/dataConverter.js";
+import { localMusicFiles } from "../components/audio/musicData.js";
+import { saveLocalBackup, cleanExpiredBackups } from "../utils/indexedDB.js";
 
 const generateInitialTable = () => Array.from({ length: 7 }, () =>
   Array.from({ length: 16 }, () => [
@@ -88,11 +90,45 @@ function Home({ rgba, setRgba, setButtonState }) {
   const [pendingMusic, setPendingMusic] = useState(null);
   const initialTable = generateInitialTable();
 
-
+  const sizeInMB = (JSON.stringify(data).length / 1024 / 1024).toFixed(2);
+  console.log(`目前資料大小: ${sizeInMB} MB`);
 
   const editing = () => {
     navigate("/edit");
   };
+
+    // 自動清理 30 天前的舊備份
+  useEffect(() => {
+    const cleanOldBackups = async () => {
+      const THIRTY_DAYS = 30 * 24 * 60 * 60 * 1000; // 30天的毫秒數
+      const now = new Date().getTime();
+
+      // 1. 清理 localStorage 的舊資料
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        if (key && key.startsWith("local_backup_")) {
+          try {
+            const item = JSON.parse(localStorage.getItem(key));
+            if (item.timestamp && (now - item.timestamp > THIRTY_DAYS)) {
+              localStorage.removeItem(key);
+              console.log(`已清理 localStorage 過期備份: ${key}`);
+            }
+          } catch (e) {
+            localStorage.removeItem(key);
+          }
+        }
+      }
+
+      // 2. 清理 IndexedDB 的舊資料
+      try {
+        await cleanExpiredBackups(30);
+      } catch (e) {
+        console.error("清理 IndexedDB 失敗:", e);
+      }
+    };
+
+    cleanOldBackups();
+  }, []);
 
   useEffect(() => {
     setIsDirty(true);
@@ -175,6 +211,22 @@ function Home({ rgba, setRgba, setButtonState }) {
     console.log("UPLOAD_RAW:", API_ENDPOINTS.UPLOAD_RAW);
     console.log("UPLOAD_ITEMS:", API_ENDPOINTS.UPLOAD_ITEMS);
     setIsDirty(false);
+    
+    const backupKey = `local_backup_${musicFilename}`;
+  
+    // 1. 本地備份 (IndexedDB + Try-Catch 隔離)
+    // 即使本地備份失敗，也不要影響後續的 Remote Output
+    try {
+      const backupData = {
+        data: data, 
+        timestamp: new Date().getTime(),
+        displayTime: new Date().toLocaleString(),
+      };
+      await saveLocalBackup(backupKey, backupData);
+      console.log("✅ 本地備份成功 (IndexedDB)");
+    } catch (e) {
+      console.error("❌ 本地備份失敗，但將繼續嘗試上傳至伺服器:", e);
+    }
 
     // 轉換為舊格式以便進行編碼
     const oldFormatActionTable = convertActionTableNewToOld(actionTable, duration);
@@ -338,23 +390,30 @@ function Home({ rgba, setRgba, setButtonState }) {
       music_filename: String(musicFilename)
     };
 
-    const response = await fetch(API_ENDPOINTS.UPLOAD_FULL, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${BearerToken}`,
-      },
-      body: JSON.stringify(fullUploadData),
-      mode: "cors",
-    });
+    try {
+      const response = await fetch(API_ENDPOINTS.UPLOAD_FULL, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${BearerToken}`,
+        },
+        body: JSON.stringify(fullUploadData),
+        mode: "cors",
+      });
 
-    if (response.ok) {
-      setIsDirty(false);
-      alert("原始檔與播放檔皆上傳成功！ (同步時間戳記)"); 
-      console.log("upload(full) : ", JSON.stringify(fullUploadData));
-    } else {
-      alert("上傳失敗");
-      console.error("Upload Error:", response.status);
+    
+      if (response.ok) {
+        setIsDirty(false);
+        localStorage.removeItem(backupKey);
+        alert("原始檔與播放檔皆上傳成功！ 本地端已清理(同步時間戳記)"); 
+        console.log("upload(full) : ", JSON.stringify(fullUploadData));
+      } else {
+        alert("上傳失敗，資料已自動備份至本地。");
+        console.error("Upload Error:", response.status);
+      }
+    } catch (error) {
+      alert("網路斷線，資料已自動備份至本地。");
+      console.error("Upload Exception:", error);
     }
 
   }
@@ -365,14 +424,17 @@ function Home({ rgba, setRgba, setButtonState }) {
   // 1. 點擊「新建專案」時切換音樂選單
   const handleToggleNewProject = async () => {
     if (!showNewProjectMenu) {
+      let apiList = [];
       try {
         const response = await fetch(`${API_ENDPOINTS.BASE}/get_music_list/${userName}`);
-        const data = await response.json();
-        setMusicList(data.music_list || []);
-        setShowNewProjectMenu(true);
+        const json = await response.json();
+        apiList = json.music_list || [];
       } catch (error) {
         console.error("Fetch music error:", error);
       }
+      // 本地 musicsrc/ 的 mp3 永遠顯示，後端上傳的額外加進來
+      setMusicList([...new Set([...localMusicFiles, ...apiList])]);
+      setShowNewProjectMenu(true);
     } else {
       setShowNewProjectMenu(false);
     }

@@ -5,7 +5,11 @@ import { MdInput } from "react-icons/md";
 import { useDispatch, useSelector } from "react-redux";
 import { updateActionTable, updateMusicFilename } from "../redux/actions.js";
 import { API_ENDPOINTS } from "../config/api.js";
+<<<<<<< HEAD
 import { convertActionTableOldToNew } from "../utils/dataConverter.js";
+=======
+import { getAllLocalBackups } from "../utils/indexedDB.js";
+>>>>>>> origin/main
 
 function Dropdown({ userName, setIsDirty, isDirty, setIsLoaded, isLoaded }) {
   const [timeList, setTimeList] = useState([]);
@@ -13,10 +17,59 @@ function Dropdown({ userName, setIsDirty, isDirty, setIsLoaded, isLoaded }) {
   const [anchorIndex, setAnchorIndex] = useState(0);
   const dispatch = useDispatch();
   const actionTable = useSelector((state) => state.profiles.data?.actionTable || []);
+<<<<<<< HEAD
   const duration = useSelector((state) => state.profiles.duration);
 
+=======
+  const [localBackups, setLocalBackups] = useState([]);
+>>>>>>> origin/main
 
   async function fetchAvailableDataList() {
+    // --- 部分 A: 抓取本地備份資料 (localStorage + IndexedDB) ---
+    const backups = [];
+
+    // 1. 抓取 localStorage
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i);
+      if (key && key.startsWith("local_backup_")) {
+        try {
+          const item = JSON.parse(localStorage.getItem(key));
+          backups.push({
+            key: key,
+            music_filename: item.data?.music_filename || "Unknown",
+            displayTime: item.displayTime || "N/A",
+            timestamp: item.timestamp || 0,
+            rawData: item.data,
+            source: "LocalStorage"
+          });
+        } catch (e) {
+          console.error("解析 LocalStorage 資料失敗", e);
+        }
+      }
+    }
+
+    // 2. 抓取 IndexedDB
+    try {
+      const idbBackups = await getAllLocalBackups();
+      idbBackups.forEach(item => {
+        backups.push({
+          key: item.key,
+          music_filename: item.data?.music_filename || "Unknown",
+          displayTime: item.displayTime || "N/A",
+          timestamp: item.timestamp || 0,
+          rawData: item.data,
+          source: "IndexedDB"
+        });
+      });
+    } catch (e) {
+      console.error("抓取 IndexedDB 備份失敗", e);
+    }
+
+    // 按時間排序 (最新的在前面)
+    backups.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
+
+    setLocalBackups(backups);
+
     // Define the API endpoint
     const apiEndpoint = `${API_ENDPOINTS.TIMELIST}/${userName}`; // Example API
 
@@ -91,6 +144,19 @@ function Dropdown({ userName, setIsDirty, isDirty, setIsLoaded, isLoaded }) {
         console.error("Error fetching data:", error); // Handle any errors
       });
   }
+
+  const handleLoadLocal = (backup) => {
+    if (backup.rawData) {
+      // 根據你的資料結構解構
+      const actionData = backup.rawData.actionTable || backup.rawData;
+      const musicFile = backup.rawData.music_filename;
+
+      dispatch(updateActionTable(actionData));
+      dispatch(updateMusicFilename(musicFile));
+      setIsDirty(false); // 載入後暫時重置 dirty 狀態
+      alert(`已載入本地暫存: ${musicFile}`);
+    }
+  };
 
   async function fetchRawPlayerData(user, time) {
     // console.log(time);
@@ -289,6 +355,37 @@ function Dropdown({ userName, setIsDirty, isDirty, setIsLoaded, isLoaded }) {
             overflowY: "auto", // ✅ 垂直滾動
           }}
         >
+          {/* --- 區段 1: 本地暫存檔 --- */}
+          {localBackups.length > 0 && (
+            <>
+              <li><span className="dropdown-header text-danger" style={{ fontSize: "20px" }}>⚠️ 本地未上傳暫存</span></li>
+              {localBackups.map((backup) => (
+                <li key={backup.key}>
+                  <a
+                    className="dropdown-item d-flex justify-content-between align-items-center"
+                    style={{ fontSize: "16px", backgroundColor: "#fff3cd" }}
+                    onClick={() => handleLoadLocal(backup)}
+                  >
+                    <div>
+                      <span className="fw-bold">{backup.music_filename}</span>
+                      <br />
+                      <small className="text-muted">{backup.displayTime}</small>
+                    </div>
+                    <span className={`badge ${backup.source === "IndexedDB" ? "bg-success" : "bg-warning"} text-dark ms-2`}>
+                      {backup.source === "IndexedDB" ? "IDB" : "Local"}
+                    </span>
+                  </a>
+                </li>
+              ))}
+              <li><hr className="dropdown-divider" /></li>
+            </>
+          )}
+
+          {/* --- 區段 2: 遠端資料庫檔 (你原本的渲染邏輯) --- */}
+          {timeList.length === 0 && localBackups.length === 0 && (
+            <li><span className="dropdown-item">無可用資料</span></li>
+          )}
+
           {timeList.map((option, index) => {
             const isNewUser =
               index === 0 || option.user !== timeList[index - 1].user;

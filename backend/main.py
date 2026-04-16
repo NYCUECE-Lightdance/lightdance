@@ -436,6 +436,8 @@ async def upload_music(file: UploadFile = File(None), current_user: User = Depen
 @api_router.get("/get_music_list/{username}")
 async def get_music(username: str):
 	file_path = f"{MUSIC_FILE_PATH}/{username}"
+	if not os.path.isdir(file_path):
+		return {"music_list": [], "message": f"no music directory for {username}"}
 	files = os.listdir(file_path)
 	# Filtering only the files.
 	files = [f for f in files if os.path.isfile(file_path+'/'+f)]
