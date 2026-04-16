@@ -1,11 +1,17 @@
 import { combineReducers } from "redux";
 import { configureStore } from "@reduxjs/toolkit";
-import storage from "redux-persist/lib/storage"; // 使用 localStorage 來存儲狀態
+import localforage from "localforage"; // 導入 localforage
 import { persistStore, persistReducer, createTransform } from "redux-persist";
 import LZString from "lz-string";
 
 // 假設你有個 profiles reducer
 import profiles from "./reducers/profiles";
+
+// 配置 localforage
+localforage.config({
+  name: "LightDanceApp",
+  storeName: "redux_state" // 資料將存儲於 IndexedDB
+});
 
 const PeaksTransform = createTransform(
   // 進入儲存前 (Inbound)：將陣列壓縮成字串
@@ -42,7 +48,7 @@ const PeaksTransform = createTransform(
 // 配置 persist 設置
 const persistConfig = {
   key: "root", // 可以使用任何鍵名稱，建議使用 root
-  storage, // 這裡設置存儲方式為 localStorage
+  storage: localforage, // 這裡設置存儲方式為 localforage (IndexedDB)
   whitelist: ["profiles"],
   transforms: [PeaksTransform],
 };
@@ -64,6 +70,7 @@ export const store = configureStore({
       serializableCheck: {
         ignoredActions: ["persist/PERSIST", "persist/REHYDRATE"],
         ignoredPaths: ["register", "rehydrate"],
+        warnAfter: 128, // 將門檻調高到 128ms，不然Console會被警告淹沒
       },
     }),
 });

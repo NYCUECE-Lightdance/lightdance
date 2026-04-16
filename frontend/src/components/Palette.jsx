@@ -194,7 +194,7 @@ function Palette({ rgba, setRgba }) {
             max="1"
             step="1"
             value={toggleState ? 1 : 0} // 根據 toggleState 控制滑桿位置
-            onMouseDown={handleToggleChange}
+            onChange={handleToggleChange}
             className="color-slider" // 使用外部 CSS 樣式
           />
           <span
