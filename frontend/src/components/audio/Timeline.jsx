@@ -31,21 +31,6 @@ const Timeline = forwardRef(
     // **狀態變數**
 
     // 方塊相關狀態
-<<<<<<< HEAD
-    const [hoveredBlock, setHoveredBlock] = useState({
-      leftedge: false, // 是否在左邊緣
-      rightedge: false, // 是否在右邊緣
-      leftindex: null, // 左邊緣的方塊索引
-      rightindex: null, // 右邊緣的方塊索引
-    });
-    const [dragging, setDragging] = useState(false); // 是否正在拖動方塊位置
-    const [resizing, setResizing] = useState(false); // 是否正在調整方塊寬度
-    const [draggedBlockIndex, setDraggedBlockIndex] = useState(null); // 被拖動的方塊索引
-    const [dragStartpoint, setDragStartpoint] = useState(null); // 拖動的起始點（鼠標位置）
-    const [dragStartTime, setDragStartTime] = useState(null); // 拖動開始時的色塊初始 startTime
-    const [resizeStartpoint, setResizeStartpoint] = useState(null); // 寬度調整的起始點（鼠標位置）
-    const [resizeStartTime, setResizeStartTime] = useState(null); // 寬度調整時的初始時間點
-=======
     // [Drag 已停用] 以下 state 供舊版 drag 功能使用，保留以備日後復原
     // const [hoveredBlock, setHoveredBlock] = useState({
     //   leftedge: false,  // 是否在左邊緣
@@ -56,7 +41,6 @@ const Timeline = forwardRef(
     // const [dragging, setDragging] = useState(false);         // 是否正在拖動方塊
     // const [draggedBlockIndex, setDraggedBlockIndex] = useState(null); // 被拖動的方塊索引
     // const [dragStartpoint, setDragStartpoint] = useState(null);       // 拖動的起始點
->>>>>>> origin/main
 
     // 畫布相關狀態
     const canvasRef = useRef(null); // timeline 的畫布引用
@@ -221,27 +205,6 @@ const Timeline = forwardRef(
       };
     }, [moveMode, armorIndex, partIndex, dispatch]);
 
-    // 左、右箭頭的樣式
-    const leftarrowStyle = {
-      position: "absolute",
-      top: "50%",
-      left: "2px",
-      transform: "translateY(-40%) scaleX(-1)",
-      fontSize: "22px",
-      color: "white",
-      pointerEvents: "none", // 禁用滑鼠事件
-    };
-
-    const rightarrowStyle = {
-      position: "absolute",
-      top: "50%",
-      right: "2px",
-      transform: "translateY(-50%)",
-      fontSize: "22px",
-      color: "white",
-      pointerEvents: "none", // 禁用滑鼠事件
-    };
-
     // 在組件掛載時，將 actionTable 深拷貝到 tempActionTablef
     useEffect(() => {
       console.log("useeffect");
@@ -319,17 +282,7 @@ const Timeline = forwardRef(
 
       // 新格式: 直接使用 startTime/endTime 生成視覺化方塊
       const newBlocks = [];
-<<<<<<< HEAD
       tempActionTable[armorIndex][partIndex].forEach((block, index) => {
-        // 新格式已經有 startTime 和 endTime
-=======
-      tempActionTable[armorIndex][partIndex].forEach((entry, index) => {
-        const startTime = entry.time;
-        const nextStartTime =
-          tempActionTable[armorIndex][partIndex]?.[index + 1]?.time ?? duration; // ?? 而非 ||：time=0 是合法值
-
-        const { R, G, B, A } = entry.color || {};
->>>>>>> origin/main
         const newBlock = {
           startTime: block.startTime,
           durationTime: block.endTime - block.startTime,
@@ -353,13 +306,8 @@ const Timeline = forwardRef(
 
     // 處理鼠標按下事件（中心拖動）
     const handleMouseDown = (e, index) => {
-<<<<<<< HEAD
-
-      e.stopPropagation();
-=======
       // ⚠️ stopPropagation 不可在此提前呼叫：
       // Move Mode 時必須根據情況決定是否攔截，讓全域 mousedown 能夠觸發提交/退出。
->>>>>>> origin/main
 
       const block = timelineBlocks[index];
       const isBlackBlock = block.color.R === 0 && block.color.G === 0 && block.color.B === 0;
@@ -375,8 +323,7 @@ const Timeline = forwardRef(
         e.stopPropagation();
         e.preventDefault();
 
-        // Bug fix：timelineBlocks index ≠ actionTable index（刪除後相鄰黑塊合併導致偏移）
-        // 用 block.startTime 反查 actionTable 真正的 index
+        // Bug fix：timelineBlocks index ≠ actionTable index
         const partData = actionTable[armorIndex][partIndex];
         const atIdx = partData.findIndex(entry => entry.time === block.startTime);
         if (atIdx === -1) return;
@@ -392,26 +339,18 @@ const Timeline = forwardRef(
 
         const isBlackEntry = (e) => e.color.R === 0 && e.color.G === 0 && e.color.B === 0;
 
-        // 左邊界：往左跳過連續黑色 entry，找到前一個有色 block 的尾端
-        // 這樣即使前一個 block 被刪除留下空洞，也能移到正確的邊界
         let leftSearchIdx = atIdx - 1;
         while (leftSearchIdx >= 0 && isBlackEntry(partData[leftSearchIdx])) {
           leftSearchIdx--;
         }
-        // leftSearchIdx：前一個有色 block 的 index（-1 表示不存在）
-        // 左邊界 = 前一個有色 block 尾端（其後第一個 black entry 的時間），無則為 0
         const leftBoundTime = leftSearchIdx >= 0
           ? (partData[leftSearchIdx + 1]?.time ?? 0)
           : 0;
 
-        // 右邊界：往右跳過連續黑色 entry，找到下一個有色 block 的起點
-        // 被刪除的 block 留下的孤立 black entry 會被跳過
         let rightSearchIdx = atIdx + 2;
         while (rightSearchIdx < partData.length && isBlackEntry(partData[rightSearchIdx])) {
           rightSearchIdx++;
         }
-        // rightSearchIdx：下一個有色 block 的 index（partData.length 表示不存在）
-        // 右邊界 = 下一個有色 block 的起始時間，無則為 duration
         const rightBoundTime = rightSearchIdx < partData.length
           ? partData[rightSearchIdx].time
           : duration;
@@ -419,11 +358,10 @@ const Timeline = forwardRef(
         minDragPxRef.current   = (leftBoundTime  - blockStartTime) * pixelsPerMs;
         maxDragPxRef.current   = (rightBoundTime - blockEndTime)   * pixelsPerMs;
         moveDragStartRef.current   = e.clientX;
-        moveDraggedIdxRef.current  = atIdx;   // ← 存 actionTable index，不是 timelineBlocks index
-        moveDraggedDomRef.current  = e.currentTarget; // 直接用事件的 target，不依賴 blockDomRefs（避免 null-cycle）
+        moveDraggedIdxRef.current  = atIdx;
+        moveDraggedDomRef.current  = e.currentTarget;
         moveDragPixelsRef.current  = 0;
 
-        // 拖曳時提高 z-index，確保移動中的 block 顯示在所有相鄰 block 上方
         if (moveDraggedDomRef.current) {
           moveDraggedDomRef.current.style.zIndex = '100';
           moveDraggedDomRef.current.style.overflow = 'visible';
@@ -434,7 +372,7 @@ const Timeline = forwardRef(
       // 非 Move Mode：維持原本行為，攔截事件
       e.stopPropagation();
 
-      // 邊緣 resize 邏輯：已選中的有色 block 在邊緣按下時啟動 resize，不進入普通選取流程
+      // 邊緣 resize 邏輯
       {
         const isSelected = multiSelectedBlocks.some(b =>
           b.armorIndex === armorIndex && b.partIndex === partIndex && b.blockIndex === index
@@ -447,148 +385,34 @@ const Timeline = forwardRef(
       }
 
       if (isCopying) {
-        // 關鍵：在尋找貼上目標時，僅更新單選(綠框目標)
         dispatch(updateMultiSelectedBlocks([{ armorIndex, partIndex, blockIndex: index }]));
         return;
       }
-      // If a black block is clicked, clear all selections.
       if (block.color.R === 0 && block.color.G === 0 && block.color.B === 0) {
         dispatch(updateMultiSelectedBlocks([]));
         return;
       }
 
-      // Shift-click multi-selection logic
       const anchorBlock = multiSelectedBlocks[0];
       if (e.shiftKey && anchorBlock && anchorBlock.armorIndex === armorIndex && anchorBlock.partIndex === partIndex) {
         const startIdx = anchorBlock.blockIndex;
         const endIdx = index;
-
         const selectionStart = Math.min(startIdx, endIdx);
         const selectionEnd = Math.max(startIdx, endIdx);
-
         const newMultiSelected = [];
         for (let i = selectionStart; i <= selectionEnd; i++) {
           const currentBlock = timelineBlocks[i];
-          // Filter out black blocks (transition blocks)
           const isBlackTransition = currentBlock.color.R === 0 && currentBlock.color.G === 0 && currentBlock.color.B === 0;
           if (!isBlackTransition) {
             newMultiSelected.push({ armorIndex, partIndex, blockIndex: i });
           }
         }
         dispatch(updateMultiSelectedBlocks(newMultiSelected));
-
       } else {
-        // Single-select logic
-        // [Drag 已停用] 啟用 drag 時需恢復以下三行，並同步恢復 state 宣告、handleMouseMove、handleMouseUp
-        // setDragging(true);
-        // setDraggedBlockIndex(index);
-        // setDragStartpoint(e.clientX);
         dispatch(updateMultiSelectedBlocks([{ armorIndex, partIndex, blockIndex: index }]));
       }
     };
 
-<<<<<<< HEAD
-    // 處理右邊緣拖動事件（調整當前色塊寬度）
-    const handleResizeMouseDown = (e, index) => {
-      e.stopPropagation();
-      const nextBlockIdx = index + 1;
-      const partData = tempActionTable?.[armorIndex]?.[partIndex];
-
-      // 檢查是否有下一個色塊
-      if (!partData || !partData[nextBlockIdx]) {
-        console.warn("No next block to resize");
-        return;
-      }
-
-      // 新格式: 使用 startTime 和 endTime
-      const currentBlock = partData[index];
-      const currentEndTime = currentBlock.endTime;
-
-      console.log(`[Resize Start] Dragging right edge of block ${index}`);
-      console.log(`  Current block: ${currentBlock.startTime}ms - ${currentEndTime}ms`);
-      console.log(`  Current block width: ${currentEndTime - currentBlock.startTime}ms`);
-
-      setResizing(true);
-      setDraggedBlockIndex(index);
-      setResizeStartpoint(e.clientX);
-      setResizeStartTime(currentEndTime); // 記錄當前色塊的初始結束時間
-
-      // 同時選中該方塊
-      dispatch(
-        updateSelectedBlock({ armorIndex, partIndex, blockIndex: index })
-      );
-    };
-
-    // 手動合併相鄰的相同顏色色塊
-    const handleMergeBlocks = () => {
-      if (
-        !selectedBlock ||
-        selectedBlock.armorIndex !== armorIndex ||
-        selectedBlock.partIndex !== partIndex
-      ) {
-        console.warn("No valid block selected for merging");
-        return;
-      }
-
-      const blockIndex = selectedBlock.blockIndex;
-      const timeline = actionTable[armorIndex]?.[partIndex];
-      
-      if (!timeline || blockIndex >= timeline.length - 1) {
-        console.warn("Cannot merge: no next block or invalid selection");
-        return;
-      }
-
-      const currentBlock = timeline[blockIndex];
-      const nextBlock = timeline[blockIndex + 1];
-
-      // 檢查兩個色塊之間是否有間隙
-      if (currentBlock.endTime !== nextBlock.startTime) {
-        console.warn(`Cannot merge: there is a gap between blocks (${currentBlock.endTime}ms to ${nextBlock.startTime}ms)`);
-        return;
-      }
-
-      // 合併兩個色塊 - 將當前色塊的 endTime 設為下一個色塊的 endTime，並刪除下一個色塊
-      const updatedActionTable = produce(actionTable, (draft) => {
-        const draftTimeline = draft[armorIndex][partIndex];
-        draftTimeline[blockIndex].endTime = draftTimeline[blockIndex + 1].endTime;
-        draftTimeline.splice(blockIndex + 1, 1);
-      });
-
-      dispatch(updateActionTable(updatedActionTable));
-      console.log(`Merged block ${blockIndex} (${currentBlock.startTime}-${currentBlock.endTime}ms) with block ${blockIndex + 1} (${nextBlock.startTime}-${nextBlock.endTime}ms)`);
-    };
-
-    // 處理鼠標放開事件
-    const handleMouseUp = () => {
-      if (dragging) {
-        setDragging(false); // 停止拖動
-        setDraggedBlockIndex(null);
-        setDragStartTime(null); // 清除初始時間
-        dispatch(updateActionTable(tempActionTable)); // 更新 actionTable
-        // console.log(tempActionTable);
-      }
-      if (resizing) {
-        setResizing(false); // 停止調整寬度
-        setDraggedBlockIndex(null);
-        dispatch(updateActionTable(tempActionTable)); // 更新 actionTable
-      }
-    };
-
-    // 處理鼠標移動事件，用於拖動方塊或調整寬度
-=======
-
-    // [Drag 已停用] handleMouseUp：drag 提交用，啟用 drag 時需一併恢復 onMouseUp={handleMouseUp} 在 timeline div
-    // const handleMouseUp = () => {
-    //   // Move Mode 的 commit 用 mousedown 完成，mouseup 不應干預（否則會覆蓋剛提交的位置）
-    //   if (dragging && !moveMode) {
-    //     setDragging(false);
-    //     setDraggedBlockIndex(null);
-    //     dispatch(updateActionTable(tempActionTable));
-    //   }
-    // };
-    // stretch mode
-    // 開始邊緣 resize：掛載全域 mousemove/mouseup，透過 DOM 直接更新寬度（零延遲）
-    // edge: 'left' | 'right'，tlIdx: timelineBlocks index
     const startBlockResize = (e, tlIdx, edge) => {
       const block = timelineBlocks[tlIdx];
       const partData = actionTable[armorIndex][partIndex];
@@ -606,7 +430,6 @@ const Timeline = forwardRef(
       const domEl = blockDomRefs.current[tlIdx];
       if (!domEl) return;
 
-      // 右拖時需同步縮小緊鄰的下一個 black block，避免 flex 重新分配造成後面 block 跟著移動
       const nextBlackDom    = edge === 'right' ? (blockDomRefs.current[tlIdx + 1] ?? null) : null;
       const nextBlackBlock  = edge === 'right' ? (timelineBlocks[tlIdx + 1] ?? null) : null;
       const nextBlackOrigPct = nextBlackBlock ? (nextBlackBlock.durationTime / duration) * 100 : 0;
@@ -620,19 +443,15 @@ const Timeline = forwardRef(
       domEl.style.zIndex = '100';
 
       if (edge === 'right') {
-        // 右邊界：往右跳過連續黑色 entry，找下一個有色 block 的起點
         let rightSearchIdx = atIdx + 2;
         while (rightSearchIdx < partData.length && isBlackEntry(partData[rightSearchIdx])) rightSearchIdx++;
         const rightBoundTime = rightSearchIdx < partData.length ? partData[rightSearchIdx].time : duration;
-        // 向右最多可擴展到 rightBound；向左最多縮到 STRETCH_MIN_MS
         maxResizePxRef.current = (rightBoundTime - blockEndTime) * pixelsPerMs;
         minResizePxRef.current = -(blockEndTime - blockStartTime - STRETCH_MIN_MS) * pixelsPerMs;
       } else {
-        // 左邊界：往左跳過連續黑色 entry，找上一個有色 block 的尾端
         let leftSearchIdx = atIdx - 1;
         while (leftSearchIdx >= 0 && isBlackEntry(partData[leftSearchIdx])) leftSearchIdx--;
         const leftBoundTime = leftSearchIdx >= 0 ? (partData[leftSearchIdx + 1]?.time ?? 0) : 0;
-        // 向左最多可擴展到 leftBound；向右最多縮到 STRETCH_MIN_MS（start 不超過 end-STRETCH_MIN_MS）
         minResizePxRef.current = (leftBoundTime - blockStartTime) * pixelsPerMs;
         maxResizePxRef.current = (blockEndTime - STRETCH_MIN_MS - blockStartTime) * pixelsPerMs;
       }
@@ -643,15 +462,11 @@ const Timeline = forwardRef(
         resizeDragPixelsRef.current = clamped;
         const origPct = resizeOrigPctRef.current;
         if (resizeEdgeRef.current === 'right') {
-          // 右拖：擴大此 block 同時縮小緊鄰的下一個 black block，
-          // 使 flex 總寬不變，避免後面的 block 跟著位移
           resizedDomRef.current.style.width = `calc(${origPct}% + ${clamped}px)`;
           if (nextBlackDom) {
             nextBlackDom.style.width = `calc(${nextBlackOrigPct}% - ${clamped}px)`;
           }
         } else {
-          // 左拖：用 marginLeft 移動視覺位置 + 寬度反向補償
-          // marginLeft + width = clamped + (origPct% + (-clamped)) = origPct%，flex 總寬不變
           resizedDomRef.current.style.marginLeft = `${clamped}px`;
           resizedDomRef.current.style.width      = `calc(${origPct}% + ${-clamped}px)`;
         }
@@ -672,18 +487,14 @@ const Timeline = forwardRef(
               const pd = draft[armorIndex][partIndex];
               let i = savedIdx;
               if (savedEdge === 'right') {
-                // 右邊拖曳：更新 block 的結束時間（atIdx+1 entry）
                 if (pd[i + 1] !== undefined) pd[i + 1].time += dt;
-                // 若向右擴展，清除因排序違反的殘餘 black entries
                 if (dt > 0) {
                   while (pd[i + 2] !== undefined && pd[i + 2].time <= pd[i + 1].time) {
                     pd.splice(i + 2, 1);
                   }
                 }
               } else {
-                // 左邊拖曳：更新 block 的起始時間（atIdx entry）
                 if (pd[i] !== undefined) pd[i].time += dt;
-                // 若向左擴展，清除因排序違反的殘餘 black entries
                 if (dt < 0) {
                   while (i > 0 && pd[i - 1] !== undefined && pd[i - 1].time >= pd[i].time) {
                     pd.splice(i - 1, 1);
@@ -696,7 +507,6 @@ const Timeline = forwardRef(
           }
         }
 
-        // 清除 DOM 樣式
         if (nextBlackDom) nextBlackDom.style.width = '';
         if (resizedDomRef.current) {
           resizedDomRef.current.style.width      = '';
@@ -718,163 +528,42 @@ const Timeline = forwardRef(
       document.addEventListener('mouseup',   handleResizeMouseUp);
     };
 
-    /* [Drag 已停用] handleMouseMove：drag 期間即時更新 tempActionTable。
-       啟用時需一併恢復 state 宣告、handleMouseUp，以及 onMouseMove={handleMouseMove} 在 timeline div。
->>>>>>> origin/main
-    const handleMouseMove = (e) => {
-      // 如果正在調整寬度
-      if (resizing && draggedBlockIndex !== null) {
-        if (!timelineRef?.current) return;
-
-        const rect = timelineRef.current.getBoundingClientRect();
-        // 計算鼠標移動距離轉換為時間（對齊 50ms）
-        const resizedDistance = e.clientX - resizeStartpoint;
-        const resizedTime = Math.floor(((resizedDistance / rect.width) * duration) / 50) * 50;
-
-        const updatedTable = produce(tempActionTable, (draft) => {
-          const partData = draft[armorIndex][partIndex];
-          const currentBlock = partData[draggedBlockIndex];
-          const oldEndTime = currentBlock.endTime;
-
-          // 計算當前色塊的新結束時間
-          let newEndTime = resizeStartTime + resizedTime;
-
-          // 確保當前色塊至少 50ms 寬
-          newEndTime = Math.max(currentBlock.startTime + 50, newEndTime);
-
-          // 確保不超過音頻總長度
-          newEndTime = Math.min(newEndTime, duration);
-
-          // 計算位移量
-          const timeShift = newEndTime - oldEndTime;
-
-          console.log(`[Resize] Block ${draggedBlockIndex} width: ${oldEndTime - currentBlock.startTime}ms → ${newEndTime - currentBlock.startTime}ms`);
-          console.log(`[Resize] Time shift: ${timeShift}ms`);
-
-          // 更新當前色塊的結束時間
-          currentBlock.endTime = newEndTime;
-
-          // 移動所有後續色塊（保持它們的寬度）
-          for (let i = draggedBlockIndex + 1; i < partData.length; i++) {
-            partData[i].startTime += timeShift;
-            partData[i].endTime += timeShift;
-
-            // 確保不超過音頻總長度
-            if (partData[i].endTime > duration) {
-              partData[i].endTime = duration;
-              partData[i].startTime = Math.max(0, duration - (partData[i].endTime - partData[i].startTime));
-            }
-          }
-        });
-
-        dispatch(updateTempActionTable(updatedTable));
-        return; // 寬度調整時不執行拖動邏輯
-      }
-
-      // 如果没有拖动行为或没有正在拖动的方块，直接返回
-      if (!dragging || draggedBlockIndex === null) return;
-
-      // 确保 timelineRef 已经被初始化
-      if (!timelineRef?.current) {
-        console.warn("timelineRef is not initialized");
-        return;
-      }
-
-      // 获取 timeline 容器的边界信息
-      const rect = timelineRef.current.getBoundingClientRect();
-
-      // 计算拖动的距离和对应的时间
-      const draggedDistance = e.clientX - dragStartpoint; // 拖動的像素距離
-      const draggedTime = Math.floor(((draggedDistance / rect.width) * duration) / 50) * 50; // 將拖動距離轉換為時間
-
-      const updatedTable = produce(tempActionTable, (draft) => {
-        const partData = draft[armorIndex][partIndex]; // 獲取當前部位的數據
-        const block = partData[draggedBlockIndex];
-        if (!block) return;
-
-        // 新格式: 計算新的 startTime 和 endTime（保持寬度不變）
-        const blockWidth = block.endTime - block.startTime;
-        let newStartTime = Math.max(0, dragStartTime + draggedTime); // 使用初始 startTime
-
-        // 確保不超過下一個色塊的開始時間（保持至少 50ms 的間隔）
-        const nextBlockIdx = draggedBlockIndex + 1;
-        if (nextBlockIdx < partData.length) {
-          const nextBlockStartTime = partData[nextBlockIdx].startTime;
-          newStartTime = Math.min(newStartTime, nextBlockStartTime - blockWidth - 50);
-        }
-
-        // 確保不超過音頻總長度
-        newStartTime = Math.min(newStartTime, duration - blockWidth);
-
-        // 確保不超過前一個色塊的結束時間（保持至少 50ms 的間隔）
-        if (draggedBlockIndex > 0) {
-          const prevBlockEndTime = partData[draggedBlockIndex - 1].endTime;
-          newStartTime = Math.max(newStartTime, prevBlockEndTime + 50);
-        }
-
-        // 更新色塊的 startTime 和 endTime（保持寬度）
-        partData[draggedBlockIndex].startTime = newStartTime;
-        partData[draggedBlockIndex].endTime = newStartTime + blockWidth;
-      });
-
-      // 更新 Redux 中的临时 ActionTable
-      dispatch(updateTempActionTable(updatedTable));
-    };
-    */ // [Drag 已停用] end of handleMouseMove
-
     return (
       <div
         className="timeline"
-        ref={timelineRef} // 設置 ref
+        ref={timelineRef}
         style={{
-          height: `${height}%`, // 動態設置高度
+          height: `${height}%`,
           width: "100%",
-<<<<<<< HEAD
-          position: "relative", // 設置為相對定位，讓子元素的絕對定位有參考點
-          overflow: "hidden",
-=======
           display: "flex",
           alignItems: "center",
-          overflow: moveMode ? "visible" : "hidden", // move mode 時允許 block 超出容器邊界顯示
->>>>>>> origin/main
+          overflow: moveMode ? "visible" : "hidden",
           border: "1px solid rgb(63, 63, 63)",
           padding: "0px",
-          opacity: hidden ? 0 : 1, // 如果 hidden 为 true，则隐藏内容
-          pointerEvents: hidden ? "none" : "auto", // 禁用鼠标事件
+          opacity: hidden ? 0 : 1,
+          pointerEvents: hidden ? "none" : "auto",
         }}
-        // [Drag 已停用] 啟用 drag 時需恢復以下兩行
-        // onMouseMove={handleMouseMove}
-        // onMouseUp={handleMouseUp}
       >
 
       {timelineBlocks.map((block, index) => {
-        // --- 1. 定義狀態變數 ---
-        // 是否在目前這條 Timeline 的選中清單中
         const isCurrentlyInMultiSelect = multiSelectedBlocks.some(b => 
           b.armorIndex === armorIndex && 
           b.partIndex === partIndex && 
           b.blockIndex === index
         );
 
-        // A. 判斷是否為「貼上目標」(綠色)：在複製模式下且被點擊選中
         const isPasteTarget = isCopying && isCurrentlyInMultiSelect;
-
-        // B. 判斷是否為「複製來源」(橘色)：從剪貼簿讀取當初 Ctrl+C 的位置
         const isCopySource = isCopying && clipboard?.sourceBlocks?.some(b => 
           b.armorIndex === armorIndex && 
           b.partIndex === partIndex && 
           b.blockIndex === index
         );
-
-        // C. 判斷是否為「普通選取」(橘色)：非複製模式下的正常選取
         const isNormalSelected = !isCopying && isCurrentlyInMultiSelect;
 
-        // --- 2. 顏色與樣式邏輯 ---
         const color = block.color || { R: 0, G: 0, B: 0, A: 1 };
         const currentBlockData = actionTable[armorIndex]?.[partIndex]?.[index];
         const isFade = currentBlockData?.linear === 1;
 
-        // 定義背景
         let backgroundStyle;
         if (isFade) {
           const partTimeline = actionTable[armorIndex]?.[partIndex];
@@ -889,217 +578,80 @@ const Timeline = forwardRef(
           backgroundStyle = `rgba(${color.R}, ${color.G}, ${color.B}, ${color.A})`;
         }
 
-        // 計算框線顏色
-        const colorDistance = (c1, c2) => Math.sqrt(
-          Math.pow((c1.R||0)-(c2.R||0),2) + Math.pow((c1.G||0)-(c2.G||0),2) + Math.pow((c1.B||0)-(c2.B||0),2)
-        );
-        let selectionBorderColor = "#FFA500"; // 橘色
+        let selectionBorderColor = "#FFA500";
         if (colorDistance(color, { R: 255, G: 165, B: 0 }) < 200) {
-          selectionBorderColor = "#00FFFF"; // 改為青色
+          selectionBorderColor = "#00FFFF";
         }
 
-<<<<<<< HEAD
+        const isBlackBlock = color.R === 0 && color.G === 0 && color.B === 0;
 
-          // 設定 blockStyle - 使用絕對定位以正確顯示色塊位置
-=======
-          const isBlackBlock = color.R === 0 && color.G === 0 && color.B === 0;
+        const blockStyle = {
+          position: "absolute",
+          left: `${(block.startTime / duration) * 100}%`,
+          background: backgroundStyle,
+          width: `${(block.durationTime / duration) * 100}%`,
+          height: "90%",
+          borderRadius: "7px",
+          zIndex: (isPasteTarget || isCopySource) ? 10 : 1,
+          border: isPasteTarget
+            ? "4px solid #00FF00"
+            : (isCopySource || isNormalSelected ? `3px solid ${selectionBorderColor}` : "none"),
+          boxSizing: "border-box",
+          cursor: "default",
+        };
 
-          // 設定 blockStyle
->>>>>>> origin/main
-          const blockStyle = {
-            position: "absolute",
-            left: `${(block.startTime / duration) * 100}%`,
-            background: backgroundStyle,
-            width: `${(block.durationTime / duration) * 100}%`,
-            height: "90%",
-            borderRadius: "7px",
-            zIndex: (isPasteTarget || isCopySource) ? 10 : 1,
-            // 優先權：貼上目標(綠) > 複製來源(橘) > 普通選取
-            border: isPasteTarget
-              ? "4px solid #00FF00"
-              : (isCopySource || isNormalSelected ? `3px solid ${selectionBorderColor}` : "none"),
-            boxSizing: "border-box",
-            cursor: "default",
-          };
+        const EDGE_THRESHOLD = 8;
+        const handleBlockMouseMove = (ev) => {
+          if (moveMode || isBlackBlock || !isNormalSelected || resizeDragStartRef.current !== null) return;
+          const r = ev.currentTarget.getBoundingClientRect();
+          const offsetX = ev.clientX - r.left;
+          if (offsetX <= EDGE_THRESHOLD) {
+            setHoverEdge({ index, edge: 'left' });
+          } else if (offsetX >= r.width - EDGE_THRESHOLD) {
+            setHoverEdge({ index, edge: 'right' });
+          } else if (hoverEdge?.index === index) {
+            setHoverEdge(null);
+          }
+        };
 
-          // [Drag 已停用] 以下三個 handler 供舊版 drag 邊緣偵測使用，啟用 drag 時需一併恢復 hoveredBlock state
-          // const handleMouseLeave2 = (edge) => {
-          //   setHoveredBlock((prev) => {
-          //     const updatedBlock = { ...prev, [edge]: false };
-          //     if (edge === "leftedge") updatedBlock.leftindex = null;
-          //     if (edge === "rightedge") updatedBlock.rightindex = null;
-          //     return updatedBlock;
-          //   });
-          // };
-          // const handleMouseMoveLeft = (index) => {
-          //   setHoveredBlock((prev) => ({ ...prev, leftedge: true, leftindex: index }));
-          // };
-          // const handleMouseMoveRight = (index) => {
-          //   setHoveredBlock((prev) => ({ ...prev, rightedge: true, rightindex: index }));
-          // };
-          // 邊緣偵測：僅對已選中的有色 block 偵測游標位置以顯示 ew-resize 游標
-          // （isNormalSelected 已在上方宣告）
-          const EDGE_THRESHOLD = 8; // px
+        const handleBlockMouseLeave = () => {
+          if (moveMode || resizeDragStartRef.current !== null) return;
+          if (hoverEdge?.index === index) setHoverEdge(null);
+        };
 
-          const handleBlockMouseMove = (ev) => {
-            // resizeDragStartRef 不為 null 代表正在 resize，跳過 state 更新避免觸發 React 重繪覆蓋直接設定的 DOM style
-            if (moveMode || isBlackBlock || !isNormalSelected || resizeDragStartRef.current !== null) return;
-            const r = ev.currentTarget.getBoundingClientRect();
-            const offsetX = ev.clientX - r.left;
-            if (offsetX <= EDGE_THRESHOLD) {
-              setHoverEdge({ index, edge: 'left' });
-            } else if (offsetX >= r.width - EDGE_THRESHOLD) {
-              setHoverEdge({ index, edge: 'right' });
-            } else if (hoverEdge?.index === index) {
-              setHoverEdge(null);
-            }
-          };
+        const blockCursor = (!moveMode && hoverEdge?.index === index)
+          ? 'ew-resize'
+          : (moveMode && !isBlackBlock ? 'grab' : 'default');
 
-          const handleBlockMouseLeave = () => {
-            // move mode 或 resize 進行中，不觸發 state 更新（避免 React re-render 覆蓋直接設定的 DOM style）
-            if (moveMode || resizeDragStartRef.current !== null) return;
-            if (hoverEdge?.index === index) setHoverEdge(null);
-          };
-
-          // 游標優先序：resize 邊緣 > move mode > 預設
-          const blockCursor = (!moveMode && hoverEdge?.index === index)
-            ? 'ew-resize'
-            : (moveMode && !isBlackBlock ? 'grab' : 'default');
-
-          return (
-            <div
-              key={index}
-              ref={(el) => { blockDomRefs.current[index] = el; }}
-              style={{
-                ...blockStyle,
-<<<<<<< HEAD
-                ...(hoveredBlock?.index === index
-                  ? { opacity: 0.85 } // 懸停時透明度
-                  : { opacity: 1 }), // 預設透明度
-                position: "relative", // 確保子元素可以絕對定位
-              }}
-              className="timeline-block"
-              onMouseDown={(e) => handleMouseDown(e, index)} // 點擊方塊選中
-              onMouseMove={(e) => {
-                // 偵測是否在右邊緣（10px）
-                const blockRect = e.currentTarget.getBoundingClientRect();
-                const distanceFromRight = blockRect.right - e.clientX;
-                if (distanceFromRight <= 10) {
-                  e.currentTarget.style.cursor = "ew-resize"; // 改變游標為可調整大小
-                } else {
-                  e.currentTarget.style.cursor = "grab";
-                }
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.cursor = "default";
-              }}
-=======
-                cursor: blockCursor,
-                // [Drag 已停用] hoveredBlock 懸停透明度，啟用 drag 時恢復：
-                // ...(hoveredBlock?.index === index ? { opacity: 0.85 } : { opacity: 1 }),
-              }}
-              className="timeline-block"
-              onMouseMove={moveMode ? undefined : handleBlockMouseMove}
-              onMouseLeave={moveMode ? undefined : handleBlockMouseLeave}
-              onMouseDown={(e) => handleMouseDown(e, index)}
->>>>>>> origin/main
-            >
-              {/* 右邊緣調整區域 */}
-              <div
+        return (
+          <div
+            key={index}
+            ref={(el) => { blockDomRefs.current[index] = el; }}
+            style={{
+              ...blockStyle,
+              cursor: blockCursor,
+            }}
+            className="timeline-block"
+            onMouseMove={moveMode ? undefined : handleBlockMouseMove}
+            onMouseLeave={moveMode ? undefined : handleBlockMouseLeave}
+            onMouseDown={(e) => handleMouseDown(e, index)}
+          >
+            {currentBlockData?.linear === 1 && (
+              <FontAwesomeIcon
+                icon={faWandMagicSparkles}
+                size="xl"
                 style={{
                   position: "absolute",
-                  right: 0,
-                  top: 0,
-                  width: "10px",
-                  height: "100%",
-                  cursor: "ew-resize",
-                  backgroundColor: "rgba(255, 255, 255, 0)", // 透明背景，方便拖動
-                  zIndex: 3,
-                }}
-                onMouseDown={(e) => {
-                  e.stopPropagation(); // 阻止事件冒泡到父元素
-                  handleResizeMouseDown(e, index);
-                }}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.backgroundColor = "rgba(255, 255, 255, 0.3)"; // 懸停時顯示邊緣
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.backgroundColor = "rgba(255, 255, 255, 0)";
+                  top: "5px",
+                  right: "5px",
+                  color: "white",
+                  zIndex: 2,
                 }}
               />
-              {currentBlockData?.linear === 1 && (
-                <FontAwesomeIcon
-                  icon={faWandMagicSparkles}
-                  size="xl"
-                  style={{
-                    position: "absolute",
-                    top: "5px",
-                    right: "5px",
-                    color: "white",
-                    zIndex: 2,
-                  }}
-                />
-              )}
-              {" "}
-              {/*
-              {/* 如果不是黑色方块，渲染左右虛擬檢測塊
-              {!(
-                block.color.R === 0 &&
-                block.color.G === 0 &&
-                block.color.B === 0 &&
-                block.color.A === 1
-              ) && (
-                <>
-                  {/* 左側虛擬檢測方塊 
-                  <div
-                    style={{
-                      position: "absolute",
-                      left: "-5px",
-                      width: "50px",
-                      height: "80%",
-                      backgroundColor: "transparent", // 透明
-                      cursor: "pointer", // 改變鼠標樣式
-                      zIndex: 5,
-                    }}
-                    onMouseMove={() => handleMouseMoveLeft(index)}
-                    onMouseLeave={() => handleMouseLeave2("leftedge")}
-                  />
-                  {/* 右側虛擬檢測方塊  
-                  <div
-                    style={{
-                      position: "absolute",
-                      right: "-5px",
-                      width: "50px",
-                      height: "80%",
-                      backgroundColor: "transparent", // 透明
-                      cursor: "pointer", // 改變鼠標樣式
-                      zIndex: 5,
-                    }}
-                    onMouseMove={() => handleMouseMoveRight(index)}
-                    onMouseLeave={() => handleMouseLeave2("rightedge")}
-                  />{" "}
-                  {hoveredBlock?.leftindex === index &&
-                    hoveredBlock.leftedge && (
-                      <FontAwesomeIcon
-                        style={leftarrowStyle}
-                        icon={faRightToBracket}
-                        size="lg"
-                      />
-                    )}
-                  {hoveredBlock?.rightindex === index &&
-                    hoveredBlock.rightedge && (
-                      <FontAwesomeIcon
-                        style={rightarrowStyle}
-                        icon={faRightToBracket}
-                        size="lg"
-                      />
-                    )}
-                </>
-              )}
-              */}
-            </div>
-          );
-        })}
+            )}
+          </div>
+        );
+      })}
       </div>
     );
   }

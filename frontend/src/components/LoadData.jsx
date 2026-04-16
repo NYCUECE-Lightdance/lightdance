@@ -5,11 +5,8 @@ import { MdInput } from "react-icons/md";
 import { useDispatch, useSelector } from "react-redux";
 import { updateActionTable, updateMusicFilename } from "../redux/actions.js";
 import { API_ENDPOINTS } from "../config/api.js";
-<<<<<<< HEAD
 import { convertActionTableOldToNew } from "../utils/dataConverter.js";
-=======
 import { getAllLocalBackups } from "../utils/indexedDB.js";
->>>>>>> origin/main
 
 function Dropdown({ userName, setIsDirty, isDirty, setIsLoaded, isLoaded }) {
   const [timeList, setTimeList] = useState([]);
@@ -17,12 +14,8 @@ function Dropdown({ userName, setIsDirty, isDirty, setIsLoaded, isLoaded }) {
   const [anchorIndex, setAnchorIndex] = useState(0);
   const dispatch = useDispatch();
   const actionTable = useSelector((state) => state.profiles.data?.actionTable || []);
-<<<<<<< HEAD
   const duration = useSelector((state) => state.profiles.duration);
-
-=======
   const [localBackups, setLocalBackups] = useState([]);
->>>>>>> origin/main
 
   async function fetchAvailableDataList() {
     // --- 部分 A: 抓取本地備份資料 (localStorage + IndexedDB) ---
@@ -202,10 +195,8 @@ function Dropdown({ userName, setIsDirty, isDirty, setIsLoaded, isLoaded }) {
         console.log("Final MusicFilename:", musicFilename);
 
 
-        console.log("getData (old format):", getData);
-
         // 轉換為新格式 (startTime, endTime)
-        const newFormatActionTable = convertActionTableOldToNew(getData, duration);
+        const newFormatActionTable = convertActionTableOldToNew(actionData, duration);
         console.log("[LoadData] Converted to new format:", newFormatActionTable);
 
         dispatch(updateActionTable(newFormatActionTable));
@@ -217,41 +208,6 @@ function Dropdown({ userName, setIsDirty, isDirty, setIsLoaded, isLoaded }) {
         alert(`Failed to load data: ${error.message}`); // Also alert the user
       });
   }
-
-  // const reverseToActionTable = (result) => {
-  //   const actionTable = [];
-
-  //   for (let i = 0; i < result.players.length; i++) {
-  //     const playerGroup = [];
-  //     for (let j = 0; j < result.players[i].length; j++) {
-  //       const player = result.players[i][j];
-  //       const rgbaColors = [];
-
-  //       // 解码每个部位的颜色
-  //       const decodeColor = (unsignedColor) => ({
-  //         R: (unsignedColor >> 24) & 0xff,
-  //         G: (unsignedColor >> 16) & 0xff,
-  //         B: (unsignedColor >> 8) & 0xff,
-  //         A: unsignedColor & 0xff,
-  //       });
-
-  //       rgbaColors.push(decodeColor(player.head));
-  //       rgbaColors.push(decodeColor(player.shoulder));
-  //       rgbaColors.push(decodeColor(player.chest));
-  //       rgbaColors.push(decodeColor(player.arm_waist));
-  //       rgbaColors.push(decodeColor(player.leg1));
-  //       rgbaColors.push(decodeColor(player.leg2));
-  //       rgbaColors.push(decodeColor(player.shoes));
-
-  //       // 构建单个玩家数据
-  //       const playerData = [player.time, ...rgbaColors];
-  //       playerGroup.push(playerData);
-  //     }
-  //     actionTable.push(playerGroup);
-  //   }
-
-  //   return actionTable;
-  // };
 
   function reverseConversion(result) {
     const actionTable = [];
