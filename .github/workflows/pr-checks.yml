@@ -107,7 +107,7 @@ jobs:
         working-directory: ./backend
         run: |
           echo "📦 安裝 Python 依賴..."
-          uv venv
+          uv venv --clear
           source .venv/bin/activate
           uv pip install -e .
 
