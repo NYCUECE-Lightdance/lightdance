@@ -5,6 +5,7 @@ import { MdInput } from "react-icons/md";
 import { useDispatch, useSelector } from "react-redux";
 import { updateActionTable, updateMusicFilename } from "../redux/actions.js";
 import { API_ENDPOINTS } from "../config/api.js";
+import { getAllLocalBackups } from "../utils/indexedDB.js";
 
 function Dropdown({ userName, setIsDirty, isDirty, setIsLoaded, isLoaded }) {
   const [timeList, setTimeList] = useState([]);
@@ -15,8 +16,10 @@ function Dropdown({ userName, setIsDirty, isDirty, setIsLoaded, isLoaded }) {
   const [localBackups, setLocalBackups] = useState([]);
 
   async function fetchAvailableDataList() {
-    // --- 部分 A: 抓取本地 localStorage 資料 ---
+    // --- 部分 A: 抓取本地備份資料 (localStorage + IndexedDB) ---
     const backups = [];
+
+    // 1. 抓取 localStorage
     for (let i = 0; i < localStorage.length; i++) {
       const key = localStorage.key(i);
       if (key && key.startsWith("local_backup_")) {
@@ -26,13 +29,36 @@ function Dropdown({ userName, setIsDirty, isDirty, setIsLoaded, isLoaded }) {
             key: key,
             music_filename: item.data?.music_filename || "Unknown",
             displayTime: item.displayTime || "N/A",
-            rawData: item.data // 直接存放原始資料供載入
+            timestamp: item.timestamp || 0,
+            rawData: item.data,
+            source: "LocalStorage"
           });
         } catch (e) {
-          console.error("解析本地資料失敗", e);
+          console.error("解析 LocalStorage 資料失敗", e);
         }
       }
     }
+
+    // 2. 抓取 IndexedDB
+    try {
+      const idbBackups = await getAllLocalBackups();
+      idbBackups.forEach(item => {
+        backups.push({
+          key: item.key,
+          music_filename: item.data?.music_filename || "Unknown",
+          displayTime: item.displayTime || "N/A",
+          timestamp: item.timestamp || 0,
+          rawData: item.data,
+          source: "IndexedDB"
+        });
+      });
+    } catch (e) {
+      console.error("抓取 IndexedDB 備份失敗", e);
+    }
+
+    // 按時間排序 (最新的在前面)
+    backups.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
+
     setLocalBackups(backups);
 
     // Define the API endpoint
@@ -309,7 +335,9 @@ function Dropdown({ userName, setIsDirty, isDirty, setIsLoaded, isLoaded }) {
                       <br />
                       <small className="text-muted">{backup.displayTime}</small>
                     </div>
-                    <span className="badge bg-warning text-dark ms-2">Local</span>
+                    <span className={`badge ${backup.source === "IndexedDB" ? "bg-success" : "bg-warning"} text-dark ms-2`}>
+                      {backup.source === "IndexedDB" ? "IDB" : "Local"}
+                    </span>
                   </a>
                 </li>
               ))}
