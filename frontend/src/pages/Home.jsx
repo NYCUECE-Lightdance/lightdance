@@ -21,6 +21,7 @@ import { set } from "lodash";
 import { LuPlus, LuMusic, LuChevronRight } from "react-icons/lu";
 import { API_ENDPOINTS } from "../config/api.js";
 import { localMusicFiles } from "../components/audio/musicData.js";
+import { saveLocalBackup, cleanExpiredBackups } from "../utils/indexedDB.js";
 
 const generateInitialTable = () => Array.from({ length: 7 }, () =>
   Array.from({ length: 14 }, () => [
@@ -97,32 +98,36 @@ function Home({ rgba, setRgba, setButtonState }) {
 
     // 自動清理 30 天前的舊備份
   useEffect(() => {
-    const cleanOldBackups = () => {
+    const cleanOldBackups = async () => {
       const THIRTY_DAYS = 30 * 24 * 60 * 60 * 1000; // 30天的毫秒數
       const now = new Date().getTime();
 
+      // 1. 清理 localStorage 的舊資料
       for (let i = 0; i < localStorage.length; i++) {
         const key = localStorage.key(i);
-        
-        // 只檢查我們存的 local_backup 開頭的 Key
         if (key && key.startsWith("local_backup_")) {
           try {
             const item = JSON.parse(localStorage.getItem(key));
-            // 如果時間超過 30 天，就刪除
             if (item.timestamp && (now - item.timestamp > THIRTY_DAYS)) {
               localStorage.removeItem(key);
-              console.log(`已清理過期備份: ${key}`);
+              console.log(`已清理 localStorage 過期備份: ${key}`);
             }
           } catch (e) {
-            // 如果資料格式毀損無法解析，也順便清掉
             localStorage.removeItem(key);
           }
         }
       }
+
+      // 2. 清理 IndexedDB 的舊資料
+      try {
+        await cleanExpiredBackups(30);
+      } catch (e) {
+        console.error("清理 IndexedDB 失敗:", e);
+      }
     };
 
     cleanOldBackups();
-  }, []); // 只在進入 Home 頁面時執行一次
+  }, []);
 
   useEffect(() => {
     setIsDirty(true);
@@ -173,13 +178,19 @@ function Home({ rgba, setRgba, setButtonState }) {
     setIsDirty(false);
     const backupKey = `local_backup_${musicFilename}`;
   
-    // 1. 先存本地保險
-    const backupData = {
-      data: data, 
-      timestamp: new Date().getTime(), // 改用毫秒數，方便計算 30 天
-      displayTime: new Date().toLocaleString(), // 存一個好看的時間供顯示
-    };
-    localStorage.setItem(backupKey, JSON.stringify(backupData));
+    // 1. 本地備份 (IndexedDB + Try-Catch 隔離)
+    // 即使本地備份失敗，也不要影響後續的 Remote Output
+    try {
+      const backupData = {
+        data: data, 
+        timestamp: new Date().getTime(),
+        displayTime: new Date().toLocaleString(),
+      };
+      await saveLocalBackup(backupKey, backupData);
+      console.log("✅ 本地備份成功 (IndexedDB)");
+    } catch (e) {
+      console.error("❌ 本地備份失敗，但將繼續嘗試上傳至伺服器:", e);
+    }
 
     const players = [];
     const armorIndices = Object.keys(actionTable);
