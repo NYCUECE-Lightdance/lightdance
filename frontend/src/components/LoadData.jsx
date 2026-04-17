@@ -16,30 +16,10 @@ function Dropdown({ userName, setIsDirty, isDirty, setIsLoaded, isLoaded }) {
   const [localBackups, setLocalBackups] = useState([]);
 
   async function fetchAvailableDataList() {
-    // --- 部分 A: 抓取本地備份資料 (localStorage + IndexedDB) ---
+    // --- 部分 A: 抓取本地備份資料 (僅限 IndexedDB) ---
     const backups = [];
 
-    // 1. 抓取 localStorage
-    for (let i = 0; i < localStorage.length; i++) {
-      const key = localStorage.key(i);
-      if (key && key.startsWith("local_backup_")) {
-        try {
-          const item = JSON.parse(localStorage.getItem(key));
-          backups.push({
-            key: key,
-            music_filename: item.data?.music_filename || "Unknown",
-            displayTime: item.displayTime || "N/A",
-            timestamp: item.timestamp || 0,
-            rawData: item.data,
-            source: "LocalStorage"
-          });
-        } catch (e) {
-          console.error("解析 LocalStorage 資料失敗", e);
-        }
-      }
-    }
-
-    // 2. 抓取 IndexedDB
+    // 抓取 IndexedDB
     try {
       const idbBackups = await getAllLocalBackups();
       idbBackups.forEach(item => {
@@ -49,7 +29,8 @@ function Dropdown({ userName, setIsDirty, isDirty, setIsLoaded, isLoaded }) {
           displayTime: item.displayTime || "N/A",
           timestamp: item.timestamp || 0,
           rawData: item.data,
-          source: "IndexedDB"
+          source: "IndexedDB",
+          uploaded: item.uploaded
         });
       });
     } catch (e) {
@@ -322,12 +303,15 @@ function Dropdown({ userName, setIsDirty, isDirty, setIsLoaded, isLoaded }) {
           {/* --- 區段 1: 本地暫存檔 --- */}
           {localBackups.length > 0 && (
             <>
-              <li><span className="dropdown-header text-danger" style={{ fontSize: "20px" }}>⚠️ 本地未上傳暫存</span></li>
+              <li><span className="dropdown-header text-primary" style={{ fontSize: "20px" }}>📦 本地備份檔</span></li>
               {localBackups.map((backup) => (
                 <li key={backup.key}>
                   <a
                     className="dropdown-item d-flex justify-content-between align-items-center"
-                    style={{ fontSize: "16px", backgroundColor: "#fff3cd" }}
+                    style={{ 
+                      fontSize: "16px", 
+                      backgroundColor: backup.uploaded ? "#f8f9fa" : "#fff3cd" // 已同步用淡灰色，未同步用淡橘色
+                    }}
                     onClick={() => handleLoadLocal(backup)}
                   >
                     <div>
@@ -335,9 +319,12 @@ function Dropdown({ userName, setIsDirty, isDirty, setIsLoaded, isLoaded }) {
                       <br />
                       <small className="text-muted">{backup.displayTime}</small>
                     </div>
-                    <span className={`badge ${backup.source === "IndexedDB" ? "bg-success" : "bg-warning"} text-dark ms-2`}>
-                      {backup.source === "IndexedDB" ? "IDB" : "Local"}
-                    </span>
+                    <div className="d-flex flex-column align-items-end">
+                      <span className={`badge ${backup.uploaded ? "bg-success" : "bg-warning"} text-dark mb-1`}>
+                        {backup.uploaded ? "已同步伺服器" : "待同步/上傳失敗"}
+                      </span>
+                      <small style={{ fontSize: "10px", color: "#888" }}>IDB</small>
+                    </div>
                   </a>
                 </li>
               ))}
@@ -353,9 +340,10 @@ function Dropdown({ userName, setIsDirty, isDirty, setIsLoaded, isLoaded }) {
           {timeList.map((option, index) => {
             const isNewUser =
               index === 0 || option.user !== timeList[index - 1].user;
-            const key = `${option.user}-${option.update_time}`;
+            // 加上 index 確保即使 user 和 update_time 相同，key 也是唯一的
+            const fragmentKey = `remote-${option.user}-${option.update_time}-${index}`;
             return (
-              <React.Fragment key={key}>
+              <React.Fragment key={fragmentKey}>
                 {isNewUser && (
                   <li key={`${option.user}-header`}>
                     <span
@@ -366,7 +354,7 @@ function Dropdown({ userName, setIsDirty, isDirty, setIsLoaded, isLoaded }) {
                     </span>
                   </li>
                 )}
-                <li key={key}>
+                <li key={`${fragmentKey}-item`}>
                   <a
                     className="dropdown-item d-flex justify-content-between align-items-center"
                     style={{ fontSize: "16px" }}

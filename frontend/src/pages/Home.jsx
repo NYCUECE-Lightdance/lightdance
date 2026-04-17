@@ -21,7 +21,7 @@ import { set } from "lodash";
 import { LuPlus, LuMusic, LuChevronRight } from "react-icons/lu";
 import { API_ENDPOINTS } from "../config/api.js";
 import { localMusicFiles } from "../components/audio/musicData.js";
-import { saveLocalBackup, cleanExpiredBackups } from "../utils/indexedDB.js";
+import { saveLocalBackup, cleanExpiredBackups, deleteLocalBackup } from "../utils/indexedDB.js";
 
 const generateInitialTable = () => Array.from({ length: 7 }, () =>
   Array.from({ length: 14 }, () => [
@@ -99,26 +99,15 @@ function Home({ rgba, setRgba, setButtonState }) {
     // 自動清理 30 天前的舊備份
   useEffect(() => {
     const cleanOldBackups = async () => {
-      const THIRTY_DAYS = 30 * 24 * 60 * 60 * 1000; // 30天的毫秒數
-      const now = new Date().getTime();
-
-      // 1. 清理 localStorage 的舊資料
-      for (let i = 0; i < localStorage.length; i++) {
-        const key = localStorage.key(i);
-        if (key && key.startsWith("local_backup_")) {
-          try {
-            const item = JSON.parse(localStorage.getItem(key));
-            if (item.timestamp && (now - item.timestamp > THIRTY_DAYS)) {
-              localStorage.removeItem(key);
-              console.log(`已清理 localStorage 過期備份: ${key}`);
-            }
-          } catch (e) {
-            localStorage.removeItem(key);
-          }
+      // 1. 徹底清理 localStorage 中所有舊的 local_backup_ 開頭的 Key
+      // 釋放 5MB 的配額給 Redux Persist 使用
+      Object.keys(localStorage).forEach((key) => {
+        if (key.startsWith("")) {
+          localStorage.removeItem(key);
         }
-      }
+      });
 
-      // 2. 清理 IndexedDB 的舊資料
+      // 2. 僅清理 IndexedDB 的過期備份 (預設 30 天)
       try {
         await cleanExpiredBackups(30);
       } catch (e) {
@@ -179,12 +168,12 @@ function Home({ rgba, setRgba, setButtonState }) {
     const backupKey = `local_backup_${musicFilename}`;
   
     // 1. 本地備份 (IndexedDB + Try-Catch 隔離)
-    // 即使本地備份失敗，也不要影響後續的 Remote Output
     try {
       const backupData = {
         data: data, 
         timestamp: new Date().getTime(),
         displayTime: new Date().toLocaleString(),
+        uploaded: false, // 初始設為 false
       };
       await saveLocalBackup(backupKey, backupData);
       console.log("✅ 本地備份成功 (IndexedDB)");
@@ -363,10 +352,22 @@ function Home({ rgba, setRgba, setButtonState }) {
     
       if (response.ok) {
         setIsDirty(false);
-        localStorage.removeItem(backupKey);
-        alert("原始檔與播放檔皆上傳成功！ 本地端已清理(同步時間戳記)"); 
+        // 更新本地備份狀態為已同步
+        try {
+          const syncData = {
+            data: data,
+            timestamp: new Date().getTime(),
+            displayTime: new Date().toLocaleString(),
+            uploaded: true,
+          };
+          await saveLocalBackup(backupKey, syncData);
+        } catch (e) {
+          console.error("更新本地同步狀態失敗:", e);
+        }
+        alert("原始檔與播放檔皆上傳成功！"); 
         console.log("upload(full) : ", JSON.stringify(fullUploadData));
-      } else {
+      }
+ else {
         alert("上傳失敗，資料已自動備份至本地。");
         console.error("Upload Error:", response.status);
       }
