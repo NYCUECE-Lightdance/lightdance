@@ -20,11 +20,12 @@ import { faRobot } from "@fortawesome/free-solid-svg-icons";
 import { set } from "lodash";
 import { LuPlus, LuMusic, LuChevronRight } from "react-icons/lu";
 import { API_ENDPOINTS } from "../config/api.js";
+import { convertActionTableNewToOld } from "../utils/dataConverter.js";
 import { localMusicFiles } from "../components/audio/musicData.js";
 import { saveLocalBackup, cleanExpiredBackups, deleteLocalBackup } from "../utils/indexedDB.js";
 
 const generateInitialTable = () => Array.from({ length: 7 }, () =>
-  Array.from({ length: 14 }, () => [
+  Array.from({ length: 16 }, () => [
     { time: 0, color: { R: 0, G: 0, B: 0, A: 1 }, linear: 0 },
   ])
 );
@@ -82,7 +83,7 @@ function Home({ rgba, setRgba, setButtonState }) {
   const musicFilename = data.music_filename ?? "";
   const userName = useSelector((state) => state.profiles.user);
   const autoRefresh = useSelector((state) => state.profiles.autoRefresh);
-  const duration = useSelector((state) => state.profiles.duration); 
+  const duration = useSelector((state) => state.profiles.duration);
   const [isDirty, setIsDirty] = useState(false);
   const [isLoaded, setIsLoaded] = useState(false);
   const [showSaveModal, setShowSaveModal] = useState(false);
@@ -161,10 +162,45 @@ function Home({ rgba, setRgba, setButtonState }) {
     navigate("/"); // Redirect to login page after logout
   };
 
+  async function handleOutputString(BearerToken) {
+    // Upload raw data
+    setIsDirty(false);
+    setIsLoaded(false);
+    console.log("-token- : ", BearerToken);
+
+    // 轉換為舊格式 (time, color, linear, empty)
+    const oldFormatActionTable = convertActionTableNewToOld(actionTable, duration);
+    console.log("[Save] Converted to old format:", oldFormatActionTable);
+
+    let result = JSON.stringify(oldFormatActionTable);
+    // console.log("upload(raw) : ", JSON.stringify(result));
+    const response = await fetch(API_ENDPOINTS.UPLOAD_RAW, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json", // 這是你後端需要的 Content-Type
+        Authorization: `Bearer ${BearerToken}`, // 如果需要授權，記得帶上 token
+      },
+      body: JSON.stringify({ raw_data: result }), // 轉換為 JSON 字串
+      mode: "cors",
+    });
+    if (!response.ok) {
+      alert("upload failed");
+      console.error("Response Error:", response.status, response.statusText);
+      const errorText = await response.text();
+      throw new Error(
+        `HTTP error! Status: ${response.status}, Message: ${errorText}`
+      );
+    } else {
+      alert("upload successful");
+    }
+  }
+
+
   async function handleOutput() {
     console.log("UPLOAD_RAW:", API_ENDPOINTS.UPLOAD_RAW);
     console.log("UPLOAD_ITEMS:", API_ENDPOINTS.UPLOAD_ITEMS);
     setIsDirty(false);
+    
     const backupKey = `local_backup_${musicFilename}`;
   
     // 1. 本地備份 (IndexedDB + Try-Catch 隔離)
@@ -181,12 +217,16 @@ function Home({ rgba, setRgba, setButtonState }) {
       console.error("❌ 本地備份失敗，但將繼續嘗試上傳至伺服器:", e);
     }
 
+    // 轉換為舊格式以便進行編碼
+    const oldFormatActionTable = convertActionTableNewToOld(actionTable, duration);
+    console.log("[Save] Using old format for encoding:", oldFormatActionTable);
+
     const players = [];
-    const armorIndices = Object.keys(actionTable);
+    const armorIndices = Object.keys(oldFormatActionTable);
   
     for (let i = 0; i < armorIndices.length; i++) {
       const armorIndex = armorIndices[i];
-      const partGroup = actionTable[armorIndex];
+      const partGroup = oldFormatActionTable[armorIndex];
   
       let times = new Set();
   
@@ -299,7 +339,8 @@ function Home({ rgba, setRgba, setButtonState }) {
           legR: mergedItem[11] ?? 0,
           shoeL: mergedItem[12] ?? 0,
           shoeR: mergedItem[13] ?? 0,
-          board: 0,
+          board: mergedItem[14] ?? 0,
+          weapon: mergedItem[15] ?? 0,
         });
       }
   

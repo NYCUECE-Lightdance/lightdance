@@ -110,6 +110,7 @@
 .timeline-right,
 .magnet-button,
 .delete-button,
+.merge-button,
 .brightness-button,
 .color-button {
   background-color: rgb(49, 47, 47);
@@ -128,6 +129,7 @@
 .timeline-right:hover,
 .magnet-button:hover,
 .delete-button:hover,
+.merge-button:hover,
 .color-button:hover {
   color: white;
 }
@@ -148,6 +150,7 @@
 .timeline-right:hover .tooltip,
 .cut-button:hover .tooltip,
 .delete-button:hover .tooltip,
+.merge-button:hover .tooltip,
 .dropdown:hover .tooltip,
 .brightness-control:hover .tooltip,
 .color-button:hover .tooltip,

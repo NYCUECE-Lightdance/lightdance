@@ -556,12 +556,6 @@ function AudioPlayer({ setButtonState, timelineRef }) {
 
     const { armorIndex, partIndex } = multiSelectedBlocks[0];
     const partData = actionTable[armorIndex]?.[partIndex] || [];
-    const indexToCopy = binarySearchFirstGreater(partData, currentTime);
-
-    if (indexToCopy === 0) {
-      console.log("partData: ", partData.length);
-    }
-    console.log("indexToCopy: ", indexToCopy);
 
     // 將時間 floor 到最近的 50 毫秒
     const nowTime = Math.floor(currentTime / 50) * 50;
@@ -572,101 +566,61 @@ function AudioPlayer({ setButtonState, timelineRef }) {
         const updatedPlayer = { ...player };
         let updatedPartData = [...player[partIndex]];
 
-        const newEntry = {
-          time: nowTime,
-          color: { ...color },
-          linear: 0,
-        };
+        // 新格式: { startTime, endTime, color, linear }
+        // 檢查是否有色塊包含當前時間點
+        const existingIndex = updatedPartData.findIndex(
+          (block) => block.startTime <= nowTime && nowTime < block.endTime
+        );
 
-        const nextElement = updatedPartData[indexToCopy];
-        const isNextBlack =
-          indexToCopy === 0
-            ? true
-            : nextElement?.color?.R === 0 &&
-              nextElement?.color?.G === 0 &&
-              nextElement?.color?.B === 0;
-
-        const previousElement =
-          updatedPartData[indexToCopy - 1] || updatedPartData[indexToCopy];
-
-        const isPreviousBlack =
-          indexToCopy === 0
-            ? true
-            : previousElement?.color?.R === 0 &&
-              previousElement?.color?.G === 0 &&
-              previousElement?.color?.B === 0;
-
-        console.log("isPreviousBlack: ", isPreviousBlack);
-        console.log("isNextBlack: ", isNextBlack);
-
-        // 插入新資料及過渡黑色區塊
-        if (nowTime - blackthreshold > 0) {
-          const existingIndex = updatedPartData.findIndex(
-            (entry) => entry.time === nowTime
+        if (existingIndex !== -1) {
+          // 如果當前時間在某個色塊內部，更新該色塊的顏色
+          updatedPartData = updatedPartData.map((block, index) =>
+            index === existingIndex
+              ? { ...block, color: { ...color } }
+              : block
           );
-          if (existingIndex !== -1) {
-            updatedPartData = updatedPartData.map((entry, index) =>
-              index === existingIndex
-                ? { ...entry, color: { ...color } }
-                : entry
-            );
-          } else if (indexToCopy === 0) {
-            const blackArray2 = {
-              time: duration,
-              color: { R: 0, G: 0, B: 0, A: 1 },
-              linear: 0,
-            };
-            updatedPartData.splice(partData.length, 0, newEntry, blackArray2);
-          } else if (!isPreviousBlack && isNextBlack) {
-            const blackArray = {
-              time: nowTime - blackthreshold,
-              color: { R: 0, G: 0, B: 0, A: 1 },
-              linear: 0,
-            };
-            updatedPartData.splice(indexToCopy + 1, 0, blackArray, newEntry);
-          } else if (!isPreviousBlack && !isNextBlack) {
-            const blackArray = {
-              time: nowTime - blackthreshold,
-              color: { R: 0, G: 0, B: 0, A: 1 },
-              linear: 0,
-            };
-            const blackArray2 = {
-              time:
-                nextElement?.time - blackthreshold || nowTime + blackthreshold,
-              color: { R: 0, G: 0, B: 0, A: 1 },
-              linear: 0,
-            };
-            updatedPartData.splice(
-              indexToCopy + 1,
-              0,
-              blackArray,
-              newEntry,
-              blackArray2
-            );
-          } else if (isPreviousBlack && !isNextBlack) {
-            const blackArray2 = {
-              time:
-                nextElement?.time - blackthreshold || nowTime + blackthreshold,
-              color: { R: 0, G: 0, B: 0, A: 1 },
-              linear: 0,
-            };
-            updatedPartData.splice(indexToCopy + 1, 0, newEntry, blackArray2);
-          } else if (isPreviousBlack && isNextBlack) {
-            updatedPartData.splice(partData.length, 0, newEntry);
-          } else {
-            const blackArray2 = {
-              time: duration,
-              color: { R: 0, G: 0, B: 0, A: 1 },
-              linear: 0,
-            };
-            updatedPartData.splice(indexToCopy + 1, 0, newEntry, blackArray2);
-          }
         } else {
-          updatedPartData.splice(indexToCopy + 1, 0, newEntry);
-        }
+          // 否則創建新色塊，默認長度為 5000ms (5秒)
+          let newEndTime = Math.min(nowTime + 5000, duration);
 
-        // **排序 partData 依據 time**
-        updatedPartData.sort((a, b) => a.time - b.time);
+          // 檢查是否與下一個色塊重疊
+          const nextBlock = updatedPartData.find(
+            (block) => block.startTime > nowTime
+          );
+
+          if (nextBlock && newEndTime > nextBlock.startTime) {
+            // 如果會重疊，調整 endTime 為下一個色塊的 startTime
+            newEndTime = nextBlock.startTime;
+          }
+
+          // 確保至少有 50ms 寬度
+          if (newEndTime - nowTime < 50) {
+            console.warn(`[Insert] Not enough space to create new block at ${nowTime}ms`);
+            return player;
+          }
+
+          const newBlock = {
+            startTime: nowTime,
+            endTime: newEndTime,
+            color: { ...color },
+            linear: 0,
+          };
+
+          // 找到應該插入的位置（保持時間順序）
+          const insertIndex = updatedPartData.findIndex(
+            (block) => block.startTime > nowTime
+          );
+
+          if (insertIndex === -1) {
+            // 如果沒找到比 nowTime 更大的時間，則追加到末尾
+            updatedPartData.push(newBlock);
+          } else {
+            // 否則在找到的位置前插入
+            updatedPartData.splice(insertIndex, 0, newBlock);
+          }
+
+          console.log(`[Insert] Created new block: ${nowTime}ms - ${newEndTime}ms`);
+        }
 
         updatedPlayer[partIndex] = updatedPartData;
         return updatedPlayer;
@@ -677,23 +631,6 @@ function AudioPlayer({ setButtonState, timelineRef }) {
     dispatch(updateActionTable(updatedActionTable)); // 更新 Redux
   };
 
-  function binarySearchFirstGreater(arr, target) {
-    if (!arr) return;
-    let left = 0;
-    let right = arr?.length - 1;
-    let result = 0; // 默認值為 -1，如果找不到更大的數字
-
-    while (left <= right) {
-      let mid = Math.floor((left + right) / 2);
-      if (arr[mid].time > target) {
-        result = mid; // 找到候選
-        right = mid - 1; // 繼續向左搜尋
-      } else {
-        left = mid + 1; // 向右移動
-      }
-    }
-    return result;
-  }
 
   const handlePlayPause = () => {
     if (!isPlaying) {
@@ -1002,31 +939,18 @@ function AudioPlayer({ setButtonState, timelineRef }) {
       return;
     }
 
-    // 获取比 currentTime 小的所有时间点并按降序排序
+    // 新格式: 获取比 currentTime 小的所有 startTime 並按降序排序
     const filteredTimes = timeline
-      .map((block) => block.time)
-      .filter((time) => time < currentTime)
+      .map((block) => block.startTime)
+      .filter((startTime) => startTime < currentTime)
       .sort((a, b) => b - a);
 
-    // 获取最大时间点和次大时间点
+    // 取最大 startTime
     const previousTime = filteredTimes[0];
-    const secondPreviousTime = filteredTimes[1];
 
-    // 如果最大时间点与 currentTime 相差 10ms，则取次大时间点
-    let selectedTime = previousTime;
-    if (
-      previousTime !== undefined &&
-      secondPreviousTime !== undefined &&
-      currentTime - previousTime === 10
-    ) {
-      selectedTime = secondPreviousTime;
-    }
-
-    if (selectedTime !== undefined) {
-      selectedTime = Math.round(selectedTime / 50) * 50; // 四舍五入到最近的 10 毫秒
-      // isExternalSeekRef.current = true; // 设置为外部跳转
+    if (previousTime !== undefined) {
+      const selectedTime = Math.round(previousTime / 50) * 50;
       dispatch(updateCurrentTime(selectedTime)); // 更新 Redux 中的 currentTime
-      // audioRef.current.currentTime = selectedTime / 1000; // 更新 audio 元素的播放時間
     } else {
       console.warn("No previous time point found.");
     }
@@ -1044,10 +968,10 @@ function AudioPlayer({ setButtonState, timelineRef }) {
       return;
     }
 
-    // 获取比 currentTime 大的所有时间点并按升序排序
+    // 新格式: 获取比 currentTime 大的所有 startTime 並按升序排序
     const filteredTimes = timeline
-      .map((block) => block.time)
-      .filter((time) => time > currentTime)
+      .map((block) => block.startTime)
+      .filter((startTime) => startTime > currentTime)
       .sort((a, b) => a - b);
 
     if (filteredTimes.length === 0) {
@@ -1055,22 +979,12 @@ function AudioPlayer({ setButtonState, timelineRef }) {
       return;
     }
 
-    // 最接近 currentTime 的最小时间点（第一小时间点）
-    const firstTime = filteredTimes[0];
-    // 第二小时间点（如果存在）
-    const secondTime = filteredTimes[1];
+    // 取最小 startTime
+    const nextTime = filteredTimes[0];
 
-    let nextTime = firstTime; // 默认为第一小时间点
-
-    // 如果第一小时间点和第二小时间点相差 10 毫秒，取第二小时间点
-    if (secondTime !== undefined && secondTime - firstTime === 10) {
-      nextTime = secondTime;
-    }
     if (nextTime !== undefined) {
-      nextTime = Math.round(nextTime / 50) * 50; // 四舍五入到最近的 10 毫秒
-      nextTime = Math.min(nextTime, duration); // 确保不超过音频总时长
-      // isExternalSeekRef.current = true; // 设置为外部跳转
-      dispatch(updateCurrentTime(nextTime)); // 更新 Redux 中的 currentTime
+      const selectedTime = Math.round(nextTime / 50) * 50;
+      dispatch(updateCurrentTime(selectedTime)); // 更新 Redux 中的 currentTime
       console.log("currentTime:", currentTime);
     } else {
       console.warn("No next time point found.");
@@ -1083,65 +997,85 @@ function AudioPlayer({ setButtonState, timelineRef }) {
       console.warn("Cut operation is only valid when exactly one block is selected.");
       return;
     }
-    
-    const { armorIndex, partIndex, blockIndex } = multiSelectedBlocks[0];
-    
+
+    const { armorIndex, partIndex, blockIndex } = selectedBlock;
+
+    const timeline = actionTable?.[armorIndex]?.[partIndex];
+    if (!timeline || !Array.isArray(timeline)) {
+      console.warn("Timeline not found or invalid.");
+      return;
+    }
+
+    const block = timeline[blockIndex];
+    if (!block) {
+      console.warn("Selected block not found in the actionTable.");
+      return;
+    }
+
+    // 新格式: 使用 startTime 和 endTime
+    const blockStartTime = block.startTime;
+    const blockEndTime = block.endTime;
+
+    // 將 currentTime 對齊到 50ms（與其他操作保持一致）
+    const alignedCutTime = Math.floor(currentTime / 50) * 50;
+
+    console.log(`[Cut] Original time: ${currentTime}ms, Aligned time: ${alignedCutTime}ms`);
+
+    // 檢查對齊後的時間是否在此色塊的時間範圍內
+    if (alignedCutTime <= blockStartTime || alignedCutTime >= blockEndTime) {
+      console.warn(
+        `Aligned cut time ${alignedCutTime}ms is not within block range (${blockStartTime}, ${blockEndTime})`
+      );
+      return;
+    }
+
+    // 檢查切割後左半部分是否足夠寬（至少 50ms）
+    if (alignedCutTime - blockStartTime < 50) {
+      console.warn(
+        `Left block too small: ${alignedCutTime - blockStartTime}ms (minimum 50ms required)`
+      );
+      return;
+    }
+
+    // 檢查切割後右半部分是否足夠寬（至少 50ms）
+    if (blockEndTime - alignedCutTime < 50) {
+      console.warn(
+        `Right block too small: ${blockEndTime - alignedCutTime}ms (minimum 50ms required)`
+      );
+      return;
+    }
+
+    // 新格式: 在對齊後的時間處切割色塊
     const updatedActionTable = produce(actionTable, (draft) => {
-      const timeline = draft[armorIndex]?.[partIndex];
-      const originalBlock = timeline?.[blockIndex];
-      const nextBlock = timeline?.[blockIndex + 1];
-      
-      if (!originalBlock || !nextBlock || currentTime <= originalBlock.time || currentTime >= nextBlock.time) {
-        console.warn("Cut operation is not valid at the current time.");
-        return;
-      }
-  
-      let newBlockColor = originalBlock.color;
-      const isOriginalLinear = originalBlock.linear === 1;
-  
-      if (isOriginalLinear) {
-        const gradientTargetBlock = timeline[blockIndex + 2];
-        const startColor = originalBlock.color;
-        const endColor = gradientTargetBlock?.color || { R: 0, G: 0, B: 0, A: 1 };
-        const startTime = originalBlock.time;
-        const endTime = nextBlock.time;
-  
-        if (endTime > startTime) {
-          const ratio = (currentTime - startTime) / (endTime - startTime);
-          newBlockColor = {
-            R: Math.round(startColor.R * (1 - ratio) + endColor.R * ratio),
-            G: Math.round(startColor.G * (1 - ratio) + endColor.G * ratio),
-            B: Math.round(startColor.B * (1 - ratio) + endColor.B * ratio),
-            A: ((startColor.A ?? 1) * (1 - ratio) + (endColor.A ?? 1) * ratio),
-          };
-        }
-        originalBlock.linear = 1;
-      }
-      
-      const newBlackBlock = {
-        time: currentTime - blackthreshold,
-        color: { R: 0, G: 0, B: 0, A: 1 },
-        linear: 0,
+      const draftTimeline = draft[armorIndex][partIndex];
+
+      // 修改當前色塊的 endTime
+      draftTimeline[blockIndex].endTime = alignedCutTime;
+
+      // 建立新的色塊（切割後的右半部分）
+      const rightBlock = {
+        ...block,
+        startTime: alignedCutTime,
+        endTime: blockEndTime,
       };
-      
-      const newBlock = {
-        time: currentTime,
-        color: newBlockColor,
-        linear: isOriginalLinear ? 1 : 0,
-      };
-  
-      timeline.splice(blockIndex + 1, 0, newBlackBlock, newBlock);
-      timeline.sort((a, b) => a.time - b.time);
+
+      // 在原始位置後插入新色塊
+      draftTimeline.splice(blockIndex + 1, 0, rightBlock);
+
     });
   
     dispatch(updateActionTable(updatedActionTable));
-    
+    console.log("Action table after cut:", updatedActionTable);
+
+    // 更新選中的區塊到新插入的右半部分
+
     dispatch(
       updateMultiSelectedBlocks([{
         armorIndex,
         partIndex,
         blockIndex: blockIndex + 2,
       }])
+
     );
   };
 
@@ -1221,26 +1155,12 @@ function AudioPlayer({ setButtonState, timelineRef }) {
       `Pasted ${pastedData.length} blocks to Armor ${targetArmorIndex}, Part ${targetPartIndex}`
     );
 
-    // 貼上後，選中目標部位的第一個有效方塊（非黑色）
-    let newBlockIndex = 0;
-    for (let i = 0; i < pastedData.length; i++) {
-      const block = pastedData[i];
-      if (
-        !(
-          block.color.R === 0 &&
-          block.color.G === 0 &&
-          block.color.B === 0
-        )
-      ) {
-        newBlockIndex = i;
-        break;
-      }
-    }
-
+    // 貼上後，選中目標部位的第一個方塊
     dispatch(
       updateMultiSelectedBlocks([{
         armorIndex: targetArmorIndex,
         partIndex: targetPartIndex,
+
         blockIndex: newBlockIndex,
       }])
     );
@@ -1307,15 +1227,15 @@ function AudioPlayer({ setButtonState, timelineRef }) {
       let current = startBrightness;
       let step = 0;
 
-      // 用 while 讓 current 每次 + 或 - interval，直到過了 endBrightness
+      // 遍歷後續的所有色塊，應用漸變效果
       while (
         (ascending && current <= endBrightness) ||
         (!ascending && current >= endBrightness)
       ) {
-        const idx = blockIndex + step * 2;
-        if (timeline[idx]) {
-          timeline[idx].color.A = current / 100;
-        }
+        const idx = blockIndex + step;
+        if (idx >= timeline.length) break; // 停止，避免超出範圍
+        
+        timeline[idx].color.A = current / 100;
         current += ascending ? interval : -interval;
         step += 1;
       }
@@ -1606,6 +1526,10 @@ function AudioPlayer({ setButtonState, timelineRef }) {
         <button className="delete-button" onClick={ClickedDelete}>
           <FontAwesomeIcon icon={faTrash} size="lg" /> {/* 垃圾桶图标 */}
           <span className="tooltip">Delete Selected Block ( Del )</span>
+        </button>
+        <button className="merge-button" onClick={handleMergeBlocks}>
+          <FontAwesomeIcon icon={faLink} size="lg" />
+          <span className="tooltip">Merge With Next Block (Same Color Only)</span>
         </button>
 
         <div className="brightness-control">

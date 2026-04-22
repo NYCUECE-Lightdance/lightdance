@@ -5,6 +5,7 @@ import { MdInput } from "react-icons/md";
 import { useDispatch, useSelector } from "react-redux";
 import { updateActionTable, updateMusicFilename } from "../redux/actions.js";
 import { API_ENDPOINTS } from "../config/api.js";
+import { convertActionTableOldToNew } from "../utils/dataConverter.js";
 import { getAllLocalBackups } from "../utils/indexedDB.js";
 
 function Dropdown({ userName, setIsDirty, isDirty, setIsLoaded, isLoaded }) {
@@ -13,6 +14,7 @@ function Dropdown({ userName, setIsDirty, isDirty, setIsLoaded, isLoaded }) {
   const [anchorIndex, setAnchorIndex] = useState(0);
   const dispatch = useDispatch();
   const actionTable = useSelector((state) => state.profiles.data?.actionTable || []);
+  const duration = useSelector((state) => state.profiles.duration);
   const [localBackups, setLocalBackups] = useState([]);
 
   async function fetchAvailableDataList() {
@@ -88,14 +90,17 @@ function Dropdown({ userName, setIsDirty, isDirty, setIsLoaded, isLoaded }) {
       .then((data) => {
         console.log("Fetched Data:", data); // Log the returned data
         // console.log(data.players); // Log the returned data
-        const restoredActionTable = reverseConversion(
-          // JSON.parse(JSON.stringify(data.players))
-          data
-        );
-        // console.log("Table : ", actionTable);
 
-        dispatch(updateActionTable(restoredActionTable));
-        console.log("After : ", restoredActionTable);
+        // Step 1: 轉換為舊格式 (time, color, linear)
+        const restoredActionTable = reverseConversion(data);
+        console.log("[LoadData] Old format (after reverseConversion):", restoredActionTable);
+
+        // Step 2: 轉換為新格式 (startTime, endTime, color, linear)
+        const newFormatActionTable = convertActionTableOldToNew(restoredActionTable, duration);
+        console.log("[LoadData] New format (after conversion):", newFormatActionTable);
+
+        dispatch(updateActionTable(newFormatActionTable));
+        console.log("After dispatch:", newFormatActionTable);
 
         // let timeListArray = data.list;
         // setTimeList(timeListArray);
@@ -170,8 +175,13 @@ function Dropdown({ userName, setIsDirty, isDirty, setIsLoaded, isLoaded }) {
         console.log("Final ActionData:", actionData);
         console.log("Final MusicFilename:", musicFilename);
 
-        dispatch(updateActionTable(actionData));
-        dispatch(updateMusicFilename(musicFilename))
+
+        // 轉換為新格式 (startTime, endTime)
+        const newFormatActionTable = convertActionTableOldToNew(actionData, duration);
+        console.log("[LoadData] Converted to new format:", newFormatActionTable);
+
+        dispatch(updateActionTable(newFormatActionTable));
+
       })
       .catch((error) => {
         // This will now catch both HTTP errors and backend errors from the response body
@@ -179,41 +189,6 @@ function Dropdown({ userName, setIsDirty, isDirty, setIsLoaded, isLoaded }) {
         alert(`Failed to load data: ${error.message}`); // Also alert the user
       });
   }
-
-  // const reverseToActionTable = (result) => {
-  //   const actionTable = [];
-
-  //   for (let i = 0; i < result.players.length; i++) {
-  //     const playerGroup = [];
-  //     for (let j = 0; j < result.players[i].length; j++) {
-  //       const player = result.players[i][j];
-  //       const rgbaColors = [];
-
-  //       // 解码每个部位的颜色
-  //       const decodeColor = (unsignedColor) => ({
-  //         R: (unsignedColor >> 24) & 0xff,
-  //         G: (unsignedColor >> 16) & 0xff,
-  //         B: (unsignedColor >> 8) & 0xff,
-  //         A: unsignedColor & 0xff,
-  //       });
-
-  //       rgbaColors.push(decodeColor(player.head));
-  //       rgbaColors.push(decodeColor(player.shoulder));
-  //       rgbaColors.push(decodeColor(player.chest));
-  //       rgbaColors.push(decodeColor(player.arm_waist));
-  //       rgbaColors.push(decodeColor(player.leg1));
-  //       rgbaColors.push(decodeColor(player.leg2));
-  //       rgbaColors.push(decodeColor(player.shoes));
-
-  //       // 构建单个玩家数据
-  //       const playerData = [player.time, ...rgbaColors];
-  //       playerGroup.push(playerData);
-  //     }
-  //     actionTable.push(playerGroup);
-  //   }
-
-  //   return actionTable;
-  // };
 
   function reverseConversion(result) {
     const actionTable = [];
@@ -240,14 +215,10 @@ function Dropdown({ userName, setIsDirty, isDirty, setIsLoaded, isLoaded }) {
               G: (mergedItem[key] >> 16) & 0xff,
               B: (mergedItem[key] >> 8) & 0xff,
               A: (mergedItem[key] & 0xff) / 100,
-              // A: 1,
             };
-
-            // Compare the new color with the previous one
 
             // Push the new color and time if it's different from the previous one
             playerGroup[numericKey].push({ time: time * 50, color: color });
-            // Update the previous color
           }
         });
       });
@@ -255,29 +226,50 @@ function Dropdown({ userName, setIsDirty, isDirty, setIsLoaded, isLoaded }) {
       // Push the playerGroup into the actionTable
       actionTable.push(playerGroup);
     });
-    console.log("table : ", actionTable);
 
+    // 移除重複的相同顏色塊、黑色塊（R=0, G=0, B=0）和 empty 色塊
     actionTable.forEach((player) => {
       Object.values(player).forEach((item) => {
         let prevColor = null;
-        for (let index = 0; index < item.length; index++) {
+        for (let index = item.length - 1; index >= 0; index--) {
           const element = item[index];
+
+          // 移除 empty 色塊（這些不應該存在，但為了清理舊數據）
+          if (element.empty) {
+            console.warn(`Removing unexpected empty block at time ${element.time}ms`);
+            item.splice(index, 1);
+            prevColor = null;
+            continue;
+          }
+
+          // 移除黑色塊（R=0, G=0, B=0）
+          const isBlack =
+            element.color?.R === 0 &&
+            element.color?.G === 0 &&
+            element.color?.B === 0;
+
+          if (isBlack) {
+            item.splice(index, 1);
+            prevColor = null; // 重設前一個顏色，因為黑色被移除
+            continue;
+          }
+
+          // 如果是重複的顏色，也移除
           if (
             prevColor &&
             prevColor.R === element.color.R &&
             prevColor.G === element.color.G &&
             prevColor.B === element.color.B &&
-            prevColor.A === element.color.A &&
-            index !== item.length - 1
+            prevColor.A === element.color.A
           ) {
-            // Remove the element from the array if the color is the same as the previous one
             item.splice(index, 1);
-            index--; // Adjust index after removal
+          } else {
+            prevColor = element.color;
           }
-          prevColor = element.color;
         }
       });
     });
+
     return actionTable;
   }
 

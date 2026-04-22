@@ -38,52 +38,56 @@ const Armor = (props) => {
     "shoeL",         // 12:左鞋
     "shoeR",         // 13:右鞋
     "board",         // 14:板子
+    "weapon",        // 15:武器
   ];
 
-  // 根據部位名稱和當前時間計算顏色
-  const getColorForPart = (part) => {
-    const partData = actionTable?.[myId]?.[part] || [];
-    const timeIndex = binarySearchFirstGreater(partData, time);
-    const prevData = partData?.[timeIndex - 1];
-    const nextData = partData?.[timeIndex];
 
-    if (prevData && prevData.linear === 1 && nextData) {
-      const afterNextData = partData?.[timeIndex + 1];
+    // 根據部位索引和當前時間計算顏色（支援時間漸變）
+    const getColorForPart = (part) => {
+      const partData = actionTable?.[myId]?.[part] || [];
 
-      const startTime = prevData.time;
-      const endTime = nextData.time;
-      const currentTime = time;
+      // 找到包含當前時間的色塊
+      const currentBlock = partData.find(
+        (block) => block.startTime <= time && time < block.endTime
+      );
 
-      const startColor = prevData.color;
-      const endColor = afterNextData?.color || { R: 0, G: 0, B: 0, A: 1 };
-
-      if (endTime > startTime) {
-        const ratio = (currentTime - startTime) / (endTime - startTime);
-        const r = Math.round(
-          startColor.R * (1 - ratio) + endColor.R * ratio
-        );
-        const g = Math.round(
-          startColor.G * (1 - ratio) + endColor.G * ratio
-        );
-        const b = Math.round(
-          startColor.B * (1 - ratio) + endColor.B * ratio
-        );
-        const startA = startColor.A ?? 1;
-        const endA = endColor.A ?? 1;
-        const a = startA * (1 - ratio) + endA * ratio;
-        return `rgba(${r}, ${g}, ${b}, ${a})`;
+      // 如果沒找到對應色塊，回傳黑色
+      if (!currentBlock) {
+        return "rgba(0, 0, 0, 1)";
       }
-    }
 
-    const colorData = prevData?.color || {
-      R: 0,
-      G: 0,
-      B: 0,
-      A: 1,
+      const color = currentBlock.color || { R: 0, G: 0, B: 0, A: 1 };
+
+      // 如果當前光塊沒有啟用漸變，直接回傳顏色
+      if (currentBlock.linear !== 1) {
+        return `rgba(${color.R}, ${color.G}, ${color.B}, ${color.A})`;
+      }
+
+      // 漸變模式：計算隨時間變化的顏色
+      const currentIndex = partData.indexOf(currentBlock);
+      const nextBlock = partData[currentIndex + 1];
+
+      let endColor = { R: 0, G: 0, B: 0, A: 1 };
+      if (nextBlock) {
+        endColor = nextBlock.color;
+      }
+
+      const startTime = currentBlock.startTime;
+      const endTime = currentBlock.endTime;
+      const progress = Math.min(Math.max((time - startTime) / (endTime - startTime), 0), 1);
+
+      const interpolatedR = Math.round(color.R + (endColor.R - color.R) * progress);
+      const interpolatedG = Math.round(color.G + (endColor.G - color.G) * progress);
+      const interpolatedB = Math.round(color.B + (endColor.B - color.B) * progress);
+      const interpolatedA = color.A + (endColor.A - color.A) * progress;
+
+      // 除錯：顯示漸變資訊
+      if (part === 6 && currentBlock.linear === 1) {
+        console.log(`[Armor ${myId}] 🎨 Part ${part} gradient: progress=${progress.toFixed(2)}, color=(${interpolatedR},${interpolatedG},${interpolatedB})`);
+      }
+
+      return `rgba(${interpolatedR}, ${interpolatedG}, ${interpolatedB}, ${interpolatedA})`;
     };
-    
-    return `rgba(${colorData.R}, ${colorData.G}, ${colorData.B}, ${colorData.A})`;
-  };
 
   const colors = Object.fromEntries(
     partNames.map((name, index) => [name, getColorForPart(index)])
@@ -91,7 +95,6 @@ const Armor = (props) => {
 
   function insertArray(part) {
     const partData = actionTable?.[myId]?.[part] || [];
-    const indexToCopy = binarySearchFirstGreater(partData, time);
     const nowTime = Math.floor(time / 50) * 50;
     dispatch(updateCurrentTime(nowTime));
 
@@ -102,84 +105,62 @@ const Armor = (props) => {
           const updatedPlayer = { ...player };
           let updatedPartData = [...(player[part] || [])];
 
-          const newEntry = {
-            time: nowTime,
-            color: { ...chosenColor },
-            linear: 0
-          };
-
-          const nextElement = updatedPartData[indexToCopy];
-          const previousElement =
-            updatedPartData[indexToCopy - 1] || updatedPartData[indexToCopy];
-
-          const isNextBlack =
-            !nextElement ||
-            (nextElement?.color?.R === 0 &&
-              nextElement?.color?.G === 0 &&
-              nextElement?.color?.B === 0);
-
-          const isPreviousBlack =
-            !previousElement ||
-            (previousElement?.color?.R === 0 &&
-              previousElement?.color?.G === 0 &&
-              previousElement?.color?.B === 0);
-
+          // 新格式: { startTime, endTime, color, linear }
+          // 檢查是否有色塊包含當前時間點
           const existingIndex = updatedPartData.findIndex(
-            (entry) => entry.time === nowTime
+            (block) => block.startTime <= nowTime && nowTime < block.endTime
           );
 
           if (existingIndex !== -1) {
-            updatedPartData = updatedPartData.map((entry, index) =>
+            // 如果當前時間在某個色塊內部，更新該色塊的顏色
+            updatedPartData = updatedPartData.map((block, index) =>
               index === existingIndex
-                ? { ...entry, color: { ...chosenColor } }
-                : entry
+                ? { ...block, color: { ...chosenColor } }
+                : block
             );
-          } else if (indexToCopy === 0) {
-            const blackArray2 = {
-              time: duration,
-              color: { R: 0, G: 0, B: 0, A: 1 },
-              linear: 0,
-            };
-            updatedPartData.splice(partData.length, 0, newEntry, blackArray2);
-          } else if (!isPreviousBlack && isNextBlack) {
-            const blackArray = {
-              time: nowTime - blackthreshold,
-              color: { R: 0, G: 0, B: 0, A: 1 },
-              linear: 0,
-            };
-            updatedPartData.splice(indexToCopy + 1, 0, blackArray, newEntry);
-          } else if (!isPreviousBlack && !isNextBlack) {
-            const blackArray = {
-              time: nowTime - blackthreshold,
-              color: { R: 0, G: 0, B: 0, A: 1 },
-              linear: 0,
-            };
-            const blackArray2 = {
-              time:
-                nextElement?.time - blackthreshold || nowTime + blackthreshold,
-              color: { R: 0, G: 0, B: 0, A: 1 },
-              linear: 0,
-            };
-            updatedPartData.splice(
-              indexToCopy + 1,
-              0,
-              blackArray,
-              newEntry,
-              blackArray2
-            );
-          } else if (isPreviousBlack && !isNextBlack) {
-            const blackArray2 = {
-              time:
-                nextElement?.time - blackthreshold || nowTime + blackthreshold,
-              color: { R: 0, G: 0, B: 0, A: 1 },
-              linear: 0,
-            };
-            updatedPartData.splice(indexToCopy + 1, 0, newEntry, blackArray2);
           } else {
-            updatedPartData.splice(partData.length, 0, newEntry);
+            // 否則創建新色塊，默認長度為 5000ms (5秒)
+            let newEndTime = Math.min(nowTime + 5000, duration);
+
+            // 檢查是否與下一個色塊重疊
+            const nextBlock = updatedPartData.find(
+              (block) => block.startTime > nowTime
+            );
+
+            if (nextBlock && newEndTime > nextBlock.startTime) {
+              // 如果會重疊，調整 endTime 為下一個色塊的 startTime
+              newEndTime = nextBlock.startTime;
+            }
+
+            // 確保至少有 50ms 寬度
+            if (newEndTime - nowTime < 50) {
+              console.warn(`[Armor] Not enough space to create new block at ${nowTime}ms`);
+              return [playerIndex, player];
+            }
+
+            const newBlock = {
+              startTime: nowTime,
+              endTime: newEndTime,
+              color: { ...chosenColor },
+              linear: 0,
+            };
+
+            // 找到應該插入的位置（保持時間順序）
+            const insertIndex = updatedPartData.findIndex(
+              (block) => block.startTime > nowTime
+            );
+
+            if (insertIndex === -1) {
+              // 如果沒找到比 nowTime 更大的時間，則追加到末尾
+              updatedPartData.push(newBlock);
+            } else {
+              // 否則在找到的位置前插入
+              updatedPartData.splice(insertIndex, 0, newBlock);
+            }
+
+            console.log(`[Armor] Created new block: ${nowTime}ms - ${newEndTime}ms`);
           }
 
-          updatedPartData.sort((a, b) => a.time - b.time);
           updatedPlayer[part] = updatedPartData;
           return [playerIndex, updatedPlayer];
         }
@@ -191,24 +172,6 @@ const Armor = (props) => {
     dispatch(updateActionTable(updatedActionTable));
   }
 
-  // 二分搜尋找到對應時間
-  function binarySearchFirstGreater(arr, target) {
-    if (!arr) return;
-    let left = 0;
-    let right = arr?.length - 1;
-    let result = 0;
-
-    while (left <= right) {
-      let mid = Math.floor((left + right) / 2);
-      if (arr[mid].time > target) {
-        result = mid;
-        right = mid - 1;
-      } else {
-        left = mid + 1;
-      }
-    }
-    return result;
-  }
 
   const isSelected = (part) => {
     return multiSelectedBlocks.some(b => 
@@ -444,6 +407,17 @@ const Armor = (props) => {
           height="15"
           fill={colors.shoeR}
           onClick={() => handleColorChange(13)}
+        />
+
+        {/*15:weapon - 武器 (長條狀)*/}
+        {isSelected(15) && renderHighlight(215, 103, 15, 130)}
+        <rect
+          x="215"
+          y="103"
+          width="15"
+          height="130"
+          fill={colors.weapon}
+          onClick={() => handleColorChange(15)}
         />
         </g>
       </svg>

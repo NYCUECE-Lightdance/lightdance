@@ -37,6 +37,7 @@ class PlayerData(BaseModel):
     shoeL: int
     shoeR: int
     board: int
+    weapon: int
 
 
 class Player(BaseModel):
