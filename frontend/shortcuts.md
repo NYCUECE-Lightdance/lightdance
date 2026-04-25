@@ -22,7 +22,7 @@ This document lists the available keyboard shortcuts for the Light Dance applica
 -   **Ctrl + Z**: Undo the last action.
 -   **Ctrl + Y**: Redo the undone action.
 
-### Drag
+### Drag(commeted out now)
 Click and hold a colored block, then drag left or right to reposition it along the timeline. Release the mouse button to commit the new position. The block moves as a whole unit (both its start and end times shift equally), and is constrained by the surrounding blocks.
 
 ### Stretch Mode (Resize)
