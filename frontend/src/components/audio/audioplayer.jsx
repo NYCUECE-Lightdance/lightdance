@@ -1352,42 +1352,88 @@ function AudioPlayer({ setButtonState, timelineRef }) {
 
   // 3. 核心資料搬移邏輯
   const executeTimeShift = (start, end, target) => {
-    const updatedActionTable = produce(actionTable, (draft) => {
-      // ... (前段計算 globalFirstTime 與 offset 的邏輯保持不變) ...
-      const offset = target - globalFirstTime;
+    const safeStart = Math.floor(start / 50) * 50;
+    const safeEnd = Math.floor(end / 50) * 50;
+    const safeTarget = Math.floor(target / 50) * 50;
   
+    if (safeEnd <= safeStart) {
+      alert("結束時間必須大於起始時間！");
+      return;
+    }
+  
+    const selectedTimes = [];
+  
+    Object.values(actionTable || {}).forEach((armor) => {
+      Object.values(armor || {}).forEach((timeline) => {
+        if (!Array.isArray(timeline)) return;
+  
+        timeline.forEach((p) => {
+          if (
+            p &&
+            typeof p.time === "number" &&
+            p.time >= safeStart &&
+            p.time <= safeEnd
+          ) {
+            selectedTimes.push(p.time);
+          }
+        });
+      });
+    });
+  
+    if (selectedTimes.length === 0) {
+      alert("選取區間內沒有任何光點可以平移！");
+      return;
+    }
+  
+    const globalFirstTime = Math.min(...selectedTimes);
+    const offset = safeTarget - globalFirstTime;
+  
+    const updatedActionTable = produce(actionTable, (draft) => {
       Object.keys(draft).forEach((armorIdx) => {
         Object.keys(draft[armorIdx]).forEach((partIdx) => {
-          let timeline = draft[armorIdx][partIdx];
-          
-          // 找出要移動的點
+          const timeline = draft[armorIdx][partIdx];
+  
+          if (!Array.isArray(timeline)) return;
+  
           const moveIndices = [];
+  
           timeline.forEach((p, idx) => {
-            if (p.time >= start && p.time <= end) moveIndices.push(idx);
+            if (p.time >= safeStart && p.time <= safeEnd) {
+              moveIndices.push(idx);
+            }
           });
   
           if (moveIndices.length === 0) return;
   
-          const movedPoints = moveIndices.map(idx => ({
+          const movedPoints = moveIndices.map((idx) => ({
             ...timeline[idx],
-            time: timeline[idx].time + offset
+            color: { ...timeline[idx].color },
+            time: timeline[idx].time + offset,
           }));
   
-          // 刪除舊點與目標區間衝突點
-          const newStart = movedPoints[0].time;
-          const newEnd = movedPoints[movedPoints.length - 1].time;
+          const newStart = Math.min(...movedPoints.map((p) => p.time));
+          const newEnd = Math.max(...movedPoints.map((p) => p.time));
+  
           const toRemove = new Set(moveIndices);
+  
           timeline.forEach((p, idx) => {
-            if (p.time >= newStart && p.time <= newEnd) toRemove.add(idx);
+            if (p.time >= newStart && p.time <= newEnd) {
+              toRemove.add(idx);
+            }
           });
   
           let nextTimeline = timeline.filter((_, idx) => !toRemove.has(idx));
-          nextTimeline = [...nextTimeline, ...movedPoints].sort((a, b) => a.time - b.time);
   
-          // 檢查平移後的第一個色塊前方是否有黑點
-          const firstColorPoint = movedPoints.find(p => p.color.R !== 0 || p.color.G !== 0 || p.color.B !== 0);
+          nextTimeline = [...nextTimeline, ...movedPoints].sort(
+            (a, b) => a.time - b.time
+          );
+  
+          const firstColorPoint = movedPoints.find(
+            (p) => p.color.R !== 0 || p.color.G !== 0 || p.color.B !== 0
+          );
+  
           if (firstColorPoint) {
-              ensureBlackBefore(nextTimeline, firstColorPoint.time, blackthreshold);
+            ensureBlackBefore(nextTimeline, firstColorPoint.time, blackthreshold);
           }
   
           draft[armorIdx][partIdx] = nextTimeline.sort((a, b) => a.time - b.time);
@@ -1396,8 +1442,9 @@ function AudioPlayer({ setButtonState, timelineRef }) {
     });
   
     const cleanedActionTable = removeDuplicateBlackBlocks(updatedActionTable);
+  
     dispatch(updateActionTable(cleanedActionTable));
-    dispatch(updateCurrentTime(target));
+    dispatch(updateCurrentTime(safeTarget));
   };
 
   const listitem = showPart.map((setting) => (
@@ -1713,6 +1760,22 @@ function AudioPlayer({ setButtonState, timelineRef }) {
             width: `${100 * zoomLevel}%`, // 根据 zoomValue 动态调整容器宽度
           }}
         >
+          {shiftStep >= 2 && (
+          <div
+            className="shift-marker start-marker"
+            style={{ left: `${(shiftTimes.start / duration) * 100}%` }}
+          >
+            <span className="marker-label">Start</span>
+          </div>
+          )}
+          {shiftStep >= 3 && (
+          <div
+            className="shift-marker end-marker"
+            style={{ left: `${(shiftTimes.end / duration) * 100}%` }}
+          >
+            <span className="marker-label">End</span>
+          </div>
+          )}
           <div
             className="timeline-container"
             ref={timelineRef}
@@ -1736,22 +1799,6 @@ function AudioPlayer({ setButtonState, timelineRef }) {
           </div>
         </div>
       </div>
-      {shiftStep >= 2 && (
-      <div
-        className="shift-marker start-marker"
-        style={{ left: `${(shiftTimes.start / duration) * 100}%` }}
-      >
-        <span className="marker-label">Start</span>
-      </div>
-      )}
-      {shiftStep >= 3 && (
-      <div
-        className="shift-marker end-marker"
-        style={{ left: `${(shiftTimes.end / duration) * 100}%` }}
-      >
-        <span className="marker-label">End</span>
-      </div>
-      )}
       <div
         className="progress-flag"
         style={{
