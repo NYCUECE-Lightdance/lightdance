@@ -33,6 +33,7 @@
   height: 100%;
   display: flex;
   flex-direction: column;
+  position: relative;
 }
 
 .timeline-container {
@@ -526,18 +527,20 @@
 /* 平移戳記通用樣式 */
 .shift-marker {
   position: absolute;
+  top: 0;
   bottom: 0;
   width: 2px;
-  height: 100%; /* 貫穿整個波形與時間軸區域 */
-  z-index: 15;
-  pointer-events: none; /* 不影響滑鼠操作 */
+  height: auto;
+  z-index: 30;
+  pointer-events: none;
   transition: left 0.1s ease-out;
+  transform: translateX(-1px);
 }
 
 /* 戳記上方的文字標籤 */
 .marker-label {
   position: absolute;
-  top: -20px;
+  top: 6px;
   left: 50%;
   transform: translateX(-50%);
   font-size: 10px;

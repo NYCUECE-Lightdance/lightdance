@@ -89,8 +89,8 @@ function Home({ rgba, setRgba, setButtonState }) {
   const [pendingMusic, setPendingMusic] = useState(null);
   const initialTable = generateInitialTable();
 
-  const sizeInMB = (JSON.stringify(data).length / 1024 / 1024).toFixed(2);
-  console.log(`目前資料大小: ${sizeInMB} MB`);
+  // const sizeInMB = (JSON.stringify(data).length / 1024 / 1024).toFixed(2);
+  // console.log(`目前資料大小: ${sizeInMB} MB`);
 
   const editing = () => {
     navigate("/edit");
@@ -99,22 +99,13 @@ function Home({ rgba, setRgba, setButtonState }) {
     // 自動清理 30 天前的舊備份
   useEffect(() => {
     const cleanOldBackups = async () => {
-      // 1. 徹底清理 localStorage 中所有舊的 local_backup_ 開頭的 Key
-      // 釋放 5MB 的配額給 Redux Persist 使用
-      Object.keys(localStorage).forEach((key) => {
-        if (key.startsWith("")) {
-          localStorage.removeItem(key);
-        }
-      });
-
-      // 2. 僅清理 IndexedDB 的過期備份 (預設 30 天)
       try {
         await cleanExpiredBackups(30);
       } catch (e) {
         console.error("清理 IndexedDB 失敗:", e);
       }
     };
-
+  
     cleanOldBackups();
   }, []);
 
@@ -165,6 +156,11 @@ function Home({ rgba, setRgba, setButtonState }) {
     console.log("UPLOAD_RAW:", API_ENDPOINTS.UPLOAD_RAW);
     console.log("UPLOAD_ITEMS:", API_ENDPOINTS.UPLOAD_ITEMS);
     setIsDirty(false);
+
+    const rawDataString = JSON.stringify(data);
+    const sizeInMB = (rawDataString.length / 1024 / 1024).toFixed(2);
+    console.log(`Output raw data size: ${sizeInMB} MB`);
+
     const backupKey = `local_backup_${musicFilename}`;
   
     // 1. 本地備份 (IndexedDB + Try-Catch 隔離)
@@ -333,7 +329,7 @@ function Home({ rgba, setRgba, setButtonState }) {
   
     // 使用新的合併端點上傳，確保時間戳記一致
     const fullUploadData = {
-      raw_data: JSON.stringify(data),
+      raw_data: rawDataString,
       players: players,
       music_filename: String(musicFilename)
     };
