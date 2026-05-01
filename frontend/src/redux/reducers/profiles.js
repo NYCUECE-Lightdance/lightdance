@@ -29,14 +29,15 @@ const initialState = {
   dancerVisibility: [false, false, false, false, false, false, false], // 初始全部隱藏
   clipboard: {
     type: null,              // 增加 type 區分複製類型
-    data: null,              
-    sourceArmorIndex: null,  
-    sourcePartIndex: null,   
+    data: null,
+    sourceArmorIndex: null,
+    sourcePartIndex: null,
     timestamp: null,
     sourceBlocks: [],        // ✅ 增加這個欄位，用來儲存來源 block 的位置
     startTime: 0,
     endTime: 0
   },
+  selectedDancerId: null,
 };
 
 export const profiles = (state = initialState, action) => {
@@ -216,6 +217,8 @@ export const profiles = (state = initialState, action) => {
       return { ...state, clipboard: action.payload };
     case "UPDATE_MULTI_SELECTED_BLOCKS":
       return { ...state, multiSelectedBlocks: action.payload };
+    case "UPDATE_SELECTED_DANCER":
+      return { ...state, selectedDancerId: action.payload };
     case "REFRESH":
       return initialState;
     default:

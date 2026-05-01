@@ -4,6 +4,7 @@ import "./Armor.css";
 import {
   updateActionTable,
   updateCurrentTime,
+  updateSelectedDancer,
 } from "../redux/actions";
 
 const Armor = (props) => {
@@ -37,8 +38,16 @@ const Armor = (props) => {
     "legR",          // 11:右腿
     "shoeL",         // 12:左鞋
     "shoeR",         // 13:右鞋
-    "board",         // 14:板子
+    "acc0",          // 14:配件燈0
+    "acc1",          // 15:配件燈1
+    "acc2",          // 16:配件燈2
+    "acc3",          // 17:配件燈3
+    "acc4",          // 18:配件燈4
+    "acc5",          // 19:配件燈5
+    "acc6",          // 20:配件燈6
+    "acc7",          // 21:配件燈7
   ];
+
 
   // 根據部位名稱和當前時間計算顏色
   const getColorForPart = (part) => {
@@ -264,7 +273,7 @@ const Armor = (props) => {
   };
 
   return (
-    <div className="armor-container">
+    <div className="armor-container" onClick={() => dispatch(updateSelectedDancer(myId))}>
       {/* 舞者編號標籤 */}
       <div className="dancer-label">舞者 {myId + 1}</div>
       <svg width="242" height="480" viewBox="10 0 222 480">

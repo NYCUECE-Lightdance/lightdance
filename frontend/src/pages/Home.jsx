@@ -24,7 +24,7 @@ import { localMusicFiles } from "../components/audio/musicData.js";
 import { saveLocalBackup, cleanExpiredBackups, deleteLocalBackup } from "../utils/indexedDB.js";
 
 const generateInitialTable = () => Array.from({ length: 7 }, () =>
-  Array.from({ length: 14 }, () => [
+  Array.from({ length: 22 }, () => [
     { time: 0, color: { R: 0, G: 0, B: 0, A: 1 }, linear: 0 },
   ])
 );

@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef, act } from "react";
+import { createPortal } from "react-dom";
 import { useDispatch, useSelector } from "react-redux";
 import AudioPlayer from "./audio/audioplayer.jsx";
 import "./ControlPanel.css";
@@ -23,6 +24,7 @@ import {
   updateMultiSelectedBlocks,
   toggleMoveMode,
 } from "../redux/actions.js";
+import { isPartAllowed } from "../config/accessoryConfig.js";
 
 function ControlPanel({ setButtonState }) {
   const [timelineHeight, setTimelineHeight] = useState(0); // 儲存計算後的高度
@@ -52,6 +54,14 @@ function ControlPanel({ setButtonState }) {
     "右腿",      // 11
     "左鞋",      // 12
     "右鞋",      // 13
+    "配件1",     // 14
+    "配件2",     // 15
+    "配件3",     // 16
+    "配件4",     // 17
+    "配件5",     // 18
+    "配件6",     // 19
+    "配件7",     // 20
+    "配件8",     // 21
   ];
 
   useEffect(() => {
@@ -331,7 +341,7 @@ function ControlPanel({ setButtonState }) {
 
   // 切换行全选/取消全选
   const toggleRowSelect = (armorIndex) => {
-    const isRowFullySelected = Array.from({ length: 14 }).every((_, partIndex) =>
+    const isRowFullySelected = Array.from({ length: 22 }).every((_, partIndex) =>
       selectedTimelines.some(
         (item) => item.armorIndex === armorIndex && item.partIndex === partIndex
       )
@@ -339,7 +349,7 @@ function ControlPanel({ setButtonState }) {
 
     setSelectedTimelines((prev) => {
       const updated = [...prev];
-      Array.from({ length: 14 }).forEach((_, partIndex) => {
+      Array.from({ length: 22 }).forEach((_, partIndex) => {
         const exists = updated.some(
           (item) =>
             item.armorIndex === armorIndex && item.partIndex === partIndex
@@ -489,9 +499,10 @@ function ControlPanel({ setButtonState }) {
   const height = showPart?.length <= 7 ? 100 / showPart?.length : 14;
   return (
     <div className="control-panel">
-      {showModal && (
+      {showModal && createPortal(
         <div className="modal-overlay">
           <div className="modal-content">
+            <div className="modal-table-scroll">
             <table>
               <thead>
                 <tr>
@@ -500,7 +511,7 @@ function ControlPanel({ setButtonState }) {
                     <th key={armorIndex}>
                       <button
                         className={`allsel-button ${
-                          Array.from({ length: 14 }).every((_, partIndex) =>
+                          Array.from({ length: 22 }).every((_, partIndex) =>
                             selectedTimelines.some(
                               (item) =>
                                 item.armorIndex === armorIndex &&
@@ -519,7 +530,7 @@ function ControlPanel({ setButtonState }) {
                 </tr>
               </thead>
               <tbody>
-                {Array.from({ length: 14 }).map((_, partIndex) => (
+                {Array.from({ length: 22 }).map((_, partIndex) => (
                   <tr key={partIndex}>
                     <td>
                       <button
@@ -540,7 +551,8 @@ function ControlPanel({ setButtonState }) {
                       </button>
                     </td>
                     {Array.from({ length: 7 }).map((_, armorIndex) => {
-                      const isSelected = selectedTimelines.some(
+                      const allowed = isPartAllowed(armorIndex, partIndex);
+                      const isSelected = allowed && selectedTimelines.some(
                         (item) =>
                           item.armorIndex === armorIndex &&
                           item.partIndex === partIndex
@@ -551,9 +563,10 @@ function ControlPanel({ setButtonState }) {
                           <button
                             className={`checkbox-button ${
                               isSelected ? "selected" : ""
-                            }`}
+                            } ${!allowed ? "disabled-part" : ""}`}
+                            disabled={!allowed}
                             onClick={() =>
-                              handleCheckboxChange(
+                              allowed && handleCheckboxChange(
                                 armorIndex,
                                 partIndex,
                                 !isSelected
@@ -569,13 +582,14 @@ function ControlPanel({ setButtonState }) {
                 ))}
               </tbody>
             </table>
+            </div>
             <div className="modal-buttons">
               <button onClick={() => setShowModal(false)}>Cancel</button>
               <button onClick={applySelection}>Apply</button>
             </div>
           </div>
         </div>
-      )}
+      , document.body)}
       <div className="downpart-container">
         <div className="lefttool-container">
           <div className="leftupcorner">
@@ -659,11 +673,14 @@ function ControlPanel({ setButtonState }) {
                       )
                     }
                   >
-                    {Array.from({ length: 14 }).map((_, i) => (
-                      <option key={i} value={i}>
-                        {partName[i]}
-                      </option>
-                    ))}
+                    {Array.from({ length: 22 }).map((_, i) => {
+                      const allowed = isPartAllowed(setting.armorIndex, i);
+                      return (
+                        <option key={i} value={i} disabled={!allowed}>
+                          {partName[i]}{!allowed ? "x" : ""}
+                        </option>
+                      );
+                    })}
                   </select>
                 </label>
                 <div className="move-timeline-buttons">

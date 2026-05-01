@@ -222,10 +222,6 @@
 .people-container {
   position: absolute;
   align-items: center;
-  /*background-color: rgb(220, 220, 210);*/
-  /* margin-top: 5%;
-  
-  */
   bottom: 0;
   left: 25px;
   align-content: center;
@@ -233,12 +229,9 @@
   border: solid, 3px, rgb(156, 156, 156);
   border-radius: 7px;
   background: rgb(75, 74, 74);
-  /* left: 200px;
-    top: 75px;*/
   height: 85%;
   width: 87.5%;
   z-index: 100;
-  /*overflow: auto;*/
   display: flex;
   justify-content: space-around;
 }
