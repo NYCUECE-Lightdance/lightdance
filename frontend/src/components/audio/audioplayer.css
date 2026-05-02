@@ -43,6 +43,8 @@
   overflow-y: scroll;
   border-radius: 10px;
   padding-bottom: 10px;
+  display: flex;
+  flex-direction: column;
 }
 
 .timeline-container::-webkit-scrollbar {

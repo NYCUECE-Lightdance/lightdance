@@ -631,7 +631,8 @@ function ControlPanel({ setButtonState }) {
                 ref={(el) => (timelineRefs.current[index] = el)}
                 className="timeline-settings-block"
                 style={{
-                  height: `${height}%`,
+                  flex: `0 0 ${height}%`,
+                  boxSizing: "border-box",
                   display: "flex",
                   alignItems: "center",
                   justifyContent: "center",

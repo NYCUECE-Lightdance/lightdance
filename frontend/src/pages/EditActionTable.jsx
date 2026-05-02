@@ -3,6 +3,7 @@ import { useDispatch, useSelector } from "react-redux";
 import { updateActionTable } from "../redux/actions";
 import { useNavigate } from "react-router-dom";
 import WaveSurferPlayer from "../components/audio/WaveSurferplayer";
+import { isPartAllowed } from "../config/accessoryConfig";
 
 function EditActionTable() {
   const dispatch = useDispatch();
@@ -151,13 +152,14 @@ function EditActionTable() {
               style={{ height: "308px", overflowY: "auto" }}
               onChange={(e) => setSelectedPart(e.target.value)}
             >
-              {Object.keys(actionTable[selectedArmor] || {}).map(
-                (partIndex) => (
-                  <option key={partIndex} value={partIndex}>
-                    {partName[partIndex]}
+              {Object.keys(actionTable[selectedArmor] || {}).map((partIndex) => {
+                const allowed = isPartAllowed(Number(selectedArmor), Number(partIndex));
+                return (
+                  <option key={partIndex} value={partIndex} disabled={!allowed}>
+                    {partName[partIndex]}{!allowed ? "x" : ""}
                   </option>
-                )
-              )}
+                );
+              })}
             </select>
           </>
         )}
@@ -224,6 +226,14 @@ function PartEditor({
     "右腿",      // 11
     "左鞋",      // 12
     "右鞋",      // 13
+    "配件1",     // 14
+    "配件2",     // 15
+    "配件3",     // 16
+    "配件4",     // 17
+    "配件5",     // 18
+    "配件6",     // 19
+    "配件7",     // 20
+    "配件8",     // 21
   ];
   return (
     <div

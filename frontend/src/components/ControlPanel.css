@@ -110,6 +110,8 @@
   color: white;
   position: relative;
   border-top: 4px solid rgb(49, 47, 47);
+  display: flex;
+  flex-direction: column;
 }
 
 /* 隱藏滾動條樣式 */

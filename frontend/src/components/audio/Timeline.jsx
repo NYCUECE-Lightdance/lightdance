@@ -953,14 +953,15 @@ const Timeline = forwardRef(
         className="timeline"
         ref={timelineRef} // 設置 ref
         style={{
-          height: `${height}%`, // 動態設置高度
+          flex: `0 0 ${height}%`,
           width: "100%",
           display: "flex",
           alignItems: "center",
           overflow: moveMode ? "visible" : "hidden", // move mode 時允許 block 超出容器邊界顯示
           border: "1px solid rgb(63, 63, 63)",
+          boxSizing: "border-box",
           padding: "0px",
-          opacity: hidden ? 0 : 1, // 如果 hidden 为 true，则隐藏内容
+          opacity: hidden ? 0 : 1, // 如果 hidden 为 true，則隱藏內容
           pointerEvents: hidden ? "none" : "auto", // 禁用鼠标事件
         }}
         // [Drag 已停用] 啟用 drag 時需恢復以下兩行
