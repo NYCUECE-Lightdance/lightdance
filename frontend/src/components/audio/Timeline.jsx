@@ -305,7 +305,8 @@ const Timeline = forwardRef(
           !e.target.closest(".waveform-container") &&
           !e.target.closest(".brightness-control") &&
           !e.target.closest(".cut-button") &&
-          !e.target.closest(".effect-wrapper")
+          !e.target.closest(".effect-wrapper") &&
+          !e.target.closest(".uniform-alpha-wrapper")
         ) {
           console.log("click outside");
           dispatch(updateMultiSelectedBlocks([])); // 清除多選
