@@ -14,7 +14,6 @@ import { persistor } from "../redux/store.js";
 import Dropdown from "../components/LoadData.jsx";
 import "bootstrap/dist/js/bootstrap.bundle.min.js";
 import "bootstrap/dist/css/bootstrap.min.css";
-import { updateAutoRefresh } from "../redux/actions";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faRobot } from "@fortawesome/free-solid-svg-icons";
 import { set } from "lodash";
@@ -150,7 +149,6 @@ function Home({ rgba, setRgba, setButtonState }) {
   const actionTable = data.actionTable || [];
   const musicFilename = data.music_filename ?? "";
   const userName = useSelector((state) => state.profiles.user);
-  const autoRefresh = useSelector((state) => state.profiles.autoRefresh);
   const duration = useSelector((state) => state.profiles.duration); 
   const [isDirty, setIsDirty] = useState(false);
   const [isLoaded, setIsLoaded] = useState(false);
@@ -182,17 +180,6 @@ function Home({ rgba, setRgba, setButtonState }) {
   useEffect(() => {
     setIsDirty(true);
   }, [actionTable]);
-
-  useEffect(() => {
-    if (autoRefresh > 0) {
-      const timeout = setTimeout(() => {
-        // if (autoRefresh == 1) window.location.reload(true);
-        dispatch(updateAutoRefresh(autoRefresh - 1));
-      }, 1500); // Example: Decrease every second
-
-      return () => clearTimeout(timeout); // Clean up the timeout
-    }
-  }, [autoRefresh, dispatch, navigate]);
 
   useEffect(() => {
     const handleBeforeUnload = (e) => {
@@ -246,6 +233,9 @@ function Home({ rgba, setRgba, setButtonState }) {
     } catch (e) {
       console.error("❌ 本地備份失敗，但將繼續嘗試上傳至伺服器:", e);
     }
+
+    // P5: 讓瀏覽器先處理 UI 更新（如 isLoading 狀態），再開始大量計算
+    await new Promise((resolve) => setTimeout(resolve, 0));
 
     const players = [];
     const armorIndices = Object.keys(actionTable);

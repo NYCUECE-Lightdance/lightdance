@@ -59,12 +59,6 @@ export const profiles = (state = initialState, action) => {
           ? action.payload.music_filename
           : state.data.music_filename;
 
-      if (
-        JSON.stringify(state.data.actionTable) === JSON.stringify(newActionTable)
-      ) {
-        return state;
-      }
-
       // 跳过初始化操作的历史记录更新
       if (action.meta && action.meta.skipHistory) {
         return {
@@ -85,11 +79,6 @@ export const profiles = (state = initialState, action) => {
           newActionTable[0][0] &&
           newActionTable[0][0].length === 1
         ) {
-          console.log("state.data: ", {
-            ...state.data,
-            actionTable: newActionTable,
-            music_filename: newMusicFilename,
-          });
           return {
             ...state,
             data: {

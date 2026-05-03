@@ -117,6 +117,7 @@ IndexedDB（localforage）自動備份，30 天自動清理。Redux 透過 redux
 - **`docs/network-architecture-refactor-plan.md`**：網路路由架構重構計畫
 - **`docs/shortcuts.md`**：鍵盤快速鍵速查表，前端 Home 頁面可透過 Shortcuts 按鈕查看
 - **`docs/troubleshooting-login-500.md`**：MongoDB 連線 500 錯誤 SOP
+- **`docs/frontend-rendering-optimization.md`**：前端渲染邏輯與效能優化詳解（元件樹、播放管線、Redux 配置、memo 策略）
 
 ### 後端管理腳本
 - **`backend/mongo-backup.sh`**：MongoDB 自動備份主腳本
@@ -175,13 +176,6 @@ IndexedDB（localforage）自動備份，30 天自動清理。Redux 透過 redux
 
 ## 學習建議
 
-### 對 C++ 開發者的概念對應
-- **前端 React** ≈ Qt/GTK GUI 程式設計
-- **後端 FastAPI** ≈ 主程式邏輯處理
-- **MongoDB** ≈ 檔案 I/O + 資料結構，但更強大
-- **Docker** ≈ 跨平台編譯環境
-- **RESTful API** ≈ 函數介面呼叫
-
 ### 推薦學習順序
 1. 先熟悉 Docker 基本概念和指令
 2. 了解 HTTP 協定和 RESTful API 設計
@@ -205,6 +199,7 @@ IndexedDB（localforage）自動備份，30 天自動清理。Redux 透過 redux
 
 ## 更新記錄
 
+- **2026-05-04**：前端效能優化（rAF 三層分離、React.memo、persist 剝離、middleware 禁用），新增 `docs/frontend-rendering-optimization.md`
 - **2026-05-03**：重整 docs/ 目錄，新增資料流管道與後端管理文檔，更新 CLAUDE.md 架構圖與引用
 - **2025-08-20**：建立專案記憶檔案，針對 C++ 背景開發者優化 README.md
 - **專案狀態**：開發版本，包含已知安全性問題待修復

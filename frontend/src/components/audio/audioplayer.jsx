@@ -98,7 +98,7 @@ function AudioPlayer({ setButtonState, timelineRef }) {
   const [volume, setVolume] = useState(0.5); // 音量
   const [isPlaying, setIsPlaying] = useState(false);
   const [zoomLevel, setZoomLevel] = useState(1); // 放大級別
-  const [progressWidth, setProgressWidth] = useState(0); // 進度標誌
+  const progressFlagRef = useRef(null); // P0: 進度條 DOM ref，60fps 直接操作
   const [brightness, setBrightness] = useState(1); // 預設亮度為 1 (100%)
   const [sourceNode, setSourceNode] = useState(null);
   const blackthreshold = 10;
@@ -233,12 +233,8 @@ function AudioPlayer({ setButtonState, timelineRef }) {
     }
   }, [isColorChangeActive, chosenColor, multiSelectedBlocks, actionTable, dispatch]);
 
-  useEffect(() => {
-    if (duration > 0) {
-      const progress = (currentTime / duration) * 100; // 計算播放進度的百分比
-      setProgressWidth(progress);
-    }
-  }, [currentTime, duration]);
+  // P0: 進度條改由 waveform.jsx 的 rAF 透過 onTimeUpdate callback 直接操作 DOM（60fps）
+  // 移除了 setProgressWidth 的 useEffect，避免播放期間不必要的 re-render
 
   useEffect(() => {
     if (multiSelectedBlocks.length > 0) {
@@ -553,12 +549,19 @@ function AudioPlayer({ setButtonState, timelineRef }) {
     }
   };
 
+  // P2: 使用 ref 確保鍵盤監聽器只綁定一次，但總是呼叫最新的 handleKeyDown
+  const handleKeyDownRef = useRef(handleKeyDown);
   useEffect(() => {
-    document.addEventListener("keydown", handleKeyDown);
+    handleKeyDownRef.current = handleKeyDown;
+  });
+
+  useEffect(() => {
+    const stableHandler = (e) => handleKeyDownRef.current(e);
+    document.addEventListener("keydown", stableHandler);
     return () => {
-      document.removeEventListener("keydown", handleKeyDown);
+      document.removeEventListener("keydown", stableHandler);
     };
-  }, [currentTime, multiSelectedBlocks]); // 確保每次變化時都重新綁定事件處理器
+  }, []); // 只掛載一次，不再因 currentTime/multiSelectedBlocks 變化而重新綁定
 
   const handleFavoriteColorInsert = (colorIndex) => {
     const row = Math.floor(colorIndex / favoriteColor[0].length); // 計算第幾列
@@ -1935,14 +1938,20 @@ function AudioPlayer({ setButtonState, timelineRef }) {
               zoomValue={zoomLevel}
               containerRef={containerRef}
               volume={volume}
+              onTimeUpdate={(elapsed) => {
+                if (progressFlagRef.current && duration > 0) {
+                  progressFlagRef.current.style.left = `${(elapsed / duration) * 100}%`;
+                }
+              }}
             />
           </div>
         </div>
       </div>
       <div
+        ref={progressFlagRef}
         className="progress-flag"
         style={{
-          left: `${progressWidth}%`,
+          left: "0%", // 初始位置，播放時由 rAF callback 直接操作 DOM（60fps）
         }}
       ></div>
 
