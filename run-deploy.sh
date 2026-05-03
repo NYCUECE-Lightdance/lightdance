@@ -51,6 +51,7 @@ CURRENT_GID=$(id -g)
 
 docker run --rm \
     -v "$(pwd)/${FRONTEND_DIR}:/app" \
+    -v "$(pwd)/docs:/docs" \
     -w /app \
     node:20-alpine \
     sh -c "npm install && npm run build && chown -R $CURRENT_UID:$CURRENT_GID /app/dist"
