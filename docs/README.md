@@ -13,6 +13,7 @@
 
 - [`data-flow-pipeline.md`](./data-flow-pipeline.md) — 從前端編輯器到 MongoDB 的完整資料流：actionTable 格式、32-bit RGBA 轉換、上傳 API
 - [`backend-management.md`](./backend-management.md) — 後端管理操作：MongoDB 備份還原、Docker 容器管理、日誌查看
+- [`shortcuts.md`](./shortcuts.md) — 鍵盤快速鍵速查表：播放、編輯、複製貼上、顏色亮度、配件編輯等快速鍵總覽
 - [`configuration.md`](./configuration.md) — 環境變數與 API 設定完整參考
 
 ### 故障排除

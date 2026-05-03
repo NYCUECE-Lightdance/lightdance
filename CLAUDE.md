@@ -115,6 +115,7 @@ IndexedDB（localforage）自動備份，30 天自動清理。Redux 透過 redux
 - **`docs/data-flow-pipeline.md`**：從編輯器到資料庫的完整資料流說明
 - **`docs/backend-management.md`**：MongoDB 備份與 Docker 管理操作指南
 - **`docs/network-architecture-refactor-plan.md`**：網路路由架構重構計畫
+- **`docs/shortcuts.md`**：鍵盤快速鍵速查表，前端 Home 頁面可透過 Shortcuts 按鈕查看
 - **`docs/troubleshooting-login-500.md`**：MongoDB 連線 500 錯誤 SOP
 
 ### 後端管理腳本

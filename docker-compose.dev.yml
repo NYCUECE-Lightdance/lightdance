@@ -25,6 +25,8 @@ services:
     volumes:
       # 將本地 frontend 資料夾同步到容器中，實現熱修改
       - ./frontend:/app
+      # 掛載 docs 目錄，讓 public/shortcuts.md symlink (→ ../../docs/shortcuts.md) 可在容器內解析
+      - ./docs:/docs
       # 使用一個 volume 來緩存 node_modules，避免每次重啟都重新安裝
       - frontend_node_modules:/app/node_modules
     # 啟動時先安裝依賴，然後啟動 Vite 開發伺服器

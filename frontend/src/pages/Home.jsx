@@ -4,7 +4,7 @@ import ControlPanel from "../components/ControlPanel.jsx";
 import Palette from "../components/Palette.jsx";
 import People from "../components/People.jsx";
 import DancerToggle from "../components/DancerToggle.jsx";
-import { MdOutput, MdInput } from "react-icons/md";
+import { MdOutput, MdInput, MdKeyboard } from "react-icons/md";
 import { FiEdit } from "react-icons/fi";
 import { useEffect, useState } from "react";
 import { FaSignOutAlt } from "react-icons/fa";
@@ -19,6 +19,7 @@ import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faRobot } from "@fortawesome/free-solid-svg-icons";
 import { set } from "lodash";
 import { LuPlus, LuMusic, LuChevronRight } from "react-icons/lu";
+import ShortcutModal from "../components/ShortcutModal.jsx";
 import { API_ENDPOINTS } from "../config/api.js";
 import { localMusicFiles } from "../components/audio/musicData.js";
 import { saveLocalBackup, cleanExpiredBackups, deleteLocalBackup } from "../utils/indexedDB.js";
@@ -86,6 +87,7 @@ function Home({ rgba, setRgba, setButtonState }) {
   const [isDirty, setIsDirty] = useState(false);
   const [isLoaded, setIsLoaded] = useState(false);
   const [showSaveModal, setShowSaveModal] = useState(false);
+  const [showShortcuts, setShowShortcuts] = useState(false);
   const [pendingMusic, setPendingMusic] = useState(null);
   const initialTable = generateInitialTable();
 
@@ -464,6 +466,12 @@ function Home({ rgba, setRgba, setButtonState }) {
           <button className="output-button" onClick={handleOutput}>
             Output <MdOutput className="output-icon" />
           </button>
+          <button
+            className="shortcut-button"
+            onClick={() => setShowShortcuts(true)}
+          >
+            Shortcuts <MdKeyboard className="shortcut-icon" />
+          </button>
           <Dropdown
             userName={userName}
             setIsDirty={setIsDirty}
@@ -552,6 +560,10 @@ function Home({ rgba, setRgba, setButtonState }) {
         </div>
       </div>
     )}
+      <ShortcutModal
+        isOpen={showShortcuts}
+        onClose={() => setShowShortcuts(false)}
+      />
     </div>
   );
 }
