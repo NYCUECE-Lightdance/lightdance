@@ -98,7 +98,6 @@ function AudioPlayer({ setButtonState, timelineRef }) {
   const [volume, setVolume] = useState(0.5); // 音量
   const [isPlaying, setIsPlaying] = useState(false);
   const [zoomLevel, setZoomLevel] = useState(1); // 放大級別
-  const [progressWidth, setProgressWidth] = useState(0); // 進度標誌（保留向後相容）
   const progressFlagRef = useRef(null); // P0: 進度條 DOM ref，60fps 直接操作
   const [brightness, setBrightness] = useState(1); // 預設亮度為 1 (100%)
   const [sourceNode, setSourceNode] = useState(null);

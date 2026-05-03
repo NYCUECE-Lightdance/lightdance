@@ -65,7 +65,7 @@ const AudioWaveform = ({
   ); // 創建 AudioContext
   const dispatch = useDispatch();
   const duration = useSelector((state) => state.profiles.duration); // 獲取音頻總時長
-  const currentTime = useSelector((state) => state.profiles.currentTime); // 播放起始偏移（僅在 playback start effect 使用）
+  const currentTime = useSelector((state) => state.profiles.currentTime); // 用於 playback start offset、紅線暫停同步；rAF 熱路徑使用 playbackTimeRef 而非此值
   const fullPeaks = useSelector((state) => state.profiles.fullPeaks); // 獲取全分辨率的波峰數據
   const playbackRate = useSelector((state) => state.profiles.playbackRate); // 獲取播放速率
   const [canvasWidth, setCanvasWidth] = useState(0); // 設置 canvas 寬度
