@@ -67,7 +67,8 @@ const Timeline = forwardRef(
     const maxDragPxRef = useRef(0);          // 最大可拖曳像素（向右）
     const moveDragPixelsRef = useRef(0);     // 目前拖曳偏移像素
     const blockDomRefs = useRef({});         // index → DOM element
-    const isBlackEntry = (e) => e.color.R === 0 && e.color.G === 0 && e.color.B === 0;
+    const isBlackEntry = (e) =>
+      e?.color?.R === 0 && e?.color?.G === 0 && e?.color?.B === 0;
     // 用 ref 保持最新值供 useEffect 閉包使用
     const actionTableRef = useRef(actionTable);
     const durationRef = useRef(duration);
@@ -333,21 +334,29 @@ const Timeline = forwardRef(
     // 根據 tempActionTable 和 duration 計算新的方塊數據
     // P3: 直接從 actionTable 計算 timelineBlocks，不再經過 tempActionTable 中轉
     useEffect(() => {
-      if (
-        !actionTable ||
-        !actionTable[armorIndex] ||
-        actionTable[armorIndex].length === 0
-      ) {
+      const partTimeline = actionTable?.[armorIndex]?.[partIndex];
+
+      if (!Array.isArray(partTimeline)) {
+        dispatch(
+          updateTimelineBlocks({
+            armorIndex,
+            partIndex,
+            value: [],
+          })
+        );
         return;
       }
 
       const newBlocks = [];
-      actionTable[armorIndex][partIndex]?.forEach((entry, index) => {
-        const startTime = entry.time;
-        const nextStartTime =
-          actionTable[armorIndex][partIndex]?.[index + 1]?.time ?? duration;
 
-        const { R, G, B, A } = entry.color || {};
+      partTimeline.forEach((entry, index) => {
+        if (!entry || typeof entry.time !== "number") return;
+
+        const startTime = entry.time;
+        const nextStartTime = partTimeline[index + 1]?.time ?? duration;
+
+        const { R = 0, G = 0, B = 0, A = 1 } = entry.color || {};
+
         const newBlock = {
           startTime,
           durationTime: nextStartTime - startTime,
@@ -355,6 +364,7 @@ const Timeline = forwardRef(
         };
 
         const lastBlock = newBlocks[newBlocks.length - 1];
+
         if (
           lastBlock &&
           lastBlock.startTime + lastBlock.durationTime === newBlock.startTime &&
