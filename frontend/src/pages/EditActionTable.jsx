@@ -1,8 +1,9 @@
 import React, { useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { updateActionTable } from "../redux/actions";
-import { useNavigate } from "react-router-dom"; // 🔹 加入 useNavigate
-import WaveSurferPlayer from "../components/audio/WaveSurferplayer"; // 🔹 引入音訊播放器
+import { useNavigate } from "react-router-dom";
+import WaveSurferPlayer from "../components/audio/WaveSurferplayer";
+import { isPartAllowed } from "../config/accessoryConfig";
 
 function EditActionTable() {
   const dispatch = useDispatch();
@@ -10,21 +11,28 @@ function EditActionTable() {
   const actionTable = useSelector((state) => state.profiles.data?.actionTable || []);
 
   const partName = [
-    "帽子",      // 0
-    "臉",        // 1
-    "左胸",      // 2
-    "右胸",      // 3
-    "左手臂",    // 4
-    "右手臂",    // 5
-    "領帶",      // 6
-    "腰帶",      // 7
-    "左手套",    // 8
-    "右手套",    // 9
-    "左腿",      // 10
-    "右腿",      // 11
-    "左鞋",      // 12
-    "右鞋",      // 13
-    "板子",    // 14
+    "帽子",   // 0
+    "臉",     // 1
+    "左胸",   // 2
+    "右胸",   // 3
+    "左手臂", // 4
+    "右手臂", // 5
+    "領帶",   // 6
+    "腰帶",   // 7
+    "左手套", // 8
+    "右手套", // 9
+    "左腿",   // 10
+    "右腿",   // 11
+    "左鞋",   // 12
+    "右鞋",   // 13
+    "配件1",  // 14
+    "配件2",  // 15
+    "配件3",  // 16
+    "配件4",  // 17
+    "配件5",  // 18
+    "配件6",  // 19
+    "配件7",  // 20
+    "配件8",  // 21
   ];
 
   // 選擇 Armor & Part
@@ -140,15 +148,18 @@ function EditActionTable() {
             <label>Select Part:</label>
             <select
               value={selectedPart}
+              size={22}
+              style={{ height: "308px", overflowY: "auto" }}
               onChange={(e) => setSelectedPart(e.target.value)}
             >
-              {Object.keys(actionTable[selectedArmor] || {}).map(
-                (partIndex) => (
-                  <option key={partIndex} value={partIndex}>
-                    {partName[partIndex]}
+              {Object.keys(actionTable[selectedArmor] || {}).map((partIndex) => {
+                const allowed = isPartAllowed(Number(selectedArmor), Number(partIndex));
+                return (
+                  <option key={partIndex} value={partIndex} disabled={!allowed}>
+                    {partName[partIndex]}{!allowed ? "x" : ""}
                   </option>
-                )
-              )}
+                );
+              })}
             </select>
           </>
         )}
@@ -215,6 +226,14 @@ function PartEditor({
     "右腿",      // 11
     "左鞋",      // 12
     "右鞋",      // 13
+    "配件1",     // 14
+    "配件2",     // 15
+    "配件3",     // 16
+    "配件4",     // 17
+    "配件5",     // 18
+    "配件6",     // 19
+    "配件7",     // 20
+    "配件8",     // 21
   ];
   return (
     <div

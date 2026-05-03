@@ -37,6 +37,26 @@ The minimum block duration is **`STRETCH_MIN_MS = 50 ms`** (defined in `Timeline
 -   **Ctrl + 0**: Set the brightness (alpha) of the selected block(s) to 100%.
 -   **Shift + 1-8**: Insert a new block at the current time using the corresponding favorite color.
 
+## Weapon / Accessory Editing (AccessoryPanel)
+
+The **AccessoryPanel** sidebar (right side of the main page) allows editing weapon and accessory parts (acc0–acc7, partIndex 14–21) for dancers that have them configured.
+
+### Selecting a Dancer
+- **Click on a dancer (Armor SVG)**: Selects that dancer tag and loads their accessory configuration into the AccessoryPanel.
+
+### Accessory Configuration per Dancer
+| Dancer | Weapon | Editable Parts |
+|--------|--------|---------------|
+| 舞者 1 (armor 0) | 無 | — |
+| 舞者 2 (armor 1) | 無 | — |
+| 舞者 3 (armor 2) | 螢光繩 | 繩: acc0, acc1 |
+| 舞者 4 (armor 3) | 刀 | 刀身: acc0–acc3, 握把: acc4–acc5, 刀柄: acc6–acc7 |
+| 舞者 5 (armor 4) | 匕首 | 刀身: acc0–acc1, 握把: acc2–acc3, 刀柄: acc4 |
+| 舞者 6 (armor 5) | 無 | — |
+| 舞者 7 (armor 6) | 匕首 | 刀身: acc0–acc1, 握把: acc2–acc3, 刀柄: acc4 |
+
+- **Sidebar header (▲/▼)**: Click to collapse or expand the AccessoryPanel.
+
 ## Copy and Paste
 
 -   **Ctrl + C**: Copy the selected blocks/range.

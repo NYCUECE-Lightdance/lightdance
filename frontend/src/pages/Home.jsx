@@ -24,7 +24,7 @@ import { localMusicFiles } from "../components/audio/musicData.js";
 import { saveLocalBackup, cleanExpiredBackups, deleteLocalBackup } from "../utils/indexedDB.js";
 
 const generateInitialTable = () => Array.from({ length: 7 }, () =>
-  Array.from({ length: 14 }, () => [
+  Array.from({ length: 22 }, () => [
     { time: 0, color: { R: 0, G: 0, B: 0, A: 1 }, linear: 0 },
   ])
 );
@@ -295,7 +295,14 @@ function Home({ rgba, setRgba, setButtonState }) {
           legR: mergedItem[11] ?? 0,
           shoeL: mergedItem[12] ?? 0,
           shoeR: mergedItem[13] ?? 0,
-          board: 0,
+          acc0: mergedItem[14] ?? 0,
+          acc1: mergedItem[15] ?? 0,
+          acc2: mergedItem[16] ?? 0,
+          acc3: mergedItem[17] ?? 0,
+          acc4: mergedItem[18] ?? 0,
+          acc5: mergedItem[19] ?? 0,
+          acc6: mergedItem[20] ?? 0,
+          acc7: mergedItem[21] ?? 0,
         });
       }
   

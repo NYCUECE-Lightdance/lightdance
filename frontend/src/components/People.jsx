@@ -1,5 +1,6 @@
 import React, { useEffect } from "react";
 import Armor from "./Armor.jsx";
+import AccessoryPanel from "./AccessoryPanel.jsx";
 import { useDispatch, useSelector } from "react-redux";
 import { updateActionTable } from "../redux/actions.js";
 
@@ -15,7 +16,7 @@ function People() {
   useEffect(() => {
     if (!actionTable || actionTable.length === 0) {
       const initialData = Array.from({ length: 7 }, () =>
-        Array.from({ length: 14 }, () => [
+        Array.from({ length: 22 }, () => [
           { time: 0, color: { R: 0, G: 0, B: 0, A: 1 }, linear:0 },
         ])
       );
@@ -26,7 +27,7 @@ function People() {
   }, [dispatch, actionTable]);
 
   return (
-    <div>
+    <>
       {components.map((_, index) => {
         if (!dancerVisibility[index]) {
           return null;
@@ -37,7 +38,8 @@ function People() {
           </div>
         );
       })}
-    </div>
+      <AccessoryPanel />
+    </>
   );
 }
 

@@ -7,6 +7,22 @@ import { updateActionTable, updateMusicFilename } from "../redux/actions.js";
 import { API_ENDPOINTS } from "../config/api.js";
 import { getAllLocalBackups } from "../utils/indexedDB.js";
 
+const TOTAL_PARTS = 22;
+const defaultPartEntry = () => [{ time: 0, color: { R: 0, G: 0, B: 0, A: 1 }, linear: 0 }];
+
+// 補齊acc0–acc7，並移除board
+function normalizeActionTable(actionTable) {
+  const dancers = Array.isArray(actionTable) ? actionTable : Object.values(actionTable);
+  return dancers.map((armor) => {
+    const normalized = {};
+    for (let i = 0; i < TOTAL_PARTS; i++) {
+      const key = String(i);
+      normalized[key] = armor[key] ?? defaultPartEntry();
+    }
+    return normalized;
+  });
+}
+
 function Dropdown({ userName, setIsDirty, isDirty, setIsLoaded, isLoaded }) {
   const [timeList, setTimeList] = useState([]);
   const [userList, setUserList] = useState([]);
@@ -88,10 +104,10 @@ function Dropdown({ userName, setIsDirty, isDirty, setIsLoaded, isLoaded }) {
       .then((data) => {
         console.log("Fetched Data:", data); // Log the returned data
         // console.log(data.players); // Log the returned data
-        const restoredActionTable = reverseConversion(
+        const restoredActionTable = normalizeActionTable(reverseConversion(
           // JSON.parse(JSON.stringify(data.players))
           data
-        );
+        ));
         // console.log("Table : ", actionTable);
 
         dispatch(updateActionTable(restoredActionTable));
@@ -117,7 +133,7 @@ function Dropdown({ userName, setIsDirty, isDirty, setIsLoaded, isLoaded }) {
   const handleLoadLocal = (backup) => {
     if (backup.rawData) {
       // 根據你的資料結構解構
-      const actionData = backup.rawData.actionTable || backup.rawData;
+      const actionData = normalizeActionTable(backup.rawData.actionTable || backup.rawData);
       const musicFile = backup.rawData.music_filename;
 
       dispatch(updateActionTable(actionData));
@@ -167,6 +183,8 @@ function Dropdown({ userName, setIsDirty, isDirty, setIsLoaded, isLoaded }) {
           actionData = data;
           musicFilename = data.music_filename;
         }
+
+        actionData = normalizeActionTable(actionData);
         console.log("Final ActionData:", actionData);
         console.log("Final MusicFilename:", musicFilename);
 

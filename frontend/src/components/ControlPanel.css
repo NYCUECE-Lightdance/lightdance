@@ -110,6 +110,8 @@
   color: white;
   position: relative;
   border-top: 4px solid rgb(49, 47, 47);
+  display: flex;
+  flex-direction: column;
 }
 
 /* 隱藏滾動條樣式 */
@@ -176,21 +178,25 @@
   position: fixed;
   display: flex;
   justify-content: space-between;
-  top: 45%;
+  top: 35%;
+  left: 50%;
+  transform: translateX(-50%);
   color: rgb(165, 165, 165);
   width: 24%;
+  max-height: 65vh;
+  overflow: hidden;
   border-radius: 10px;
   background-color: rgba(0, 0, 0, 0.9);
-  z-index: 100;
+  z-index: 999;
 }
 
 .modal-content {
   background-color: white;
   width: 100%;
-  height: 100%;
   padding: 20px;
   border-radius: 10px;
   text-align: center;
+  overflow-y: auto;
 }
 
 .allsel-button {
@@ -205,6 +211,25 @@
 
 .allsel-button:hover {
   color: #ffffff; /* 悬停背景色 */
+}
+
+.modal-table-scroll {
+  height: 630px;
+  max-height: calc(65vh - 110px);
+  overflow-y: auto;
+}
+
+.modal-table-scroll thead th {
+  position: sticky;
+  top: 0;
+  background-color: rgba(0, 0, 0, 0.95);
+  z-index: 1;
+}
+
+.checkbox-button.disabled-part {
+  opacity: 0.2;
+  cursor: not-allowed;
+  pointer-events: none;
 }
 
 .modal-buttons {

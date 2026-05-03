@@ -36,7 +36,14 @@ class PlayerData(BaseModel):
     legR: int
     shoeL: int
     shoeR: int
-    board: int
+    acc0: int
+    acc1: int
+    acc2: int
+    acc3: int
+    acc4: int
+    acc5: int
+    acc6: int
+    acc7: int
 
 
 class Player(BaseModel):
