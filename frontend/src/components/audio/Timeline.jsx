@@ -71,7 +71,8 @@ const Timeline = forwardRef(
     const maxDragPxRef = useRef(0);          // 最大可拖曳像素（向右）
     const moveDragPixelsRef = useRef(0);     // 目前拖曳偏移像素
     const blockDomRefs = useRef({});         // index → DOM element
-    const isBlackEntry = (e) => e.color.R === 0 && e.color.G === 0 && e.color.B === 0;
+    const isBlackEntry = (e) =>
+      e?.color?.R === 0 && e?.color?.G === 0 && e?.color?.B === 0;
     // 用 ref 保持最新值供 useEffect 閉包使用
     const actionTableRef = useRef(actionTable);
     const durationRef = useRef(duration);
@@ -343,31 +344,48 @@ const Timeline = forwardRef(
 
     // 根據 tempActionTable 和 duration 計算新的方塊數據
     useEffect(() => {
-      if (
-        !tempActionTable ||
-        !tempActionTable[armorIndex] ||
-        tempActionTable[armorIndex].length === 0
-      ) {
+      const partTimeline = tempActionTable?.[armorIndex]?.[partIndex];
+    
+      if (!Array.isArray(partTimeline)) {
         console.warn(
-          `Invalid data structure at tempActionTable[${armorIndex}][${partIndex}]`
+          `Invalid data structure at tempActionTable[${armorIndex}][${partIndex}]`,
+          {
+            tempActionTable,
+            armorIndex,
+            partIndex,
+            partTimeline,
+          }
         );
+    
+        dispatch(
+          updateTimelineBlocks({
+            armorIndex,
+            partIndex,
+            value: [],
+          })
+        );
+    
         return;
       }
-
+    
       const newBlocks = [];
-      tempActionTable[armorIndex][partIndex].forEach((entry, index) => {
+    
+      partTimeline.forEach((entry, index) => {
+        if (!entry || typeof entry.time !== "number") return;
+    
         const startTime = entry.time;
-        const nextStartTime =
-          tempActionTable[armorIndex][partIndex]?.[index + 1]?.time ?? duration; // ?? 而非 ||：time=0 是合法值
-
-        const { R, G, B, A } = entry.color || {};
+        const nextStartTime = partTimeline[index + 1]?.time ?? duration;
+    
+        const { R = 0, G = 0, B = 0, A = 1 } = entry.color || {};
+    
         const newBlock = {
           startTime,
           durationTime: nextStartTime - startTime,
           color: { R, G, B, A },
         };
-
+    
         const lastBlock = newBlocks[newBlocks.length - 1];
+    
         if (
           lastBlock &&
           lastBlock.startTime + lastBlock.durationTime === newBlock.startTime &&
@@ -378,7 +396,7 @@ const Timeline = forwardRef(
           newBlocks.push(newBlock);
         }
       });
-
+    
       dispatch(
         updateTimelineBlocks({
           armorIndex,

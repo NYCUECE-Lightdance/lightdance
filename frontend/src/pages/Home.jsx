@@ -30,50 +30,118 @@ const generateInitialTable = () => Array.from({ length: 7 }, () =>
   ])
 );
 
-const cleanActionTableByDuration = (currentTable, maxDuration) => {
-  if (!currentTable || typeof currentTable !== "object" || maxDuration <= 0) return currentTable;
+const PLAYER_COUNT = 7;
+const PART_COUNT = 22;
 
-  const cleanedTable = {};
-  let hasChanged = false; // 用來標記是否真的有變動
+const createBlackPoint = (time = 0) => ({
+  time,
+  color: { R: 0, G: 0, B: 0, A: 1 },
+  linear: 0,
+});
 
-  Object.entries(currentTable).forEach(([armorIdx, parts]) => {
-    cleanedTable[armorIdx] = {};
-    
-    Object.entries(parts).forEach(([partIdx, timeline]) => {
-      if (Array.isArray(timeline)) {
-        // 1. 先過濾掉超過 duration 的點
-        let newTimeline = timeline.filter((point) => point.time < maxDuration);
-        
-        // 2. 判斷是否需要補上終點黑色塊
-        // 檢查現存最後一個點是否已經是 duration 處的黑色塊
+const normalizeActionTable = (currentTable, maxDuration) => {
+  const normalizedTable = Array.from({ length: PLAYER_COUNT }, () =>
+    Array.from({ length: PART_COUNT }, () => [createBlackPoint(0)])
+  );
+
+  for (let armorIdx = 0; armorIdx < PLAYER_COUNT; armorIdx++) {
+    const parts = currentTable?.[armorIdx];
+
+    for (let partIdx = 0; partIdx < PART_COUNT; partIdx++) {
+      const timeline = parts?.[partIdx];
+
+      if (!Array.isArray(timeline) || timeline.length === 0) {
+        normalizedTable[armorIdx][partIdx] = [createBlackPoint(0)];
+        continue;
+      }
+
+      let newTimeline = timeline
+        .filter((point) => point && typeof point.time === "number")
+        .map((point) => ({
+          time: point.time,
+          color: {
+            R: point.color?.R ?? 0,
+            G: point.color?.G ?? 0,
+            B: point.color?.B ?? 0,
+            A: point.color?.A ?? 1,
+          },
+          linear: point.linear ?? 0,
+        }))
+        .sort((a, b) => a.time - b.time);
+
+      if (maxDuration > 0) {
+        newTimeline = newTimeline.filter((point) => point.time < maxDuration);
+      }
+
+      if (newTimeline.length === 0 || newTimeline[0].time !== 0) {
+        newTimeline.unshift(createBlackPoint(0));
+      }
+
+      if (maxDuration > 0) {
         const lastPoint = newTimeline[newTimeline.length - 1];
-        const isLastBlackEnd = lastPoint && 
-                               lastPoint.time === maxDuration && 
-                               lastPoint.color.R === 0 && 
-                               lastPoint.color.G === 0 && 
-                               lastPoint.color.B === 0;
+        const isLastBlackEnd =
+          lastPoint &&
+          lastPoint.time === maxDuration &&
+          lastPoint.color.R === 0 &&
+          lastPoint.color.G === 0 &&
+          lastPoint.color.B === 0;
 
         if (!isLastBlackEnd) {
-          // 在精確的 duration 位置補上黑色塊
-          newTimeline.push({
-            time: maxDuration,
-            color: { R: 0, G: 0, B: 0, A: 1 },
-            linear: 0
-          });
-          hasChanged = true;
+          newTimeline.push(createBlackPoint(maxDuration));
         }
-
-        // 3. 確保時間排序正確
-        newTimeline.sort((a, b) => a.time - b.time);
-        cleanedTable[armorIdx][partIdx] = newTimeline;
-      } else {
-        cleanedTable[armorIdx][partIdx] = timeline;
       }
-    });
-  });
 
-  return hasChanged ? cleanedTable : currentTable;
+      normalizedTable[armorIdx][partIdx] = newTimeline;
+    }
+  }
+
+  return normalizedTable;
 };
+
+// const cleanActionTableByDuration = (currentTable, maxDuration) => {
+//   if (!currentTable || typeof currentTable !== "object" || maxDuration <= 0) return currentTable;
+
+//   const cleanedTable = {};
+//   let hasChanged = false; // 用來標記是否真的有變動
+
+//   Object.entries(currentTable).forEach(([armorIdx, parts]) => {
+//     cleanedTable[armorIdx] = {};
+    
+//     Object.entries(parts).forEach(([partIdx, timeline]) => {
+//       if (Array.isArray(timeline)) {
+//         // 1. 先過濾掉超過 duration 的點
+//         let newTimeline = timeline.filter((point) => point.time < maxDuration);
+        
+//         // 2. 判斷是否需要補上終點黑色塊
+//         // 檢查現存最後一個點是否已經是 duration 處的黑色塊
+//         const lastPoint = newTimeline[newTimeline.length - 1];
+//         const isLastBlackEnd = lastPoint && 
+//                                lastPoint.time === maxDuration && 
+//                                lastPoint.color.R === 0 && 
+//                                lastPoint.color.G === 0 && 
+//                                lastPoint.color.B === 0;
+
+//         if (!isLastBlackEnd) {
+//           // 在精確的 duration 位置補上黑色塊
+//           newTimeline.push({
+//             time: maxDuration,
+//             color: { R: 0, G: 0, B: 0, A: 1 },
+//             linear: 0
+//           });
+//           hasChanged = true;
+//         }
+
+//         // 3. 確保時間排序正確
+//         newTimeline.sort((a, b) => a.time - b.time);
+//         cleanedTable[armorIdx][partIdx] = newTimeline;
+//       } else {
+//         cleanedTable[armorIdx][partIdx] = timeline;
+//       }
+//     });
+//   });
+
+//   return hasChanged ? cleanedTable : currentTable;
+// };
 function Home({ rgba, setRgba, setButtonState }) {
   const navigate = useNavigate();
   const dispatch = useDispatch();
@@ -420,18 +488,31 @@ function Home({ rgba, setRgba, setButtonState }) {
   };
 
   useEffect(() => {
-    if (duration > 0 && actionTable) {
-      const cleaned = cleanActionTableByDuration(actionTable, duration);
-      
-      // 檢查是否有資料真的被刪除了，避免無限迴圈更新
-      const isDifferent = JSON.stringify(cleaned) !== JSON.stringify(actionTable);
-      
-      if (isDifferent) {
-        console.log(">>> 檢測到超出音樂長度的資料點，正在執行自動清洗...");
-        dispatch(updateActionTable(cleaned));
-      }
+    if (!actionTable) return;
+  
+    const normalized = normalizeActionTable(actionTable, duration);
+  
+    const isDifferent =
+      JSON.stringify(normalized) !== JSON.stringify(actionTable);
+  
+    if (isDifferent) {
+      console.log(">>> actionTable 結構不完整，正在補齊 7 players x 22 parts...");
+      dispatch(updateActionTable(normalized));
     }
-  }, [duration, dispatch]);
+  }, [actionTable, duration, dispatch]);
+  // useEffect(() => {
+  //   if (duration > 0 && actionTable) {
+  //     const cleaned = cleanActionTableByDuration(actionTable, duration);
+      
+  //     // 檢查是否有資料真的被刪除了，避免無限迴圈更新
+  //     const isDifferent = JSON.stringify(cleaned) !== JSON.stringify(actionTable);
+      
+  //     if (isDifferent) {
+  //       console.log(">>> 檢測到超出音樂長度的資料點，正在執行自動清洗...");
+  //       dispatch(updateActionTable(cleaned));
+  //     }
+  //   }
+  // }, [duration, dispatch]);
 
   const handleModalAction = async (action) => {
     if (action === "save") {
