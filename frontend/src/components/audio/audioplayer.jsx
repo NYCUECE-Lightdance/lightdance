@@ -117,6 +117,26 @@ function AudioPlayer({ setButtonState, timelineRef }) {
   const [apiMusicList, setApiMusicList] = useState([]);
   const [shiftStep, setShiftStep] = useState(0); // 0: 關閉, 1: 選起始, 2: 選結束, 3: 選目標
   const [shiftTimes, setShiftTimes] = useState({ start: 0, end: 0, target: 0 });
+  const [uniformAlphaVisible, setUniformAlphaVisible] = useState(false);
+  const uniformAlphaRef = useRef(null);
+
+  useEffect(() => {
+    const handleClickOutsideUniformAlpha = (e) => {
+      if (
+        uniformAlphaVisible &&
+        uniformAlphaRef.current &&
+        !uniformAlphaRef.current.contains(e.target)
+      ) {
+        setUniformAlphaVisible(false);
+      }
+    };
+  
+    document.addEventListener("click", handleClickOutsideUniformAlpha);
+  
+    return () => {
+      document.removeEventListener("click", handleClickOutsideUniformAlpha);
+    };
+  }, [uniformAlphaVisible]);
 
   useEffect(() => {
     const fetchMusicList = async () => {
@@ -502,11 +522,10 @@ function AudioPlayer({ setButtonState, timelineRef }) {
       else if (["1", "2", "3", "4", "5", "6", "7", "8", "9"].includes(event.key)) {
         event.preventDefault();
         const alphaValue = parseFloat(event.key) / 10;
-        handleAlphaChoose(alphaValue);
+        handleBrightnessChange(alphaValue);
       } else if (event.key === "0") {
-        // 檢測 Ctrl + 0
         event.preventDefault();
-        handleAlphaChoose(1.0);
+        handleBrightnessChange(0);
       }
     }
     if (event.shiftKey &&
@@ -722,20 +741,20 @@ function AudioPlayer({ setButtonState, timelineRef }) {
     dispatch(updateActionTable(updatedActionTable));
   };
 
-  const handleAlphaChoose = (alphaValue) => {
-    if (multiSelectedBlocks.length === 0) return;
+  // const handleAlphaChoose = (alphaValue) => {
+  //   if (multiSelectedBlocks.length === 0) return;
 
-    const updatedActionTable = produce(actionTable, (draft) => {
-      multiSelectedBlocks.forEach(({ armorIndex, partIndex, blockIndex }) => {
-        const timeline = draft[armorIndex]?.[partIndex];
-        if (timeline && timeline[blockIndex]?.color) {
-          timeline[blockIndex].color.A = alphaValue;
-        }
-      });
-    });
+  //   const updatedActionTable = produce(actionTable, (draft) => {
+  //     multiSelectedBlocks.forEach(({ armorIndex, partIndex, blockIndex }) => {
+  //       const timeline = draft[armorIndex]?.[partIndex];
+  //       if (timeline && timeline[blockIndex]?.color) {
+  //         timeline[blockIndex].color.A = alphaValue;
+  //       }
+  //     });
+  //   });
 
-    dispatch(updateActionTable(updatedActionTable));
-  };
+  //   dispatch(updateActionTable(updatedActionTable));
+  // };
 
   const handleZoom = (event) => {
     setZoomLevel(Math.floor(event.target.value));
@@ -1247,37 +1266,40 @@ function AudioPlayer({ setButtonState, timelineRef }) {
   };
 
   const handleBrightnessChange = (newBrightness) => {
-    // 檢查是否有選中任何 block
     if (!multiSelectedBlocks || multiSelectedBlocks.length === 0) {
       console.warn("No blocks selected to change brightness.");
       return;
     }
   
-    const alphaValue = parseFloat(newBrightness);
+    const rawValue = Number(newBrightness);
   
-    // 使用 Immer 更新 actionTable
+    if (Number.isNaN(rawValue)) {
+      console.warn("Invalid brightness value:", newBrightness);
+      return;
+    }
+  
+    const alphaValue = Math.max(0, Math.min(1, rawValue));
+  
     const updatedActionTable = produce(actionTable, (draft) => {
       multiSelectedBlocks.forEach(({ armorIndex, partIndex, blockIndex }) => {
         const timeline = draft[armorIndex]?.[partIndex];
-        if (timeline && timeline[blockIndex]) {
-          // 1. 更新每個選中點的 A (Alpha) 值
+  
+        if (timeline?.[blockIndex]?.color) {
           timeline[blockIndex].color.A = alphaValue;
         }
       });
     });
   
-    // 2. 更新到 Redux
     dispatch(updateActionTable(updatedActionTable));
   
-    // 3. ✅ 同步更新 chosenColor (讓調色盤也知道現在 Alpha 變了)
-    if (multiSelectedBlocks.length > 0) {
-      const { armorIndex, partIndex, blockIndex } = multiSelectedBlocks[0];
-      const firstBlockColor = actionTable[armorIndex][partIndex][blockIndex].color;
+    const { armorIndex, partIndex, blockIndex } = multiSelectedBlocks[0];
+    const firstBlockColor = actionTable?.[armorIndex]?.[partIndex]?.[blockIndex]?.color;
+  
+    if (firstBlockColor) {
       dispatch(updateChosenColor({ ...firstBlockColor, A: alphaValue }));
     }
   
-    // 更新本地選單 UI 狀態
-    setBrightness(newBrightness);
+    setBrightness(alphaValue);
   };
 
   const handleEffect = () => {
@@ -1447,6 +1469,80 @@ function AudioPlayer({ setButtonState, timelineRef }) {
     dispatch(updateCurrentTime(safeTarget));
   };
 
+  const handleUniformAlphaButtonClick = (e) => {
+    e?.stopPropagation();
+  
+    if (!multiSelectedBlocks || multiSelectedBlocks.length !== 1) {
+      alert("請先只選取一個色塊");
+      return;
+    }
+  
+    const { armorIndex, partIndex, blockIndex } = multiSelectedBlocks[0];
+    const selectedBlock = actionTable?.[armorIndex]?.[partIndex]?.[blockIndex];
+  
+    if (!selectedBlock?.color) {
+      alert("找不到 selectedBlock 的顏色資料");
+      return;
+    }
+  
+    setUniformAlphaVisible((prev) => !prev);
+  };
+  
+  const handleUniformSameColorAlphaChange = (newAlpha) => {
+    if (!multiSelectedBlocks || multiSelectedBlocks.length !== 1) {
+      alert("請先只選取一個色塊");
+      return;
+    }
+  
+    const rawValue = Number(newAlpha);
+  
+    if (Number.isNaN(rawValue)) {
+      console.warn("Invalid alpha value:", newAlpha);
+      return;
+    }
+  
+    const alphaValue = Math.max(0, Math.min(1, rawValue));
+  
+    const { armorIndex, partIndex, blockIndex } = multiSelectedBlocks[0];
+    const selectedColor = actionTable?.[armorIndex]?.[partIndex]?.[blockIndex]?.color;
+  
+    if (!selectedColor) {
+      alert("找不到 selectedBlock 的顏色資料");
+      return;
+    }
+  
+    const targetR = Number(selectedColor.R);
+    const targetG = Number(selectedColor.G);
+    const targetB = Number(selectedColor.B);
+  
+    const updatedActionTable = produce(actionTable, (draft) => {
+      Object.values(draft || {}).forEach((armor) => {
+        Object.values(armor || {}).forEach((timeline) => {
+          if (!Array.isArray(timeline)) return;
+  
+          timeline.forEach((block) => {
+            const color = block?.color;
+            if (!color) return;
+  
+            const sameColor =
+              Number(color.R) === targetR &&
+              Number(color.G) === targetG &&
+              Number(color.B) === targetB;
+  
+            if (sameColor) {
+              color.A = alphaValue;
+            }
+          });
+        });
+      });
+    });
+  
+    dispatch(updateActionTable(updatedActionTable));
+    dispatch(updateChosenColor({ ...selectedColor, A: alphaValue }));
+    setBrightness(alphaValue);
+    setUniformAlphaVisible(false);
+  };
+
   const listitem = showPart.map((setting) => (
     <Timeline
       key={setting.id}
@@ -1503,6 +1599,49 @@ function AudioPlayer({ setButtonState, timelineRef }) {
             </select>
             <span className="tooltip">Switch Track</span>
           </div>
+        </div>
+        <div
+          ref={uniformAlphaRef}
+          className="uniform-alpha-wrapper"
+          onClick={(e) => e.stopPropagation()}
+          onMouseDown={(e) => e.stopPropagation()}
+        >
+          <button
+            className="shift-main-button"
+            onClick={handleUniformAlphaButtonClick}
+          >
+            <FontAwesomeIcon icon={faCircleHalfStroke} size="lg" />
+            <span className="tooltip">Set opacity for all blocks with selected color</span>
+          </button>
+
+          {uniformAlphaVisible && (
+            <div className="uniform-alpha-menu">
+              {[
+                { value: 0, label: "0%" },
+                { value: 0.1, label: "10%" },
+                { value: 0.2, label: "20%" },
+                { value: 0.3, label: "30%" },
+                { value: 0.4, label: "40%" },
+                { value: 0.5, label: "50%" },
+                { value: 0.6, label: "60%" },
+                { value: 0.7, label: "70%" },
+                { value: 0.8, label: "80%" },
+                { value: 0.9, label: "90%" },
+                { value: 1, label: "100%" },
+              ].map((item) => (
+                <button
+                  key={item.value}
+                  className="uniform-alpha-option"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleUniformSameColorAlphaChange(item.value);
+                  }}
+                >
+                  {item.label}
+                </button>
+              ))}
+            </div>
+          )}
         </div>
         <div className="shift-tool-wrapper">
           {shiftStep === 0 ? (
@@ -1664,6 +1803,7 @@ function AudioPlayer({ setButtonState, timelineRef }) {
             onChange={(e) => handleBrightnessChange(e.target.value)} // 處理亮度變化
             style={{ marginLeft: "10px" }}
           >
+            <option value="0">0%</option>
             <option value="0.1">10%</option>
             <option value="0.2">20%</option>
             <option value="0.3">30%</option>
