@@ -1,0 +1,203 @@
+.shortcut-modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  background: rgba(0, 0, 0, 0.75);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 3000;
+  animation: shortcutFadeIn 0.2s ease-out;
+}
+
+@keyframes shortcutFadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.shortcut-modal-content {
+  background: #1a1a1a;
+  border: 1px solid #333;
+  border-radius: 12px;
+  width: min(700px, 90vw);
+  max-height: 85vh;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+  animation: shortcutSlideUp 0.25s ease-out;
+}
+
+@keyframes shortcutSlideUp {
+  from { transform: translateY(20px); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}
+
+.shortcut-modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 18px 24px;
+  border-bottom: 1px solid #2a2a2a;
+  flex-shrink: 0;
+}
+
+.shortcut-modal-title {
+  font-family: "Kanit", sans-serif;
+  font-size: 18px;
+  font-weight: 600;
+  color: #ededed;
+  letter-spacing: 0.5px;
+}
+
+.shortcut-close-btn {
+  background: none;
+  border: none;
+  color: #888;
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s;
+}
+
+.shortcut-close-btn:hover {
+  color: #fff;
+  background: #333;
+}
+
+.shortcut-modal-body {
+  padding: 20px 28px 28px;
+  overflow-y: auto;
+  flex: 1;
+  color: #ccc;
+  font-size: 14px;
+  line-height: 1.7;
+}
+
+.shortcut-modal-body::-webkit-scrollbar {
+  width: 6px;
+}
+
+.shortcut-modal-body::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.shortcut-modal-body::-webkit-scrollbar-thumb {
+  background: #444;
+  border-radius: 3px;
+}
+
+/* --- Markdown element styles --- */
+
+.shortcut-h1 {
+  font-family: "Kanit", sans-serif;
+  font-size: 20px;
+  color: #fff;
+  margin: 0 0 16px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid #2a2a2a;
+}
+
+.shortcut-h2 {
+  font-family: "Kanit", sans-serif;
+  font-size: 16px;
+  color: #28a745;
+  margin: 24px 0 10px;
+}
+
+.shortcut-h3 {
+  font-family: "Kanit", sans-serif;
+  font-size: 14px;
+  color: #aaa;
+  margin: 16px 0 8px;
+}
+
+.shortcut-p {
+  margin: 0 0 10px;
+  color: #bbb;
+}
+
+.shortcut-strong {
+  color: #fff;
+  font-weight: 600;
+}
+
+.shortcut-ul {
+  margin: 4px 0 12px;
+  padding-left: 20px;
+}
+
+.shortcut-li {
+  margin-bottom: 4px;
+  color: #bbb;
+}
+
+.shortcut-code {
+  background: #2a2a2a;
+  color: #e0a040;
+  padding: 2px 6px;
+  border-radius: 3px;
+  font-family: "SF Mono", "Fira Code", monospace;
+  font-size: 13px;
+}
+
+.shortcut-blockquote {
+  background: #1e2a1e;
+  border-left: 3px solid #28a745;
+  margin: 8px 0 16px;
+  padding: 8px 14px;
+  border-radius: 0 6px 6px 0;
+  color: #9c9;
+}
+
+.shortcut-hr {
+  border: none;
+  border-top: 1px solid #2a2a2a;
+  margin: 20px 0;
+}
+
+/* --- Table styles --- */
+
+.shortcut-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 10px 0 18px;
+  font-size: 13px;
+}
+
+.shortcut-thead {
+  background: #222;
+}
+
+.shortcut-th {
+  text-align: left;
+  padding: 10px 14px;
+  color: #aaa;
+  font-weight: 600;
+  border-bottom: 2px solid #333;
+  font-family: "Kanit", sans-serif;
+  font-size: 13px;
+  letter-spacing: 0.3px;
+}
+
+.shortcut-td {
+  padding: 9px 14px;
+  border-bottom: 1px solid #2a2a2a;
+  color: #bbb;
+  vertical-align: top;
+}
+
+.shortcut-table tbody tr:hover {
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.shortcut-error {
+  color: #e06060;
+  text-align: center;
+  padding: 40px 0;
+  font-size: 15px;
+}
