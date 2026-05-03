@@ -477,19 +477,21 @@ function Home({ rgba, setRgba, setButtonState }) {
     }
   };
 
+  // 僅在 duration 變化時（載入新音檔）正規化 actionTable，
+  // 不在每次 actionTable 編輯時觸發——否則會污染 undo history 並導致 undo 被反轉。
   useEffect(() => {
-    if (!actionTable) return;
-  
+    if (!actionTable || duration <= 0) return;
+
     const normalized = normalizeActionTable(actionTable, duration);
-  
+
     const isDifferent =
       JSON.stringify(normalized) !== JSON.stringify(actionTable);
-  
+
     if (isDifferent) {
       console.log(">>> actionTable 結構不完整，正在補齊 7 players x 22 parts...");
-      dispatch(updateActionTable(normalized));
+      dispatch(updateActionTable(normalized, { skipHistory: true }));
     }
-  }, [actionTable, duration, dispatch]);
+  }, [duration]); // 僅依賴 duration，不在每次編輯時觸發
   // useEffect(() => {
   //   if (duration > 0 && actionTable) {
   //     const cleaned = cleanActionTableByDuration(actionTable, duration);
