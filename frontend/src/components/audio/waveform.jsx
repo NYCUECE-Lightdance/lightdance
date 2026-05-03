@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useRef, useState, memo } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { API_ENDPOINTS } from "../../config/api.js";
 import { localMusicMap } from "./musicData.js";
@@ -57,6 +57,7 @@ const AudioWaveform = ({
   sourceNode,
   setSourceNode,
   containerRef,
+  onTimeUpdate,
 }) => {
   const canvasRef = useRef(null);
   const [audioContext] = useState(
@@ -64,7 +65,7 @@ const AudioWaveform = ({
   ); // 創建 AudioContext
   const dispatch = useDispatch();
   const duration = useSelector((state) => state.profiles.duration); // 獲取音頻總時長
-  const currentTime = useSelector((state) => state.profiles.currentTime); // 獲取當前播放時間
+  const currentTime = useSelector((state) => state.profiles.currentTime); // 播放起始偏移（僅在 playback start effect 使用）
   const fullPeaks = useSelector((state) => state.profiles.fullPeaks); // 獲取全分辨率的波峰數據
   const playbackRate = useSelector((state) => state.profiles.playbackRate); // 獲取播放速率
   const [canvasWidth, setCanvasWidth] = useState(0); // 設置 canvas 寬度
@@ -74,6 +75,18 @@ const AudioWaveform = ({
   const [viewportWidth, setViewportWidth] = useState(0);
   const [scrollPosition, setScrollPosition] = useState(0);
   const animationFrameRef = useRef(null); // 用於 requestAnimationFrame
+
+  // P0 效能優化：播放期間的 ref（不觸發 re-render）
+  const redLineRef = useRef(null);       // 紅線 DOM 元素，60fps 直接操作
+  const playbackTimeRef = useRef(0);     // 每幀更新的精確播放時間（ms）
+  const lastDispatchRef = useRef(0);     // 上次 dispatch 到 Redux 的時間
+  const canvasWidthRef = useRef(0);      // canvasWidth 的 ref 版本，rAF 閉包始終讀取最新值
+  const DISPATCH_INTERVAL = 40;          // 40ms = 25fps Redux 更新（滿足 ≥20fps）
+
+  // 同步 canvasWidth state 到 ref，確保 rAF 閉包在視窗拉伸後使用正確值
+  useEffect(() => {
+    canvasWidthRef.current = canvasWidth;
+  }, [canvasWidth]);
 
   const [audioBuffer, setAudioBuffer] = useState(null);
   const gainNodeRef = useRef(null);
@@ -90,19 +103,23 @@ const AudioWaveform = ({
     return () => scrollRef.current?.removeEventListener("scroll", handleScroll);
   }, [scrollRef]);
 
-  // 監聽視窗大小變化
+  // 監聽視窗大小變化，同步更新 canvasWidth（紅線定位依賴此值）
   useEffect(() => {
-    const updateViewportWidth = () => {
+    const updateDimensions = () => {
       if (scrollRef.current) {
         setViewportWidth(scrollRef.current.clientWidth);
       }
+      if (containerRef.current) {
+        setCanvasWidth(containerRef.current.clientWidth);
+        setCanvasHeight(containerRef.current.clientHeight || 200);
+      }
     };
 
-    window.addEventListener("resize", updateViewportWidth);
-    updateViewportWidth(); // 初始設定
+    window.addEventListener("resize", updateDimensions);
+    updateDimensions(); // 初始設定
 
     return () => {
-      window.removeEventListener("resize", updateViewportWidth);
+      window.removeEventListener("resize", updateDimensions);
     };
   }, []);
 
@@ -220,19 +237,22 @@ const AudioWaveform = ({
   useEffect(() => {
     if (fullPeaks && fullPeaks.length > 0) {
       const canvas = canvasRef.current;
-      // const targetBarCount = 3000;
-      // const displayPeaks = resamplePeaks(fullPeaks, targetBarCount);
-      drawWaveforms(canvas); // 然後傳入這個版本
+      drawWaveforms(canvas);
     }
-  }, [currentTime, fullPeaks, zoomValue, scrollPosition, viewportWidth]);
+  }, [fullPeaks, zoomValue, scrollPosition, viewportWidth]);
 
-  // 使用 requestAnimationFrame 更新進度條
-
+  // 使用 requestAnimationFrame 更新進度（分層：60fps DOM + 25fps Redux）
   useEffect(() => {
     if (isPlaying) {
+      lastDispatchRef.current = 0; // 重置節流計數器
       animationRef.current = requestAnimationFrame(updateProgress);
     } else {
       cancelAnimationFrame(animationRef.current);
+      // 暫停時將最終時間寫回 Redux（供其他元件同步）
+      if (playbackTimeRef.current > 0) {
+        const alignedTime = Math.floor(playbackTimeRef.current / 50) * 50;
+        dispatch(updateCurrentTime(alignedTime));
+      }
     }
     return () => cancelAnimationFrame(animationRef.current);
   }, [isPlaying, startTime]);
@@ -240,10 +260,32 @@ const AudioWaveform = ({
   const updateProgress = () => {
     if (isPlaying && audioBuffer) {
       const elapsed = (audioContext.currentTime - startTime) * (playbackRate || 1) * 1000;
-      dispatch(updateCurrentTime(elapsed));
+      playbackTimeRef.current = elapsed;
+
+      // 紅線：每幀直接操作 DOM（60fps，不經過 React；用 ref 確保 resize 後讀取最新寬度）
+      if (redLineRef.current && duration > 0) {
+        redLineRef.current.style.left = `${(elapsed / duration) * canvasWidthRef.current}px`;
+      }
+
+      // 進度條：每幀透過 callback 通知 AudioPlayer 直接操作 DOM（60fps）
+      onTimeUpdate?.(elapsed);
+
+      // Redux：每 40ms 才 dispatch 一次（25fps），供 Armor/AccessoryPanel 顏色更新
+      if (elapsed - lastDispatchRef.current >= DISPATCH_INTERVAL) {
+        dispatch(updateCurrentTime(elapsed));
+        lastDispatchRef.current = elapsed;
+      }
+
       animationRef.current = requestAnimationFrame(updateProgress);
     }
   };
+
+  // 暫停或手動 seek 時，將 Redux currentTime 同步到紅線 DOM（不依賴 rAF）
+  useEffect(() => {
+    if (!isPlaying && redLineRef.current && duration > 0 && canvasWidth > 0) {
+      redLineRef.current.style.left = `${(currentTime / duration) * canvasWidth}px`;
+    }
+  }, [currentTime, isPlaying, duration, canvasWidth]);
 
   // 當播放狀態改變時，啟動或停止進度更新
   // useEffect(() => {
@@ -402,15 +444,16 @@ const AudioWaveform = ({
         onMouseLeave={handleMouseLeave}
       />
       <div
+        ref={redLineRef}
         style={{
           position: "absolute",
-          left: `${(currentTime / duration) * canvasWidth}px`, // 動態計算紅線位置
+          left: "0px", // 初始位置，播放時由 rAF 直接操作 DOM（60fps）
           top: 0,
-          height: `${scrollRef.current?.offsetHeight || 0}px`, // 匹配滾動區域高度
-          width: "2px", // 紅線寬度
+          height: `${scrollRef.current?.offsetHeight || 0}px`,
+          width: "2px",
           backgroundColor: "red",
-          pointerEvents: "none", // 避免阻擋滑鼠事件
-          zIndex: 10, // 確保紅線在前
+          pointerEvents: "none",
+          zIndex: 10,
         }}
       ></div>
       {hoverPosition !== null && (
@@ -461,6 +504,7 @@ function Wave({
   sourceNode,
   setSourceNode,
   volume,
+  onTimeUpdate,
 }) {
   // useEffect(() => {
   //   audioRef.current.volume = volume;
@@ -487,9 +531,10 @@ function Wave({
         volume={volume}
         currentTime={currentTime}
         setCurrentTime={setCurrentTime}
+        onTimeUpdate={onTimeUpdate}
       />
     </div>
   );
 }
 
-export default Wave;
+export default memo(Wave);

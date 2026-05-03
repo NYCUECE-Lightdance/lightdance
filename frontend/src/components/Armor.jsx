@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useMemo, memo } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import "./Armor.css";
 import {
@@ -17,10 +17,6 @@ const Armor = (props) => {
   const multiSelectedBlocks = useSelector((state) => state.profiles.multiSelectedBlocks);
   const myId = props.index;
   const blackthreshold = 10;
-
-  useEffect(() => {
-    console.log("data: ", data);
-  }, [data]);
 
   // 新的部位名稱（對應 Home.jsx 的輸出映射）
   const partNames = [
@@ -94,8 +90,11 @@ const Armor = (props) => {
     return `rgba(${colorData.R}, ${colorData.G}, ${colorData.B}, ${colorData.A})`;
   };
 
-  const colors = Object.fromEntries(
-    partNames.map((name, index) => [name, getColorForPart(index)])
+  const colors = useMemo(
+    () => Object.fromEntries(
+      partNames.map((name, index) => [name, getColorForPart(index)])
+    ),
+    [time, actionTable, myId]
   );
 
   function insertArray(part) {
@@ -460,4 +459,4 @@ const Armor = (props) => {
   );
 };
 
-export default Armor;
+export default memo(Armor);

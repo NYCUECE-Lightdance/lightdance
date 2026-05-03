@@ -116,17 +116,6 @@ function Home({ rgba, setRgba, setButtonState }) {
   }, [actionTable]);
 
   useEffect(() => {
-    if (autoRefresh > 0) {
-      const timeout = setTimeout(() => {
-        // if (autoRefresh == 1) window.location.reload(true);
-        dispatch(updateAutoRefresh(autoRefresh - 1));
-      }, 1500); // Example: Decrease every second
-
-      return () => clearTimeout(timeout); // Clean up the timeout
-    }
-  }, [autoRefresh, dispatch, navigate]);
-
-  useEffect(() => {
     const handleBeforeUnload = (e) => {
       if (isDirty) {
         e.preventDefault();
@@ -178,6 +167,9 @@ function Home({ rgba, setRgba, setButtonState }) {
     } catch (e) {
       console.error("❌ 本地備份失敗，但將繼續嘗試上傳至伺服器:", e);
     }
+
+    // P5: 讓瀏覽器先處理 UI 更新（如 isLoading 狀態），再開始大量計算
+    await new Promise((resolve) => setTimeout(resolve, 0));
 
     const players = [];
     const armorIndices = Object.keys(actionTable);

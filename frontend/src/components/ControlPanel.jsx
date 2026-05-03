@@ -729,4 +729,4 @@ function ControlPanel({ setButtonState }) {
   );
 }
 
-export default ControlPanel;
+export default React.memo(ControlPanel);

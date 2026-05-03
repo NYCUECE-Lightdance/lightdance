@@ -1,16 +1,15 @@
-import React, { useRef, useState, useEffect, forwardRef } from "react";
+import React, { useRef, useState, useEffect, forwardRef, memo } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import {
   updateActionTable,
   updateTimelineBlocks,
-  updateTempActionTable,
   updateIsColorChangeActive,
   updateMultiSelectedBlocks,
   updateMoveMode,
 } from "../../redux/actions";
 
-import cloneDeep from "lodash/cloneDeep";
 import { produce } from "immer";
+// cloneDeep 已移除：tempActionTable cascade 已合併，drag 復原時再加回
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import {
   faWandMagicSparkles,
@@ -52,9 +51,6 @@ const Timeline = forwardRef(
       (state) => state.profiles.timelineBlocks?.[armorIndex]?.[partIndex] || [] // 當前時間軸的方塊數據
     );
     const actionTable = useSelector((state) => state.profiles.data?.actionTable || []); // 原始動作表
-    const tempActionTable = useSelector(
-      (state) => state.profiles.tempActionTable
-    ); // 臨時動作表
     const duration = useSelector((state) => state.profiles.duration); // 總時長
     const multiSelectedBlocks = useSelector((state) => state.profiles.multiSelectedBlocks); // 全局多選中方塊
     const clipboard = useSelector((state) => state.profiles.clipboard);
@@ -278,13 +274,6 @@ const Timeline = forwardRef(
       pointerEvents: "none", // 禁用滑鼠事件
     };
 
-    // 在組件掛載時，將 actionTable 深拷貝到 tempActionTablef
-    useEffect(() => {
-      console.log("useeffect");
-      dispatch(updateTempActionTable(cloneDeep(actionTable)));
-      // console.log("tempActionTable: ", tempActionTable);
-    }, [actionTable]);
-
     // 偵測點擊事件，點擊非 timeline-block 區域時取消選中
     useEffect(() => {
       const handleOutsideClick = (e) => {
@@ -342,23 +331,21 @@ const Timeline = forwardRef(
     }, [canvasWidth]);
 
     // 根據 tempActionTable 和 duration 計算新的方塊數據
+    // P3: 直接從 actionTable 計算 timelineBlocks，不再經過 tempActionTable 中轉
     useEffect(() => {
       if (
-        !tempActionTable ||
-        !tempActionTable[armorIndex] ||
-        tempActionTable[armorIndex].length === 0
+        !actionTable ||
+        !actionTable[armorIndex] ||
+        actionTable[armorIndex].length === 0
       ) {
-        console.warn(
-          `Invalid data structure at tempActionTable[${armorIndex}][${partIndex}]`
-        );
         return;
       }
 
       const newBlocks = [];
-      tempActionTable[armorIndex][partIndex].forEach((entry, index) => {
+      actionTable[armorIndex][partIndex]?.forEach((entry, index) => {
         const startTime = entry.time;
         const nextStartTime =
-          tempActionTable[armorIndex][partIndex]?.[index + 1]?.time ?? duration; // ?? 而非 ||：time=0 是合法值
+          actionTable[armorIndex][partIndex]?.[index + 1]?.time ?? duration;
 
         const { R, G, B, A } = entry.color || {};
         const newBlock = {
@@ -371,7 +358,10 @@ const Timeline = forwardRef(
         if (
           lastBlock &&
           lastBlock.startTime + lastBlock.durationTime === newBlock.startTime &&
-          JSON.stringify(lastBlock.color) === JSON.stringify(newBlock.color)
+          lastBlock.color.R === newBlock.color.R &&
+          lastBlock.color.G === newBlock.color.G &&
+          lastBlock.color.B === newBlock.color.B &&
+          lastBlock.color.A === newBlock.color.A
         ) {
           lastBlock.durationTime += newBlock.durationTime;
         } else {
@@ -386,7 +376,7 @@ const Timeline = forwardRef(
           value: newBlocks,
         })
       );
-    }, [tempActionTable, duration, armorIndex, partIndex, dispatch]);
+    }, [actionTable, duration, armorIndex, partIndex, dispatch]);
 
     // 處理鼠標按下事件
     const handleMouseDown = (e, index) => {
@@ -1176,4 +1166,4 @@ const Timeline = forwardRef(
   }
 );
 
-export default Timeline;
+export default memo(Timeline);

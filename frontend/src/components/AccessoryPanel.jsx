@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, memo } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { updateActionTable, updateCurrentTime } from "../redux/actions";
 import { ACCESSORY_CONFIGS } from "../config/accessoryConfig.js";
@@ -159,4 +159,4 @@ function AccessoryPanel() {
   );
 }
 
-export default AccessoryPanel;
+export default memo(AccessoryPanel);
