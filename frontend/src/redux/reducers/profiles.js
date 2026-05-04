@@ -59,6 +59,13 @@ export const profiles = (state = initialState, action) => {
           ? action.payload.music_filename
           : state.data.music_filename;
 
+      // O(1) reference check：Immer produce 在無變更時回傳相同 reference，
+      // 避免把相同 state 重複 push 到 history（會讓 undo 需要多按一次）
+      if (newActionTable === state.data.actionTable &&
+          newMusicFilename === state.data.music_filename) {
+        return state;
+      }
+
       // 跳过初始化操作的历史记录更新
       if (action.meta && action.meta.skipHistory) {
         return {
