@@ -26,7 +26,7 @@ const initialState = {
     { id: 3, armorIndex: 2, partIndex: 0, hidden: false },
   ],
   favoriteColor: [],
-  dancerVisibility: [false, false, false, false, false, false, false], // 初始全部隱藏
+  dancerVisibility: [true, true, true, true, true, true, true], // 初始全部顯示
   clipboard: {
     type: null,              // 增加 type 區分複製類型
     data: null,

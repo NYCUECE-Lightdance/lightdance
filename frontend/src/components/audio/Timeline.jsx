@@ -6,6 +6,7 @@ import {
   updateIsColorChangeActive,
   updateMultiSelectedBlocks,
   updateMoveMode,
+  updateCurrentTime,
 } from "../../redux/actions";
 
 import { produce } from "immer";
@@ -347,19 +348,25 @@ const Timeline = forwardRef(
         return;
       }
 
+      // 過濾掉 time 超過 duration 的 entry，避免產生負的 durationTime，
+      // 導致 flex 佈局將所有區塊等比例壓縮，造成與紅線的視覺偏移
+      const validTimeline = partTimeline.filter(
+        (entry) => entry && typeof entry.time === "number" && entry.time < duration
+      );
+
       const newBlocks = [];
 
-      partTimeline.forEach((entry, index) => {
+      validTimeline.forEach((entry, index) => {
         if (!entry || typeof entry.time !== "number") return;
 
         const startTime = entry.time;
-        const nextStartTime = partTimeline[index + 1]?.time ?? duration;
+        const nextStartTime = validTimeline[index + 1]?.time ?? duration;
 
         const { R = 0, G = 0, B = 0, A = 1 } = entry.color || {};
 
         const newBlock = {
           startTime,
-          durationTime: nextStartTime - startTime,
+          durationTime: Math.max(0, nextStartTime - startTime),
           color: { R, G, B, A },
         };
 
@@ -414,7 +421,7 @@ const Timeline = forwardRef(
         const atIdx = partData.findIndex(entry => entry.time === block.startTime && !isBlackEntry(entry));
         if (atIdx === -1) return;
 
-        dispatch(updateMultiSelectedBlocks([{ armorIndex, partIndex, blockIndex: index }]));
+        dispatch(updateMultiSelectedBlocks([{ armorIndex, partIndex, blockIndex: atIdx }]));
 
         const rect = timelineRef.current?.getBoundingClientRect();
         if (!rect) return;
@@ -468,8 +475,11 @@ const Timeline = forwardRef(
 
       // 邊緣 resize 邏輯：已選中的有色 block 在邊緣按下時啟動 resize，不進入普通選取流程
       {
-        const isSelected = multiSelectedBlocks.some(b =>
-          b.armorIndex === armorIndex && b.partIndex === partIndex && b.blockIndex === index
+        // 查找 actionTable index 用於比較選中狀態
+        const partDataForResize = actionTable[armorIndex][partIndex];
+        const atIdxForResize = partDataForResize.findIndex(entry => entry.time === block.startTime && !isBlackEntry(entry));
+        const isSelected = atIdxForResize !== -1 && multiSelectedBlocks.some(b =>
+          b.armorIndex === armorIndex && b.partIndex === partIndex && b.blockIndex === atIdxForResize
         );
         if (isSelected && !isBlackBlock && hoverEdge?.index === index) {
           e.preventDefault();
@@ -480,7 +490,13 @@ const Timeline = forwardRef(
 
       if (isCopying) {
         // 關鍵：在尋找貼上目標時，僅更新單選(綠框目標)
-        dispatch(updateMultiSelectedBlocks([{ armorIndex, partIndex, blockIndex: index }]));
+        if (!isBlackBlock) {
+          const partDataForCopy = actionTable[armorIndex][partIndex];
+          const atIdxForCopy = partDataForCopy.findIndex(entry => entry.time === block.startTime && !isBlackEntry(entry));
+          if (atIdxForCopy !== -1) {
+            dispatch(updateMultiSelectedBlocks([{ armorIndex, partIndex, blockIndex: atIdxForCopy }]));
+          }
+        }
         return;
       }
       // If a black block is clicked, clear all selections.
@@ -489,21 +505,35 @@ const Timeline = forwardRef(
         return;
       }
 
+      // timelineBlocks index ≠ actionTable index
+      const partData = actionTable[armorIndex][partIndex];
+      const atIdx = partData.findIndex(entry => entry.time === block.startTime && !isBlackEntry(entry));
+      if (atIdx === -1) return;
+
+      // 點擊區塊時同步更新 currentTime，確保後續操作（如 Cut）能正確定位
+      // 使用區塊自身的 bounding rect 計算區塊內點擊位置對應的時間，
+      // 避免依賴 timeline 容器寬度（flex 百分比寬度像素捨入會累積誤差）
+      const blockRect = e.currentTarget?.getBoundingClientRect();
+      if (blockRect && blockRect.width > 0) {
+        const clickFraction = (e.clientX - blockRect.left) / blockRect.width;
+        const rawTime = block.startTime + clickFraction * block.durationTime;
+        const clickTime = Math.round(rawTime / 50) * 50;
+        dispatch(updateCurrentTime(Math.max(0, Math.min(clickTime, duration))));
+      }
+
       // Shift-click multi-selection logic
       const anchorBlock = multiSelectedBlocks[0];
       if (e.shiftKey && anchorBlock && anchorBlock.armorIndex === armorIndex && anchorBlock.partIndex === partIndex) {
         const startIdx = anchorBlock.blockIndex;
-        const endIdx = index;
+        const endIdx = atIdx;
 
         const selectionStart = Math.min(startIdx, endIdx);
         const selectionEnd = Math.max(startIdx, endIdx);
 
         const newMultiSelected = [];
         for (let i = selectionStart; i <= selectionEnd; i++) {
-          const currentBlock = timelineBlocks[i];
-          // Filter out black blocks (transition blocks)
-          const isBlackTransition = currentBlock.color.R === 0 && currentBlock.color.G === 0 && currentBlock.color.B === 0;
-          if (!isBlackTransition) {
+          const entry = partData[i];
+          if (entry && !isBlackEntry(entry)) {
             newMultiSelected.push({ armorIndex, partIndex, blockIndex: i });
           }
         }
@@ -515,7 +545,7 @@ const Timeline = forwardRef(
         // setDragging(true);
         // setDraggedBlockIndex(index);
         // setDragStartpoint(e.clientX);
-        dispatch(updateMultiSelectedBlocks([{ armorIndex, partIndex, blockIndex: index }]));
+        dispatch(updateMultiSelectedBlocks([{ armorIndex, partIndex, blockIndex: atIdx }]));
       }
     };
 
@@ -970,12 +1000,16 @@ const Timeline = forwardRef(
         // onMouseUp={handleMouseUp}
       >
       {timelineBlocks.map((block, index) => {
+        // --- 0. 查找 actionTable 中的實際 index（timelineBlocks 與 actionTable 索引不對齊）---
+        const partData = actionTable[armorIndex]?.[partIndex];
+        const atIdx = partData?.findIndex(entry => entry.time === block.startTime && !(entry?.color?.R === 0 && entry?.color?.G === 0 && entry?.color?.B === 0)) ?? -1;
+
         // --- 1. 定義狀態變數 ---
         // 是否在目前這條 Timeline 的選中清單中
-        const isCurrentlyInMultiSelect = multiSelectedBlocks.some(b => 
+        const isCurrentlyInMultiSelect = atIdx !== -1 && multiSelectedBlocks.some(b => 
           b.armorIndex === armorIndex && 
           b.partIndex === partIndex && 
-          b.blockIndex === index
+          b.blockIndex === atIdx
         );
 
         // A. 判斷是否為「貼上目標」(綠色)：在複製模式下且被點擊選中
@@ -985,7 +1019,7 @@ const Timeline = forwardRef(
         const isCopySource = isCopying && clipboard?.sourceBlocks?.some(b => 
           b.armorIndex === armorIndex && 
           b.partIndex === partIndex && 
-          b.blockIndex === index
+          b.blockIndex === atIdx
         );
 
         // C. 判斷是否為「普通選取」(橘色)：非複製模式下的正常選取
@@ -993,15 +1027,15 @@ const Timeline = forwardRef(
 
         // --- 2. 顏色與樣式邏輯 ---
         const color = block.color || { R: 0, G: 0, B: 0, A: 1 };
-        const currentBlockData = actionTable[armorIndex]?.[partIndex]?.[index];
+        const currentBlockData = atIdx !== -1 ? partData[atIdx] : undefined;
         const isFade = currentBlockData?.linear === 1;
 
         // 定義背景
         let backgroundStyle;
         if (isFade) {
-          const partTimeline = actionTable[armorIndex]?.[partIndex];
-          const nextBlock = partTimeline?.[index + 1];
-          const nextNextBlock = partTimeline?.[index + 2];
+          const partTimeline = partData;
+          const nextBlock = partTimeline?.[atIdx + 1];
+          const nextNextBlock = partTimeline?.[atIdx + 2];
           const isBlack = (c) => c && c.R === 0 && c.G === 0 && c.B === 0;
           let endColor = { R: 0, G: 0, B: 0, A: 1 };
           if (nextBlock && !isBlack(nextBlock.color)) endColor = nextBlock.color;

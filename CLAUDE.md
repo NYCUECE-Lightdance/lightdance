@@ -117,7 +117,7 @@ IndexedDB（localforage）自動備份，30 天自動清理。Redux 透過 redux
 - **`docs/network-architecture-refactor-plan.md`**：網路路由架構重構計畫
 - **`docs/shortcuts.md`**：鍵盤快速鍵速查表，前端 Home 頁面可透過 Shortcuts 按鈕查看
 - **`docs/troubleshooting-login-500.md`**：MongoDB 連線 500 錯誤 SOP
-- **`docs/frontend-rendering-optimization.md`**：前端渲染邏輯與效能優化詳解（元件樹、播放管線、Redux 配置、memo 策略）
+- **`docs/frontend-rendering-optimization.md`**：前端渲染邏輯與效能優化詳解（元件樹、播放管線、Redux 配置、memo 策略、區塊索引語意、duration 溢出防護）
 
 ### 後端管理腳本
 - **`backend/mongo-backup.sh`**：MongoDB 自動備份主腳本
@@ -199,6 +199,7 @@ IndexedDB（localforage）自動備份，30 天自動清理。Redux 透過 redux
 
 ## 更新記錄
 
+- **2026-05-06**：修復區塊剪下失敗與紅線視覺偏移（blockIndex 語意統一、currentTime 同步、stale closure 消除、duration 溢出防護），更新 `docs/frontend-rendering-optimization.md`
 - **2026-05-04**：前端效能優化（rAF 三層分離、React.memo、persist 剝離、middleware 禁用），新增 `docs/frontend-rendering-optimization.md`
 - **2026-05-03**：重整 docs/ 目錄，新增資料流管道與後端管理文檔，更新 CLAUDE.md 架構圖與引用
 - **2025-08-20**：建立專案記憶檔案，針對 C++ 背景開發者優化 README.md
