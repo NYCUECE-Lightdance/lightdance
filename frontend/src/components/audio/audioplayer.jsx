@@ -261,13 +261,13 @@ function AudioPlayer({ setButtonState, timelineRef }) {
       partIndex = firstBlockPos.partIndex;
       sourceBlocksInfo = multiSelectedBlocks; // 儲存多選陣列
 
-      const blocks = timelineBlocks[armorIndex][partIndex];
+      const timelineDataForCopy = actionTable[armorIndex][partIndex];
       const selectedIndices = multiSelectedBlocks.map(b => b.blockIndex);
       const minIdx = Math.min(...selectedIndices);
       const maxIdx = Math.max(...selectedIndices);
 
-      startTime = blocks[minIdx].startTime;
-      endTime = blocks[maxIdx].startTime + blocks[maxIdx].durationTime;
+      startTime = timelineDataForCopy[minIdx].time;
+      endTime = timelineDataForCopy[maxIdx + 1]?.time ?? duration;
     } 
     // 2. 如果沒有多選，檢查是否有單選 (點擊單個 Block)
     // 注意：這裡假設您的 selectedBlock 格式為 { armorIndex, partIndex, blockIndex }
@@ -362,7 +362,7 @@ function AudioPlayer({ setButtonState, timelineRef }) {
     if (!clipboard || multiSelectedBlocks.length === 0) return;
 
     const { armorIndex: targetArmor, partIndex: targetPart, blockIndex: targetBlockIdx } = multiSelectedBlocks[0];
-    const targetTime = timelineBlocks[targetArmor][targetPart][targetBlockIdx].startTime;
+    const targetTime = actionTable[targetArmor][targetPart][targetBlockIdx]?.time ?? 0;
     
     // 計算偏移量：目標時間 - 複製內容的第一個點的時間
     const offset = targetTime - clipboard.data[0].time;
@@ -550,10 +550,10 @@ function AudioPlayer({ setButtonState, timelineRef }) {
   };
 
   // P2: 使用 ref 確保鍵盤監聽器只綁定一次，但總是呼叫最新的 handleKeyDown
+  // 在 render 期間直接賦值（而非 useEffect），確保在下一個事件（如 keydown）
+  // 觸發前 ref 已指向最新版本，避免 stale closure
   const handleKeyDownRef = useRef(handleKeyDown);
-  useEffect(() => {
-    handleKeyDownRef.current = handleKeyDown;
-  });
+  handleKeyDownRef.current = handleKeyDown;
 
   useEffect(() => {
     const stableHandler = (e) => handleKeyDownRef.current(e);
@@ -818,18 +818,13 @@ function AudioPlayer({ setButtonState, timelineRef }) {
         const minBlockIndex = Math.min(...blockIndexes);
         const maxBlockIndex = Math.max(...blockIndexes);
   
-        const partTimelineFromView = timelineBlocks[armorIndex]?.[partIndex];
         const partTimelineFromActionTable = draft[armorIndex]?.[partIndex];
         
-        if (!partTimelineFromView || !partTimelineFromActionTable) return;
+        if (!partTimelineFromActionTable) return;
   
-        const firstTimelineBlock = partTimelineFromView[minBlockIndex];
-        const lastTimelineBlock = partTimelineFromView[maxBlockIndex];
+        const selectionStartTime = partTimelineFromActionTable[minBlockIndex]?.time;
+        const selectionEndTime = partTimelineFromActionTable[maxBlockIndex + 1]?.time ?? duration;
   
-        if (!firstTimelineBlock || !lastTimelineBlock) return;
-  
-        const selectionStartTime = firstTimelineBlock.startTime;
-        const selectionEndTime = lastTimelineBlock.startTime + lastTimelineBlock.durationTime;
   
         const startIndexToActionTable = partTimelineFromActionTable.findIndex(entry => entry.time === selectionStartTime);
         
@@ -888,12 +883,13 @@ function AudioPlayer({ setButtonState, timelineRef }) {
   
     const updatedActionTable = produce(actionTable, (draft) => {
       const timeline = draft[armorIndex][partIndex];
-      const viewBlock = timelineBlocks[armorIndex][partIndex][blockIndex];
-      if (!viewBlock) return;
+      const viewEntry = timeline[blockIndex];
+      if (!viewEntry) return;
   
       // 1. 強制校正起始點到 50ms 網格
-      const startTime = Math.round(viewBlock.startTime / 50) * 50;
-      const totalDuration = viewBlock.durationTime;
+      const startTime = Math.round(viewEntry.time / 50) * 50;
+      const viewNextEntry = timeline[blockIndex + 1];
+      const totalDuration = (viewNextEntry?.time ?? duration) - viewEntry.time;
       const activeBlock = timeline[blockIndex];
       const isLinear = activeBlock.linear === 1;
   
@@ -976,7 +972,7 @@ function AudioPlayer({ setButtonState, timelineRef }) {
     const { armorIndex, partIndex, blockIndex } = multiSelectedBlocks[0];
 
     const block =
-      timelineBlocks?.[armorIndex]?.[partIndex]?.[blockIndex];
+      actionTable?.[armorIndex]?.[partIndex]?.[blockIndex];
 
     if (!block || !block.color) {
       console.warn("Selected block has no color information.");
@@ -1105,31 +1101,37 @@ function AudioPlayer({ setButtonState, timelineRef }) {
       console.warn("Cut operation is only valid when exactly one block is selected.");
       return;
     }
-    
+
+    // 直接從 Redux store 讀取最新 currentTime，繞過 closure stale 問題
+    const curTime = store.getState().profiles.currentTime;
+
     const { armorIndex, partIndex, blockIndex } = multiSelectedBlocks[0];
-    
+
     const updatedActionTable = produce(actionTable, (draft) => {
       const timeline = draft[armorIndex]?.[partIndex];
       const originalBlock = timeline?.[blockIndex];
       const nextBlock = timeline?.[blockIndex + 1];
-      
-      if (!originalBlock || !nextBlock || currentTime <= originalBlock.time || currentTime >= nextBlock.time) {
+
+      // 若為最後一個區塊，以 duration 作為隱含結束邊界
+      const blockEndTime = nextBlock?.time ?? duration;
+
+      if (!originalBlock || curTime <= originalBlock.time || curTime >= blockEndTime) {
         console.warn("Cut operation is not valid at the current time.");
         return;
       }
-  
+
       let newBlockColor = originalBlock.color;
       const isOriginalLinear = originalBlock.linear === 1;
-  
+
       if (isOriginalLinear) {
         const gradientTargetBlock = timeline[blockIndex + 2];
         const startColor = originalBlock.color;
         const endColor = gradientTargetBlock?.color || { R: 0, G: 0, B: 0, A: 1 };
         const startTime = originalBlock.time;
-        const endTime = nextBlock.time;
-  
+        const endTime = nextBlock?.time ?? duration;
+
         if (endTime > startTime) {
-          const ratio = (currentTime - startTime) / (endTime - startTime);
+          const ratio = (curTime - startTime) / (endTime - startTime);
           newBlockColor = {
             R: Math.round(startColor.R * (1 - ratio) + endColor.R * ratio),
             G: Math.round(startColor.G * (1 - ratio) + endColor.G * ratio),
@@ -1139,23 +1141,23 @@ function AudioPlayer({ setButtonState, timelineRef }) {
         }
         originalBlock.linear = 1;
       }
-      
+
       const newBlackBlock = {
-        time: currentTime - blackthreshold,
+        time: curTime - blackthreshold,
         color: { R: 0, G: 0, B: 0, A: 1 },
         linear: 0,
       };
-      
+
       const newBlock = {
-        time: currentTime,
+        time: curTime,
         color: newBlockColor,
         linear: isOriginalLinear ? 1 : 0,
       };
-  
+
       timeline.splice(blockIndex + 1, 0, newBlackBlock, newBlock);
       timeline.sort((a, b) => a.time - b.time);
     });
-  
+    
     dispatch(updateActionTable(updatedActionTable));
     
     dispatch(

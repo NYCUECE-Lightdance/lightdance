@@ -40,6 +40,8 @@ state.profiles
   ├── duration              // 音訊總長（ms）
   ├── fullPeaks             // 波形峰值資料（~200K samples，Float32Array）
   ├── timelineBlocks        // 衍生資料：從 actionTable 計算的時間軸顯示區塊
+  │                         //   相鄰同色 entry 會被合併，time ≥ duration 的 entry 會被過濾
+  │                         //   ⚠️ timelineBlocks.length ≤ actionTable.length，索引不互通
   ├── chosenColor           // 當前選取的顏色
   ├── history[]             // undo 歷史（最多 50 份完整 actionTable 快照）
   ├── redoStack[]           // redo 堆疊
@@ -117,6 +119,8 @@ useEffect(() => {
      │
 4. Timeline.jsx useEffect 觸發
      │  直接從 actionTable 計算 timelineBlocks（不再經過 tempActionTable 中轉）
+     │  過濾 time ≥ duration 的 entry → 避免負 durationTime → flex 壓縮造成位置偏移
+     │  相鄰同色 entry 合併 → timelineBlocks.length ≤ actionTable.length
      │  dispatch(updateTimelineBlocks(...))
      │
 5. React 18 自動批次處理 → 一次 render
@@ -189,24 +193,102 @@ const persistConfig = {
 | `AccessoryPanel.jsx` | `React.memo` | 父元件 re-render 時不連帶更新 |
 | `ControlPanel.jsx` | `React.memo` | 同上 |
 | `Wave` (waveform.jsx) | `React.memo` | 同上 |
-| `AudioPlayer.jsx` | 鍵盤監聽器 `useRef` 穩定化 | 不再因 currentTime 變化反覆 addEventListener |
+| `AudioPlayer.jsx` | 鍵盤監聽器 `useRef` 穩定化 + `handleCut` 直接讀取 Redux store | 不再因 currentTime 變化反覆 addEventListener；cut 操作繞過 closure stale 問題 |
 
 ### 鍵盤監聽器穩定化
 
 原始寫法中，鍵盤監聽器的 `useEffect` 依賴 `[currentTime, multiSelectedBlocks]`，
 播放期間 `currentTime` 每幀變化，導致每秒 60 次 `addEventListener` / `removeEventListener`。
 
-修復後使用 ref 模式：`handleKeyDownRef` 持有最新的 handler 函數，`useEffect` 只在掛載時綁定一次：
+修復後使用 ref 模式：`handleKeyDownRef` 持有最新的 handler 函數，`useEffect` 只在掛載時綁定一次。
+
+**重要**：ref 更新必須在 render 期間直接賦值（而非包在 `useEffect` 中），
+因為 `useEffect` 是被動 effect（paint 後非同步執行），在下一個事件（如 keydown）觸發前可能尚未執行，
+造成 stale closure。
 
 ```javascript
 const handleKeyDownRef = useRef(handleKeyDown);
-useEffect(() => { handleKeyDownRef.current = handleKeyDown; });
+handleKeyDownRef.current = handleKeyDown; // render 期間同步賦值，避免 stale closure
 
 useEffect(() => {
   const stableHandler = (e) => handleKeyDownRef.current(e);
   document.addEventListener("keydown", stableHandler);
   return () => document.removeEventListener("keydown", stableHandler);
 }, []); // 只掛載一次
+```
+
+---
+
+### 區塊索引語意：timelineBlocks vs actionTable
+
+`timelineBlocks` 是視覺顯示用的衍生資料，其索引 **不能** 當作 `actionTable` 索引使用。
+兩個陣列的差異來自兩個來源：
+
+1. **相鄰同色合併**：`actionTable` 中相鄰且顏色相同的 entry 在產生 `timelineBlocks` 時會被合併為單一區塊
+2. **duration 過濾**：`actionTable` 中 `time ≥ duration` 的 entry 會被過濾，不產生對應的 timelineBlock
+
+因此 `timelineBlocks.length ≤ actionTable.length`，且兩者的索引不對齊。
+
+涉及 `multiSelectedBlocks[].blockIndex` 時，此值永遠是 **actionTable 的索引**。
+所有讀寫 `blockIndex` 的程式碼（handleCut、handleDelete、setLinear、paste 等）都應直接存取 `actionTable[armorIndex][partIndex][blockIndex]`，而非 `timelineBlocks[armorIndex][partIndex][blockIndex]`。
+
+在 Timeline.jsx 的 block 點擊處理（`handleMouseDown`）和 render loop 中，
+使用 `findIndex` 將 `timelineBlocks` index 轉換為 `atIdx`（actionTable index）後才進行 dispatch 或比對：
+
+```javascript
+// Timeline.jsx — 點擊時的索引轉換
+const partData = actionTable[armorIndex][partIndex];
+const atIdx = partData.findIndex(
+  entry => entry.time === block.startTime && !isBlackEntry(entry)
+);
+// dispatch 選中狀態時使用 atIdx（actionTable index）
+dispatch(updateMultiSelectedBlocks([{ armorIndex, partIndex, blockIndex: atIdx }]));
+
+// Render loop 中比對選中狀態也使用 atIdx
+const isCurrentlyInMultiSelect = atIdx !== -1 && multiSelectedBlocks.some(b =>
+  b.armorIndex === armorIndex && b.partIndex === partIndex && b.blockIndex === atIdx
+);
+```
+
+### 區塊點擊 → currentTime 同步
+
+點擊區塊時，除了更新選中狀態外，也會同步更新 Redux 的 `currentTime`。
+這是因為 `Timeline.jsx` 的 `handleMouseDown` 會呼叫 `e.stopPropagation()`，
+阻止事件冒泡到 waveform 的背景點擊處理器（該處理器負責更新 `currentTime`）。
+
+為確保後續操作（如 Cut、放置色塊）能取得正確的播放頭位置，
+點擊處理器中會直接 dispatch `updateCurrentTime`：
+
+```javascript
+// 使用區塊自身的 bounding rect 計算區塊內點擊位置對應的時間，
+// 避免依賴 timeline 容器寬度（flex 百分比寬度像素捨入會累積誤差）
+const blockRect = e.currentTarget?.getBoundingClientRect();
+if (blockRect && blockRect.width > 0) {
+  const clickFraction = (e.clientX - blockRect.left) / blockRect.width;
+  const rawTime = block.startTime + clickFraction * block.durationTime;
+  const clickTime = Math.round(rawTime / 50) * 50;
+  dispatch(updateCurrentTime(Math.max(0, Math.min(clickTime, duration))));
+}
+```
+
+### Duration 溢出防護
+
+`actionTable` 中可能存在時間超過音檔 `duration` 的 entry（來自舊版資料或編輯錯誤）。
+這些 entry 會導致 `timelineBlocks` 的最後一個區塊產生負的 `durationTime`（`duration - lastEntry.time < 0`）。
+
+在 flex 佈局中，負寬度被視為 0，但前段所有區塊的寬度總和會是 `lastEntry.time / duration > 100%`，
+觸發 `flex-shrink: 1`（預設）將所有區塊等比例壓縮。這造成：
+- 所有區塊的視覺位置比正確位置偏左
+- 紅線（使用 `(currentTime / duration) * canvasWidth`）不受壓縮影響，仍在正確位置
+- 紅線與區塊之間出現系統性偏移，偏移量隨時間位置增長
+
+**修復**：在產生 `timelineBlocks` 前過濾掉 `time ≥ duration` 的 entry：
+
+```javascript
+// Timeline.jsx — timelineBlocks 產生邏輯
+const validTimeline = partTimeline.filter(
+  (entry) => entry && typeof entry.time === "number" && entry.time < duration
+);
 ```
 
 ---
