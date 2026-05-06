@@ -513,13 +513,13 @@ const Timeline = forwardRef(
       // 點擊區塊時同步更新 currentTime，確保後續操作（如 Cut）能正確定位
       // 使用區塊自身的 bounding rect 計算區塊內點擊位置對應的時間，
       // 避免依賴 timeline 容器寬度（flex 百分比寬度像素捨入會累積誤差）
-      const blockRect = e.currentTarget?.getBoundingClientRect();
-      if (blockRect && blockRect.width > 0) {
-        const clickFraction = (e.clientX - blockRect.left) / blockRect.width;
-        const rawTime = block.startTime + clickFraction * block.durationTime;
-        const clickTime = Math.round(rawTime / 50) * 50;
-        dispatch(updateCurrentTime(Math.max(0, Math.min(clickTime, duration))));
-      }
+      // const blockRect = e.currentTarget?.getBoundingClientRect();
+      // if (blockRect && blockRect.width > 0) {
+      //   const clickFraction = (e.clientX - blockRect.left) / blockRect.width;
+      //   const rawTime = block.startTime + clickFraction * block.durationTime;
+      //   const clickTime = Math.round(rawTime / 50) * 50;
+      //   dispatch(updateCurrentTime(Math.max(0, Math.min(clickTime, duration))));
+      // }
 
       // Shift-click multi-selection logic
       const anchorBlock = multiSelectedBlocks[0];
