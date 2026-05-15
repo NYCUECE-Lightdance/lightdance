@@ -314,8 +314,12 @@ function AudioPlayer({ setButtonState, timelineRef }) {
       let timeline = draft[targetArmor][targetPart];
       if (!Array.isArray(timeline)) return;
   
-      // A. 產生平移後的點 (根據傳入的 offset)
-      const movedPoints = copiedData.map(p => ({ ...p, time: p.time + offset }));
+      // A. 產生平移後的點，有色區塊強制對齊 50ms
+      const movedPoints = copiedData.map(p => {
+        const newTime = p.time + offset;
+        const isBlack = (p.color?.R ?? 0) === 0 && (p.color?.G ?? 0) === 0 && (p.color?.B ?? 0) === 0;
+        return { ...p, time: isBlack ? newTime : Math.round(newTime / 50) * 50 };
+      });
       const newStart = movedPoints[0].time;
       const newEnd = movedPoints[movedPoints.length - 1].time;
   
@@ -364,8 +368,10 @@ function AudioPlayer({ setButtonState, timelineRef }) {
     const { armorIndex: targetArmor, partIndex: targetPart, blockIndex: targetBlockIdx } = multiSelectedBlocks[0];
     const targetTime = actionTable[targetArmor][targetPart][targetBlockIdx]?.time ?? 0;
     
-    // 計算偏移量：目標時間 - 複製內容的第一個點的時間
-    const offset = targetTime - clipboard.data[0].time;
+    // 計算偏移量：使用第一個有色區塊時間，避免黑點非對齊時間污染 offset
+    const firstColorPoint = clipboard.data.find(p => p.color?.R !== 0 || p.color?.G !== 0 || p.color?.B !== 0);
+    const firstTime = firstColorPoint ? firstColorPoint.time : clipboard.data[0].time;
+    const offset = targetTime - firstTime;
 
     executeAdvancedPaste(targetArmor, targetPart, offset, clipboard.data);
   };

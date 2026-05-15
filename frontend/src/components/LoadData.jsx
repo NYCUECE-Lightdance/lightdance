@@ -6,6 +6,7 @@ import { useDispatch, useSelector } from "react-redux";
 import { updateActionTable, updateMusicFilename } from "../redux/actions.js";
 import { API_ENDPOINTS } from "../config/api.js";
 import { getAllLocalBackups } from "../utils/indexedDB.js";
+import { sanitizeActionTableTimes } from "../utils/sanitizeActionTable.js";
 
 const TOTAL_PARTS = 22;
 const defaultPartEntry = () => [{ time: 0, color: { R: 0, G: 0, B: 0, A: 1 }, linear: 0 }];
@@ -133,7 +134,9 @@ function Dropdown({ userName, setIsDirty, isDirty, setIsLoaded, isLoaded }) {
   const handleLoadLocal = (backup) => {
     if (backup.rawData) {
       // 根據你的資料結構解構
-      const actionData = normalizeActionTable(backup.rawData.actionTable || backup.rawData);
+      const actionData = sanitizeActionTableTimes(
+        normalizeActionTable(backup.rawData.actionTable || backup.rawData)
+      );
       const musicFile = backup.rawData.music_filename;
 
       dispatch(updateActionTable(actionData));
@@ -185,6 +188,8 @@ function Dropdown({ userName, setIsDirty, isDirty, setIsLoaded, isLoaded }) {
         }
 
         actionData = normalizeActionTable(actionData);
+        // 載入時強制對齊有色區塊時間至 50ms，修復已污染的舊資料
+        actionData = sanitizeActionTableTimes(actionData);
         console.log("Final ActionData:", actionData);
         console.log("Final MusicFilename:", musicFilename);
 
