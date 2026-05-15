@@ -22,6 +22,7 @@ import ShortcutModal from "../components/ShortcutModal.jsx";
 import { API_ENDPOINTS } from "../config/api.js";
 import { localMusicFiles } from "../components/audio/musicData.js";
 import { saveLocalBackup, cleanExpiredBackups, deleteLocalBackup } from "../utils/indexedDB.js";
+import { sanitizeActionTableTimes } from "../utils/sanitizeActionTable.js";
 
 const generateInitialTable = () => Array.from({ length: 7 }, () =>
   Array.from({ length: 22 }, () => [
@@ -214,7 +215,12 @@ function Home({ rgba, setRgba, setButtonState }) {
     console.log("UPLOAD_ITEMS:", API_ENDPOINTS.UPLOAD_ITEMS);
     setIsDirty(false);
 
-    const rawDataString = JSON.stringify(data);
+    // 上傳前將有色區塊時間強制對齊 50ms，確保 raw_json 資料乾淨
+    const sanitizedData = {
+      ...data,
+      actionTable: sanitizeActionTableTimes(data.actionTable),
+    };
+    const rawDataString = JSON.stringify(sanitizedData);
     const sizeInMB = (rawDataString.length / 1024 / 1024).toFixed(2);
     console.log(`Output raw data size: ${sizeInMB} MB`);
 

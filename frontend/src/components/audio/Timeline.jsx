@@ -126,10 +126,12 @@ const Timeline = forwardRef(
                 }
 
                 // 套用 dt 後顯式夾緊，確保與左右 block 保持 MIN_BLOCK_GAP_MS 間距
-                const newStart = Math.max(
+                const clampedStart = Math.max(
                   leftBound + MIN_BLOCK_GAP_MS,
                   Math.min(rightBound - blockDur - MIN_BLOCK_GAP_MS, originalStart + dt)
                 );
+                // 強制對齊 50ms，防止左邊界黑點非對齊時間污染有色區塊
+                const newStart = Math.round(clampedStart / 50) * 50;
                 const newEnd = newStart + blockDur;
 
                 pd[i].time = newStart;
@@ -208,10 +210,12 @@ const Timeline = forwardRef(
                 }
 
                 // 套用 dt 後顯式夾緊，確保與左右 block 保持 MIN_BLOCK_GAP_MS 間距
-                const newStart = Math.max(
+                const clampedStart = Math.max(
                   leftBound + MIN_BLOCK_GAP_MS,
                   Math.min(rightBound - blockDur - MIN_BLOCK_GAP_MS, originalStart + dt)
                 );
+                // 強制對齊 50ms，防止左邊界黑點非對齊時間污染有色區塊
+                const newStart = Math.round(clampedStart / 50) * 50;
                 const newEnd = newStart + blockDur;
 
                 pd[i].time = newStart;
