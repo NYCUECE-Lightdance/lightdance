@@ -1,5 +1,11 @@
 // 各舞者配件設定（armorIndex 從 0 開始，舞者N = armorIndex N-1）
 export const ACCESSORY_CONFIGS = {
+  1: {
+    name: "雨傘",
+    groups: [
+      { label: "傘", indices: [14, 15] },
+    ],
+  },
   2: {
     name: "螢光繩",
     groups: [
