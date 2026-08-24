@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState, memo } from "react";
+import React, { useEffect, useMemo, useRef, useState, memo } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { API_ENDPOINTS } from "../../config/api.js";
 import { localMusicMap } from "./musicData.js";
@@ -70,6 +70,17 @@ const AudioWaveform = ({
   const playbackRate = useSelector((state) => state.profiles.playbackRate); // 獲取播放速率
   const [canvasWidth, setCanvasWidth] = useState(0); // 設置 canvas 寬度
   const [canvasHeight, setCanvasHeight] = useState(0); // 設置 canvas 高度
+
+  // 全曲的峰值上限，供繪製時正規化用。
+  // 用迴圈而不是 Math.max(...fullPeaks)：fullPeaks 有 20 萬個元素，展開成參數會爆堆疊。
+  const globalMaxPeak = useMemo(() => {
+    if (!fullPeaks || fullPeaks.length === 0) return 1;
+    let max = 0;
+    for (let i = 0; i < fullPeaks.length; i++) {
+      if (fullPeaks[i] > max) max = fullPeaks[i];
+    }
+    return max > 0 ? max : 1;
+  }, [fullPeaks]);
   const [hoverTime, setHoverTime] = useState(null); // 懸停顯示的時間
   const [hoverPosition, setHoverPosition] = useState(null); // 懸停的 X 位置
   const [viewportWidth, setViewportWidth] = useState(0);
@@ -103,35 +114,28 @@ const AudioWaveform = ({
     return () => scrollRef.current?.removeEventListener("scroll", handleScroll);
   }, [scrollRef]);
 
-  // 監聽視窗大小變化，同步更新 canvasWidth（紅線定位依賴此值）
+  // 追蹤容器尺寸，同步更新 canvasWidth（紅線定位依賴此值）。
+  //
+  // 用 ResizeObserver 而不是 window resize：左側工具列開合、timeline 條數增減、
+  // 縮放倍率改變，都會讓容器寬度變化但視窗大小完全沒動，window resize 收不到，
+  // 結果就是波形和紅線用著過期的寬度，位置整個對不上。
   useEffect(() => {
-    const updateDimensions = () => {
-      if (scrollRef.current) {
-        setViewportWidth(scrollRef.current.clientWidth);
-      }
-      if (containerRef.current) {
-        setCanvasWidth(containerRef.current.clientWidth);
-        setCanvasHeight(containerRef.current.clientHeight || 200);
-      }
-    };
+    const scrollEl = scrollRef.current;
+    const containerEl = containerRef.current;
+    if (!scrollEl || !containerEl) return;
 
-    window.addEventListener("resize", updateDimensions);
+    const updateDimensions = () => {
+      setViewportWidth(scrollEl.clientWidth);
+      setCanvasWidth(containerEl.clientWidth);
+      setCanvasHeight(containerEl.clientHeight || 200);
+    };
     updateDimensions(); // 初始設定
 
-    return () => {
-      window.removeEventListener("resize", updateDimensions);
-    };
-  }, []);
-
-  // 設置 canvas 大小
-  useEffect(() => {
-    if (containerRef.current) {
-      const containerWidth = containerRef.current.clientWidth;
-      const containerHeight = containerRef.current.clientHeight || 200; // 預設高度 200
-      setCanvasWidth(containerWidth); // 設置 canvas 寬度
-      setCanvasHeight(containerHeight); // 設置 canvas 高度
-    }
-  }, [containerRef, zoomValue]);
+    const observer = new ResizeObserver(updateDimensions);
+    observer.observe(scrollEl);
+    observer.observe(containerEl);
+    return () => observer.disconnect();
+  }, [scrollRef, containerRef, zoomValue]);
 
   // Handle playback
   useEffect(() => {
@@ -181,22 +185,9 @@ const AudioWaveform = ({
     }
   }, [playbackRate]);
 
-  useEffect(() => {
-    if (scrollRef?.current && duration > 0) {
-      const container = scrollRef.current;
-      const progress = currentTime / duration; // 當前播放比例
-      const newScrollLeft = progress * canvasWidth - container.clientWidth / 2;
-
-      // 最大 scrollLeft：canvas 寬度 - 容器寬度
-      const maxScrollLeft = canvasWidth - container.clientWidth;
-
-      // Clamp 範圍 [0, maxScrollLeft]
-      container.scrollLeft = Math.max(
-        0,
-        Math.min(newScrollLeft, maxScrollLeft)
-      );
-    }
-  }, [zoomValue, canvasWidth, duration, scrollRef]);
+  // 「縮放後要捲到哪裡」已集中由 AudioPlayer 處理（見 pendingZoomAnchorRef）。
+  // 原本這裡也有一份會強制把播放頭置中，且 deps 含 canvasWidth，
+  // 於是 ResizeObserver 更新寬度後會再跑一次，把滾輪縮放的錨點蓋掉。
 
   useEffect(() => {
     if (!url) return;
@@ -233,13 +224,13 @@ const AudioWaveform = ({
   //   }
   // }, [fullPeaks, zoomValue, scrollPosition, currentTime]);
 
-  // 根據當前播放時間更新波形進度
+  // 重繪波形。canvasHeight / globalMaxPeak 現在也是繪製的輸入，必須一起列入相依。
   useEffect(() => {
     if (fullPeaks && fullPeaks.length > 0) {
       const canvas = canvasRef.current;
       drawWaveforms(canvas);
     }
-  }, [fullPeaks, zoomValue, scrollPosition, viewportWidth]);
+  }, [fullPeaks, zoomValue, scrollPosition, viewportWidth, canvasHeight, globalMaxPeak]);
 
   // 使用 requestAnimationFrame 更新進度（分層：60fps DOM + 25fps Redux）
   useEffect(() => {
@@ -305,36 +296,45 @@ const AudioWaveform = ({
   // }, [playbackRate]);
 
   function drawWaveforms(canvas) {
-    const context = canvas.getContext("2d");
-    const height = canvas.height;
-    const width = canvas.width;
-    context.clearRect(0, 0, width, height);
-
     const container = containerRef.current;
-    context.clearRect(0, 0, scrollRef.current.clientWidth, height); // 清空畫布
+    const scroll = scrollRef.current;
+    if (!canvas || !container || !scroll) return;
+
+    const cssWidth = scroll.clientWidth;
+    const cssHeight = canvasHeight;
+    if (cssWidth <= 0 || cssHeight <= 0) return;
+
+    // 依裝置像素比放大畫布的實際解析度。
+    // 不這樣做的話，在 dpr=2 的 Retina 螢幕上等於用一半的解析度去畫，波形是糊的。
+    // 畫布的 CSS 尺寸維持不變，只有背後的點陣尺寸變大，再用 setTransform 把
+    // 繪圖座標換回 CSS px，下面所有計算就都不必理會 dpr。
+    const dpr = Math.min(2, window.devicePixelRatio || 1);
+    const pixelW = Math.round(cssWidth * dpr);
+    const pixelH = Math.round(cssHeight * dpr);
+    if (canvas.width !== pixelW) canvas.width = pixelW;
+    if (canvas.height !== pixelH) canvas.height = pixelH;
+    canvas.style.width = `${cssWidth}px`;
+    canvas.style.height = `${cssHeight}px`;
+
+    const context = canvas.getContext("2d");
+    context.setTransform(dpr, 0, 0, dpr, 0, 0);
+    context.clearRect(0, 0, cssWidth, cssHeight);
     context.fillStyle = "#dbf0e4"; // 設置波形顏色
-    const targetBarCount = 1000;
+
+    // 柱條數跟著實際可用寬度走，放大時細節才會跟著變多（原本固定 1000 條）
+    const targetBarCount = Math.max(1, Math.round(cssWidth));
     const startIndex = Math.floor(
-      (scrollRef.current?.scrollLeft / container.offsetWidth) * fullPeaks.length
+      (scroll.scrollLeft / container.offsetWidth) * fullPeaks.length
     ); // 計算起始索引
     const endIndex = Math.floor(
-      ((scrollRef.current?.scrollLeft + scrollRef.current.offsetWidth) /
-        container.offsetWidth) *
+      ((scroll.scrollLeft + scroll.offsetWidth) / container.offsetWidth) *
         fullPeaks.length
-    ); // 計算起始索引
-
-    const result = [];
+    ); // 計算結束索引
 
     const visiblePeaks = fullPeaks.slice(startIndex, endIndex);
-    console.log(
-      "startIndex",
-      startIndex,
-      "endIndex",
-      endIndex,
-      "length",
-      endIndex - startIndex
-    );
     const factor = (endIndex - startIndex) / targetBarCount; // 計算縮放因子
+    const barWidth = cssWidth / targetBarCount; // 每個柱條的寬度
+    const midY = cssHeight / 2;
 
     for (let i = 0; i < targetBarCount; i++) {
       const start = Math.floor(i * factor); // 計算起始索引
@@ -344,29 +344,13 @@ const AudioWaveform = ({
         ? chunk.reduce((sum, v) => sum + v, 0) / chunk.length
         : 0;
 
-      // result.push(min);
-      result.push(avg); // 使用平均值
-    }
-    // console.log("result", result);
+      // 用全曲的峰值上限正規化。原本是對「目前可見範圍」取最大值，
+      // 於是捲到安靜的段落時波形會被撐到滿版，看起來跟副歌一樣大聲，
+      // 完全失去對照的意義（getPeaks 產生資料時本來就已經做過全曲正規化了）。
+      const barHeight = (Math.min(1, avg / globalMaxPeak) * cssHeight) / 2;
 
-    const maxPeak = Math.max(...result); // 找到峰值的最大值
-    const barWidth = scrollRef.current.offsetWidth / targetBarCount; // 每個柱條的寬度
-
-    for (let i = 0; i < result.length; i++) {
-      const peak = result[i];
-      const normalizedPeak = peak / maxPeak; // 正規化峰值
-      const barHeight = (normalizedPeak * height) / 2; // 計算柱條高度
-
-      // 繪製上半部分波形
-      context.fillRect(
-        i * barWidth,
-        height / 2 - barHeight,
-        barWidth,
-        barHeight
-      );
-
-      // 繪製下半部分波形（鏡像）
-      context.fillRect(i * barWidth, height / 2, barWidth, barHeight);
+      context.fillRect(i * barWidth, midY - barHeight, barWidth, barHeight);
+      context.fillRect(i * barWidth, midY, barWidth, barHeight); // 鏡像的下半部
     }
   }
 
@@ -431,14 +415,14 @@ const AudioWaveform = ({
         controls
         style={{ display: "none" }}
       /> */}
+      {/* width / height 交給 drawWaveforms 依 devicePixelRatio 設定，這裡不指定，
+          否則 React 會用 CSS px 覆蓋掉放大過的解析度 */}
       <canvas
         ref={canvasRef}
-        width={scrollRef.current?.clientWidth}
         style={{
           position: "absolute", // 或 "absolute" / "sticky" 根據你的佈局
           left: scrollRef.current?.scrollLeft || 0,
         }}
-        height={canvasHeight}
         onClick={handleWaveformClick}
         onMouseMove={handleMouseMove}
         onMouseLeave={handleMouseLeave}

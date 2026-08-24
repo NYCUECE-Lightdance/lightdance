@@ -365,8 +365,10 @@ function AudioPlayer({ setButtonState, timelineRef }) {
   const handlePasteAlignedToTarget = () => {
     if (!clipboard || multiSelectedBlocks.length === 0) return;
 
-    const { armorIndex: targetArmor, partIndex: targetPart, blockIndex: targetBlockIdx } = multiSelectedBlocks[0];
-    const targetTime = actionTable[targetArmor][targetPart][targetBlockIdx]?.time ?? 0;
+    const { armorIndex: targetArmor, partIndex: targetPart, blockIndex: targetBlockIdx, pasteTime } = multiSelectedBlocks[0];
+    // pasteTime 只有「點在空白處」時才會有值，代表使用者實際點擊的時間點；
+    // 點在既有 block 上時維持原本行為，對齊到該 block 的起點。
+    const targetTime = pasteTime ?? (actionTable[targetArmor][targetPart][targetBlockIdx]?.time ?? 0);
     
     // 計算偏移量：使用第一個有色區塊時間，避免黑點非對齊時間污染 offset
     const firstColorPoint = clipboard.data.find(p => p.color?.R !== 0 || p.color?.G !== 0 || p.color?.B !== 0);
@@ -383,10 +385,20 @@ function AudioPlayer({ setButtonState, timelineRef }) {
   const keyPress = useRef(false);
 
   const handleKeyDown = (event) => {
-    if (keyPress.current) return; // 避免重複觸發
+    // 節流是為了擋住按住不放時的自動重複，但修飾鍵本身不該佔用額度：
+    // 按 Ctrl+C 時 Ctrl 會先觸發一次 keydown，若讓它吃掉 100ms 的額度，
+    // 緊接著按下的 C / V / Z 就會被整個丟掉——而那正是正常打字的速度，
+    // 結果就是 Ctrl 系列快捷鍵時靈時不靈。
+    const isModifierKey =
+      event.key === "Control" || event.key === "Shift" ||
+      event.key === "Alt" || event.key === "Meta";
 
-    keyPress.current = true;
-    setTimeout(() => (keyPress.current = false), 100);
+    if (!isModifierKey) {
+      if (keyPress.current) return; // 避免重複觸發
+
+      keyPress.current = true;
+      setTimeout(() => (keyPress.current = false), 100);
+    }
 
     console.log(
       "Pressed key:",
@@ -490,7 +502,9 @@ function AudioPlayer({ setButtonState, timelineRef }) {
       handleSetLinear();
     }
 
-    if (["1", "2", "3", "4", "5", "6", "7", "8"].includes(event.key)) {
+    // 必須排除 Ctrl：Ctrl + 數字是「設定透明度」，
+    // 沒擋掉的話按 Ctrl+3 會先選走收藏色，再設透明度，一次觸發兩個功能。
+    if (!event.ctrlKey && ["1", "2", "3", "4", "5", "6", "7", "8"].includes(event.key)) {
       console.log("Number key pressed.");
       event.preventDefault();
       handleFavoriteColorChoose(parseInt(event.key) - 1);
@@ -793,6 +807,82 @@ function AudioPlayer({ setButtonState, timelineRef }) {
       )
     );
   };
+
+  // 縮放錨點：記下滾輪當下游標對應的「時間比例」與螢幕位置，
+  // 等 zoomLevel 造成的寬度變化套用到 DOM 之後，再把捲動位置調回去。
+  const pendingZoomAnchorRef = useRef(null);
+
+  useEffect(() => {
+    const scrollEl = scrollRef.current;
+    if (!scrollEl) return;
+
+    const handleWheelZoom = (e) => {
+      // 純滾輪保留給原本的捲動（timeline 條數多時要能上下捲）
+      // Ctrl / Cmd + 滾輪才是縮放；Mac 觸控板的雙指縮放也是送出這種事件
+      if (!e.ctrlKey && !e.metaKey) return;
+      e.preventDefault(); // 擋掉瀏覽器自己的頁面縮放
+
+      const viewW = scrollEl.clientWidth;
+      if (viewW <= 0) return;
+
+      // deltaY 的單位會隨裝置不同（像素 / 行 / 頁），先換算成像素再用
+      const unitPx = e.deltaMode === 1 ? 16 : e.deltaMode === 2 ? viewW : 1;
+      const deltaPx = e.deltaY * unitPx;
+      if (deltaPx === 0) return;
+
+      const cursorX = Math.max(
+        0,
+        Math.min(viewW, e.clientX - scrollEl.getBoundingClientRect().left)
+      );
+
+      setZoomLevel((prev) => {
+        const prevZoom = Number(prev) || 1;
+        // 乘法步進：不管目前放到多大，每滾一格的視覺變化量都差不多。
+        // （+/- 按鈕是固定 0.05 的加法步進，放大後幾乎感覺不到變化）
+        const next = prevZoom * Math.pow(1.0015, -deltaPx);
+        const clamped = Math.min(MAXZOOMVALUE, Math.max(1, Number(next.toFixed(3))));
+        if (clamped === prevZoom) return prev;
+
+        const totalW = viewW * prevZoom;
+        pendingZoomAnchorRef.current = {
+          ratio: totalW > 0
+            ? Math.max(0, Math.min(1, (scrollEl.scrollLeft + cursorX) / totalW))
+            : 0,
+          cursorX,
+        };
+        return clamped;
+      });
+    };
+
+    // 必須用原生的非被動監聽器：React 的 onWheel 在 root 上是以 passive 註冊，
+    // 在裡面呼叫 preventDefault 不會生效，瀏覽器仍然會縮放整個頁面。
+    scrollEl.addEventListener("wheel", handleWheelZoom, { passive: false });
+    return () => scrollEl.removeEventListener("wheel", handleWheelZoom);
+  }, []);
+
+  // 縮放倍率改變後決定捲到哪裡。這是唯一決定此事的地方，
+  // 分散在兩處會互相覆蓋（波形那邊原本也有一份）。
+  useEffect(() => {
+    const scrollEl = scrollRef.current;
+    if (!scrollEl) return;
+
+    const anchor = pendingZoomAnchorRef.current;
+    pendingZoomAnchorRef.current = null;
+
+    const viewW = scrollEl.clientWidth;
+    const totalW = viewW * (Number(zoomLevel) || 1);
+    const maxScroll = Math.max(0, totalW - viewW);
+
+    // 滾輪縮放：把游標下的那個時間點留在原本的螢幕位置
+    // 其他方式（+/- 按鈕、滑桿）：維持原本行為，讓播放頭置中
+    const target = anchor
+      ? anchor.ratio * totalW - anchor.cursorX
+      : duration > 0
+        ? (currentTime / duration) * totalW - viewW / 2
+        : 0;
+
+    scrollEl.scrollLeft = Math.max(0, Math.min(maxScroll, target));
+  }, [zoomLevel]);
 
   const handleVolumeChange = (event) => {
     const newVolume = event.target.value;
