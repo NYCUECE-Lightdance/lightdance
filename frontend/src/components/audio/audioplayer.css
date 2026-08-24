@@ -103,7 +103,7 @@
   all: unset; /* 重置所有默認樣式 */
   display: flex;
   justify-content: flex-end;
-  gap: 40px;
+  gap: 10px;
   height: 10%;
   width: 100%;
   align-items: center;
@@ -141,7 +141,7 @@
   color: rgb(255, 255, 255); /* 和按鈕一致的文字顏色 */
   text-align: center;
   border-radius: 5px;
-  font-size: 20px;
+  font-size: 13px;
   z-index: 10;
   transition: opacity 0.2s ease-in-out;
   top: -12px; /* 向上移動，位於按鈕上方 */
@@ -185,18 +185,18 @@
 .play-control {
   display: flex;
   align-items: center;
-  gap: 10px;
-  width: 250px;
+  gap: 8px;
+  width: 200px;
 }
 .zoom-controls {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 6px;
 }
 .volume-control {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 6px;
   margin-right: 1%;
 }
 .dropdown {
@@ -207,11 +207,11 @@
   appearance: none; /* 移除默认样式 */
   background-color: rgb(49, 47, 47); /* 預設背景色 */
   color: rgb(150, 146, 146);
-  width: 60px; /* 下拉框寬度 */
+  width: 54px; /* 下拉框寬度 */
   height: 100%; /* 下拉框高度 */
   border-radius: 5px; /* 圆角 */
-  font-size: 16px; /* 字体大小 */
-  border: 10px solid transparent;
+  font-size: 13px; /* 字体大小 */
+  border: 6px solid transparent;
 }
 .dropdown-select:hover,
 .dropdown-select:hover {
@@ -219,8 +219,8 @@
 }
 
 .play-button {
-  width: 45px;
-  height: 45px;
+  width: 36px;
+  height: 36px;
   background-color: rgb(49, 47, 47); /* 預設背景色 */
   color: rgb(150, 146, 146);
   border: none;
@@ -246,13 +246,13 @@
 
 .current-time-box {
   color: white;
-  width: 80px;      /* 根據你的格式固定寬度 */
+  width: 62px;      /* 根據你的格式固定寬度 */
   text-align: right; /* 靠右對齊，這樣左邊增加位數時不會推擠到右邊 */
 }
 
 .duration-box {
   color: white;
-  width: 80px;
+  width: 62px;
   text-align: left;  /* 總長度靠左對齊 */
 }
 
@@ -263,7 +263,7 @@
 }
 
 .volume-slider {
-  width: 100px; /* 滑桿寬度 */
+  width: 76px; /* 滑桿寬度 */
   height: 5px; /* 滑桿高度 */
   outline: none; /* 移除外框 */
   border-radius: 5px;
@@ -281,7 +281,7 @@
 .zoom-slider {
   -webkit-appearance: none; /* 清除默認樣式 */
   appearance: none;
-  width: 100px; /* 滑桿寬度 */
+  width: 76px; /* 滑桿寬度 */
   height: 5px; /* 滑桿高度 */
   background-color: rgb(49, 47, 47); /* 灰色背景 */
   outline: none; /* 移除外框 */
@@ -312,9 +312,9 @@
   background-color: rgb(49, 47, 47); /* 預設灰色背景 */
   color: rgb(150, 146, 146);
   border: none;
-  width: 30px; /* 按鈕寬度 */
-  height: 30px; /* 按鈕高度 */
-  line-height: 30px; /* 讓文字垂直居中 */
+  width: 26px; /* 按鈕寬度 */
+  height: 26px; /* 按鈕高度 */
+  line-height: 26px; /* 讓文字垂直居中 */
   border-radius: 50%; /* 圓形按鈕 */
   display: flex;
   justify-content: center;
@@ -322,7 +322,7 @@
   cursor: pointer;
   font-family: "Arial Black", sans-serif;
   font-weight: 900; /* 最大的粗體值 */
-  font-size: 20px; /* 調整字體大小 */
+  font-size: 16px; /* 調整字體大小 */
   box-sizing: border-box; /* 確保寬高包含邊框和內邊距 */
   transition: background-color 0.3s ease, color 0.3s ease; /* 添加過渡效果 */
 }

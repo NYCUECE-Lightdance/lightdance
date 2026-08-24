@@ -275,9 +275,17 @@ const Armor = (props) => {
     <div className="armor-container" onClick={() => dispatch(updateSelectedDancer(myId))}>
       {/* 舞者編號標籤 */}
       <div className="dancer-label">舞者 {myId + 1}</div>
-      <svg width="242" height="480" viewBox="10 0 222 480">
-        {/* 將所有 SVG 內容向下移動 35px，為標籤留出空間 */}
-        <g transform="translate(0, 35)">
+      {/*
+        viewBox 只框住實際有圖形的範圍（x 32~212、y 1~329），
+        原本 "10 0 222 480" 的上下左右留了大量空白，等比縮放時會白白浪費容器空間。
+        不指定 width/height，改由 CSS 決定尺寸，舞者才能隨視窗大小等比縮放。
+      */}
+      <svg
+        className="armor-svg"
+        viewBox="32 1 180 328"
+        preserveAspectRatio="xMidYMid meet"
+      >
+        <g>
         {/*0:hat*/}
         {isSelected(0) && (
           <path

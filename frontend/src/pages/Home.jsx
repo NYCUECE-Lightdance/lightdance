@@ -14,8 +14,6 @@ import { persistor } from "../redux/store.js";
 import Dropdown from "../components/LoadData.jsx";
 import "bootstrap/dist/js/bootstrap.bundle.min.js";
 import "bootstrap/dist/css/bootstrap.min.css";
-import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { faRobot } from "@fortawesome/free-solid-svg-icons";
 import { set } from "lodash";
 import { LuPlus, LuMusic, LuChevronRight } from "react-icons/lu";
 import ShortcutModal from "../components/ShortcutModal.jsx";
@@ -604,10 +602,8 @@ function Home({ rgba, setRgba, setButtonState }) {
               <span className="action-text">New Project</span>
             </div>
           </div>
-          <button className="device-info-button">
-            <FontAwesomeIcon icon={faRobot} size="lg" />
-          </button>
-          <button type="button" className="title" onClick={handleLogout} style={{ backgroundColor: 'black', color: 'white' }}>NYCUEE Light Dance</button>
+          {/* 純標題，不掛任何行為。登出請用右邊的 Logout 按鈕。 */}
+          <div className="title">NYCUEE Light Dance</div>
           {listitem}
           <div className="people-container">
             <People />

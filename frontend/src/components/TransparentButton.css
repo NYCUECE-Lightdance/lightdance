@@ -3,9 +3,9 @@
   text-align: center;
 }
 .box {
-  width: 120px;
-  height: 50px;
-  margin-top: 10%;
+  width: 108px;
+  height: 32px;
+  margin-top: 8px;
   display: flex;
   flex-direction: row;
   z-index: 20;
@@ -23,7 +23,8 @@
 .add,
 .count {
   display: inline-block;
-  font-size: 15px;
+  font-size: 13px;
+  line-height: 30px;
 }
 .minus,
 .num,
@@ -33,11 +34,11 @@
   cursor: pointer;
 }
 .num {
-  width: 40px;
+  width: 36px;
 }
 .minus,
 .add {
-  width: 40px;
+  width: 36px;
   -webkit-user-select: none;
   user-select: none;
 }

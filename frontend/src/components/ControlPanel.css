@@ -1,3 +1,10 @@
+/*
+  z-index 要大於 .people-container 的 100。
+  工具列的 tooltip 是往上彈出的，會超出 control panel 的上緣進到人物區塊的範圍；
+  tooltip 自己雖然設了很高的 z-index，但它被關在 .control-panel 這個堆疊環境裡，
+  真正比大小的是 .control-panel 與 .people-container，所以要在這一層調高才有用。
+  兩者本身在版面上不重疊（35% / 65% 上下切分），調高不會蓋到人物區塊。
+*/
 .control-panel {
   flex-direction: column; /* 垂直排列 */
   height: 65%;
@@ -9,7 +16,7 @@
   align-items: center;
   justify-content: center;
   background: rgb(0, 0, 0);
-  z-index: 0;
+  z-index: 200;
 }
 
 .downpart-container {
@@ -43,8 +50,8 @@
   border: none;
   border-radius: 5px;
   cursor: pointer;
-  margin-right: 20px;
-  margin-bottom: 20px;
+  margin-right: 10px;
+  margin-bottom: 8px;
   gap: 5px;
 }
 .choosetimeline:hover,
@@ -70,8 +77,8 @@
   text-align: center;
   align-items: center; /* 垂直置中對齊 */
   border-radius: 5px;
-  padding: 5px 10px;
-  font-size: 20px;
+  padding: 4px 8px;
+  font-size: 13px;
   z-index: 10;
   transition: opacity 0.2s ease-in-out;
   top: -4px; /* 向上移動，位於按鈕上方 */
@@ -130,8 +137,8 @@
 .toggle-timeline-visibility-button {
   background-color: rgb(49, 47, 47);
   color: rgb(150, 146, 146);
-  height: 28px;
-  width: 28px;
+  height: 22px;
+  width: 22px;
   border: none;
   border-radius: 5px;
 }
@@ -139,7 +146,7 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 10px;
+  gap: 3px;
 }
 
 .timeline-settings-block {
@@ -149,7 +156,7 @@
   align-items: center;
   justify-content: center;
   overflow: hidden;
-  gap: 10px;
+  gap: 6px;
 }
 
 .waveform-setting-block {
@@ -162,11 +169,11 @@
   appearance: none; /* 移除浏览器默认样式 */
   background-color: rgb(49, 47, 47); /* 預設背景色 */
   color: rgb(150, 146, 146);
-  height: 30px;
+  height: 24px;
   width: 50px;
-  border: 5px solid transparent;
+  border: 3px solid transparent;
   border-radius: 5px; /* 圆角 */
-  font-size: 16px; /* 字体大小 */
+  font-size: 12px; /* 字体大小 */
   outline: none; /* 去掉焦点边框 */
 }
 
@@ -178,12 +185,13 @@
   position: fixed;
   display: flex;
   justify-content: space-between;
-  top: 35%;
+  top: 8%;
   left: 50%;
   transform: translateX(-50%);
   color: rgb(165, 165, 165);
-  width: 24%;
-  max-height: 65vh;
+  /* 表格固定 8 欄，改用實際需要的寬度，不再跟著視窗寬度縮放 */
+  width: min(92vw, 780px);
+  max-height: 84vh;
   overflow: hidden;
   border-radius: 10px;
   background-color: rgba(0, 0, 0, 0.9);
@@ -215,7 +223,7 @@
 
 .modal-table-scroll {
   height: 630px;
-  max-height: calc(65vh - 110px);
+  max-height: calc(84vh - 110px);
   overflow-y: auto;
 }
 
@@ -252,13 +260,13 @@
   color: #ffffff; /* 悬停背景色 */
 }
 .checkbox-button {
-  width: 80px;
-  height: 30px;
+  width: 74px;
+  height: 26px;
   border: 1px solid #ccc;
   border-radius: 5px;
   background-color: white;
   color: black;
-  font-size: 16px;
+  font-size: 13px;
   cursor: pointer;
   text-align: center;
 }
