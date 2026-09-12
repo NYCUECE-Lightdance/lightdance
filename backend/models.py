@@ -36,7 +36,14 @@ class PlayerData(BaseModel):
     legR: int
     shoeL: int
     shoeR: int
-    board: int
+    acc0: int
+    acc1: int
+    acc2: int
+    acc3: int
+    acc4: int
+    acc5: int
+    acc6: int
+    acc7: int
 
 
 class Player(BaseModel):
@@ -70,6 +77,29 @@ class RAW(BaseModel):
     user: str
     last_updated_time: str
     raw_data: str
+
+
+class FullUpload(BaseModel):
+    """
+    完整的上傳資料格式
+    同時包含原始資料與處理後供播放用的資料
+    """
+    raw_data: str
+    players: List[List[PlayerData]]
+    music_filename: Union[str, int]
+
+
+class RegisterRequest(BaseModel):
+    """
+    建立帳號。
+
+    `invite_code` 是**必填**的，值來自後端的 `REGISTER_CODE`（見 main.py 的
+    /api/register）。型別留 `None` 是因為「沒填」與「填錯」都要走到那支端點
+    才判得出來——這裡擋掉的話回的是 Pydantic 的 422 而不是那句看得懂的訊息。
+    """
+    username: str
+    password: str
+    invite_code: Union[str, None] = None
 
 
 class Item(BaseModel):

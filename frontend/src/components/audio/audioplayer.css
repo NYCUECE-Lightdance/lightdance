@@ -8,24 +8,29 @@
 
 .audio-player-container {
   position: absolute;
-  background-color: rgb(21, 21, 21); /* 灰色背景 */
+  background-color: var(--bg-panel); /* 灰色背景 */
   display: flex;
   flex-direction: column;
-  right: 0.3%;
-  width: 85%;
+  /* 左緣接在軌名欄之後、右緣與上半部同一條線。先前是 `width: 85%`，
+     而軌名欄是 15%——1600 下兩者重疊 5px，播放器蓋在軌名欄上面 */
+  left: var(--gutter-w);
+  right: var(--page-inset);
   height: 100%;
   z-index: 10;
 }
 
 .scroll-container {
-  position: absolute;
-  bottom: 0;
+  /*
+   * 原本是 `position: absolute; bottom: 0; height: 90%`——工具列一換行就會被
+   * 蓋住。改成正常的 flex 項目吃掉剩餘高度，工具列要幾排都不會互相干擾。
+   */
+  flex: 1 1 auto;
+  min-height: 0;
   width: 100%;
-  height: 90%;
   overflow-x: auto;
   overflow-y: hidden;
   flex-direction: column;
-  border-top: 4px solid rgb(49, 47, 47);
+  border-top: 4px solid var(--bg-control);
 }
 
 .main-controlPanel {
@@ -33,15 +38,29 @@
   height: 100%;
   display: flex;
   flex-direction: column;
+  position: relative;
+  /*
+   * 底色從 `.timeline-container` 搬上來，`BeatGrid` 才有地方待。
+   *
+   * 格線是**墊在軌道底下**的參考線，而軌道容器原本帶著一層不透明的底色——
+   * 格線畫在它下面就完全看不到，畫在它上面又會蓋住色塊。底色上移之後，
+   * 軌道區與格線是同一層的兄弟節點，DOM 順序決定誰在上面（格線在前）。
+   */
+  background-color: var(--bg-canvas);
+  border-radius: 10px;
 }
 
 .timeline-container {
+  /* 框選的矩形是這一層的絕對定位子元素，座標才會跟著垂直捲動一起走 */
+  position: relative;
   width: 100%;
   height: 80%;
-  background-color: rgb(0, 0, 0);
+  /* 底色在 `.main-controlPanel`，這裡保持透明讓節拍格線透出來 */
   overflow-y: scroll;
   border-radius: 10px;
   padding-bottom: 10px;
+  display: flex;
+  flex-direction: column;
 }
 
 .timeline-container::-webkit-scrollbar {
@@ -49,22 +68,23 @@
 }
 
 .timeline-container::-webkit-scrollbar-thumb {
-  background-color: rgba(255, 255, 255, 0.5);
+  background-color: var(--text-disabled);
   border-radius: 5px; /* 圓角效果 */
 }
 
 .timeline-container::-webkit-scrollbar-track {
-  background: rgba(255, 255, 255, 0.1);
+  background: var(--overlay-light);
 }
 
 .waveform-container {
   width: 100%;
   height: 20%;
-  background-color: rgb(68, 143, 100);
+  background-color: var(--wave-bg);
   overflow: hidden;
   border-radius: 10px;
   padding-bottom: 20px;
   padding-right: 10px;
+  box-sizing: border-box;
 }
 
 .scroll-container::-webkit-scrollbar,
@@ -74,16 +94,16 @@
 
 .scroll-container::-webkit-scrollbar-thumb,
 .waveform-container::-webkit-scrollbar-thumb {
-  background-color: rgba(255, 255, 255, 0.5);
+  background-color: var(--text-disabled);
   border-radius: 5px;
 }
 
 .scroll-container::-webkit-scrollbar-track {
-  background: rgba(68, 143, 100, 0.5);
+  background: var(--wave-bg);
 }
 
 .waveform-container::-webkit-scrollbar-track {
-  background: rgba(255, 255, 255, 0.1);
+  background: var(--overlay-light);
 }
 
 .progress-flag {
@@ -91,18 +111,49 @@
   bottom: 0;
   width: 3px;
   height: 10px;
-  background-color: red;
+  background-color: var(--state-danger);
   pointer-events: none;
 }
 
+/*
+ * 工具列。
+ *
+ * 原本是 `justify-content: flex-end; gap: 40px`——內容總寬超過容器時，
+ * flex-end 會讓**溢出的部分往左邊跑**。實測音樂選單被推到 x = −16（畫面外），
+ * 一路蓋住左側的 Choose-Timeline / Undo / Add-Timeline 按鈕。
+ *
+ * 改成靠左起排、縮小間距，並允許水平捲動：內容再多也只是要捲，不會有東西
+ * 被擠到別人身上或跑出畫面。
+ */
 .controls {
   all: unset; /* 重置所有默認樣式 */
   display: flex;
-  justify-content: flex-end;
-  gap: 40px;
-  height: 10%;
+  justify-content: flex-start;
+  /* 組與組之間的距離由 .tool-sep 兩側的 margin 決定，這裡只留組內間距 */
+  gap: var(--space-1);
   width: 100%;
+  min-height: 44px;
   align-items: center;
+  padding: 0 var(--space-2);
+  box-sizing: border-box;
+  flex-shrink: 0;
+
+  /*
+   * 不能裁切：提示浮在按鈕正上方，一旦這裡設了 overflow，17 則提示會有 12 則
+   * 被切掉（實測數字）。而且 `overflow-x: auto` + `overflow-y: visible` 在
+   * CSS 裡不成立——只要有一軸不是 visible，另一軸就會跟著變成 auto。
+   *
+   * 所以改成「放不下就換行」：窄視窗會得到兩排工具列，比橫向捲動的工具列
+   * 好用，也不必為了捲動而犧牲提示。
+   */
+  overflow: visible;
+  flex-wrap: wrap;
+  /* 換行時兩排要看得出是兩排，不是擠在一起的一團 */
+  row-gap: var(--space-1);
+}
+/* 工具列的項目不要被壓扁成不可辨識 */
+.controls > * {
+  flex-shrink: 0;
 }
 .effect-button,
 .cut-button,
@@ -112,8 +163,8 @@
 .delete-button,
 .brightness-button,
 .color-button {
-  background-color: rgb(49, 47, 47);
-  color: rgb(150, 146, 146);
+  background-color: var(--bg-control);
+  color: var(--text-muted);
   border: none;
   border-radius: 5px;
   z-index: 10; /* 提高层级 */
@@ -129,49 +180,12 @@
 .magnet-button:hover,
 .delete-button:hover,
 .color-button:hover {
-  color: white;
-}
-.tooltip {
-  position: absolute;
-  background-color: rgb(49, 47, 47); /* 和按鈕一致的背景色 */
-  color: rgb(255, 255, 255); /* 和按鈕一致的文字顏色 */
-  text-align: center;
-  border-radius: 5px;
-  font-size: 20px;
-  z-index: 10;
-  transition: opacity 0.2s ease-in-out;
-  top: -12px; /* 向上移動，位於按鈕上方 */
+  color: var(--text-primary);
 }
 
-/* 按鈕懸停時顯示 Tooltip */
-.timeline-left:hover .tooltip,
-.timeline-right:hover .tooltip,
-.cut-button:hover .tooltip,
-.delete-button:hover .tooltip,
-.dropdown:hover .tooltip,
-.brightness-control:hover .tooltip,
-.color-button:hover .tooltip,
-.play-button:hover .tooltip,
-.effect-button:hover .tooltip {
-  visibility: visible; /* 顯示 Tooltip */
-  opacity: 1; /* 不透明 */
-}
-.effect-button:hover .tooltip {
-  left: 64%;
-  /* width: 130px; */
-  top: -40px;
-}
-.dropdown:hover .tooltip {
-  left: 64%;
-  width: 130px;
-  top: -40px;
-}
-.play-button:hover .tooltip {
-  left: 78%;
-}
 .brightness-control {
-  background-color: rgb(49, 47, 47);
-  color: rgb(150, 146, 146);
+  background-color: var(--bg-control);
+  color: var(--text-muted);
   border: none;
   border-radius: 5px;
   padding: 0px 10px;
@@ -189,6 +203,18 @@
   align-items: center;
   gap: 10px;
 }
+
+/*
+ * 縮放讀數。定寬且靠右——數字換位數時（9.9× → 10×）不要把 +/- 推來推去。
+ */
+.zoom-value {
+  width: 40px;
+  /* 靠右：數字換位數時（9.9× → 10×）不要把後面的 - 推來推去 */
+  text-align: right;
+  font-size: var(--fs-xs);
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
 .volume-control {
   display: flex;
   align-items: center;
@@ -201,8 +227,8 @@
 .dropdown-select,
 .dropdown-select {
   appearance: none; /* 移除默认样式 */
-  background-color: rgb(49, 47, 47); /* 預設背景色 */
-  color: rgb(150, 146, 146);
+  background-color: var(--bg-control); /* 預設背景色 */
+  color: var(--text-muted);
   width: 60px; /* 下拉框寬度 */
   height: 100%; /* 下拉框高度 */
   border-radius: 5px; /* 圆角 */
@@ -211,14 +237,14 @@
 }
 .dropdown-select:hover,
 .dropdown-select:hover {
-  color: rgb(255, 255, 255); /* 懸停時暫停圖標顏色 */
+  color: var(--text-primary); /* 懸停時暫停圖標顏色 */
 }
 
 .play-button {
   width: 45px;
   height: 45px;
-  background-color: rgb(49, 47, 47); /* 預設背景色 */
-  color: rgb(150, 146, 146);
+  background-color: var(--bg-control); /* 預設背景色 */
+  color: var(--text-muted);
   border: none;
   border-radius: 50%; /* 圓形按鈕 */
   display: flex;
@@ -228,11 +254,11 @@
 }
 
 .play-button:hover {
-  color: white;
+  color: var(--text-primary);
 }
 
 .time-display {
-  color: white;
+  color: var(--text-primary);
   /* font-size: 16px;
   margin-right: 20px; */
   display: flex;
@@ -241,19 +267,19 @@
 }
 
 .current-time-box {
-  color: white;
+  color: var(--text-primary);
   width: 80px;      /* 根據你的格式固定寬度 */
   text-align: right; /* 靠右對齊，這樣左邊增加位數時不會推擠到右邊 */
 }
 
 .duration-box {
-  color: white;
+  color: var(--text-primary);
   width: 80px;
   text-align: left;  /* 總長度靠左對齊 */
 }
 
 .time-separator {
-  color: white;
+  color: var(--text-primary);
   width: 10px;
   text-align: center;
 }
@@ -270,7 +296,7 @@
   appearance: none;
   width: 15px; /* 滑塊大小 */
   height: 15px;
-  background-color: rgb(49, 47, 47); /* 灰色背景 */
+  background-color: var(--bg-control); /* 灰色背景 */
   border-radius: 50%; /* 圓形 */
   cursor: pointer;
 }
@@ -279,7 +305,7 @@
   appearance: none;
   width: 100px; /* 滑桿寬度 */
   height: 5px; /* 滑桿高度 */
-  background-color: rgb(49, 47, 47); /* 灰色背景 */
+  background-color: var(--bg-control); /* 灰色背景 */
   outline: none; /* 移除外框 */
 }
 
@@ -293,10 +319,10 @@
   appearance: none;
   width: 15px; /* 滑塊大小 */
   height: 15px;
-  background-color: rgb(150, 146, 146);
+  background-color: var(--bg-control-active);
   border-radius: 50%; /* 圓形 */
   cursor: pointer;
-  box-shadow: 0 0 2px rgba(0, 0, 0, 0.5); /* 陰影效果 */
+  box-shadow: 0 0 2px var(--overlay-soft); /* 陰影效果 */
 }
 
 .zoom-slider:focus::-webkit-slider-runnable-track {
@@ -305,8 +331,8 @@
 
 .zoom-controls button {
   all: unset; /* 重置所有默認樣式 */
-  background-color: rgb(49, 47, 47); /* 預設灰色背景 */
-  color: rgb(150, 146, 146);
+  background-color: var(--bg-control); /* 預設灰色背景 */
+  color: var(--text-muted);
   border: none;
   width: 30px; /* 按鈕寬度 */
   height: 30px; /* 按鈕高度 */
@@ -324,11 +350,11 @@
 }
 
 .zoom-controls button:hover {
-  color: white; /* 懸停時改變文字顏色 */
+  color: var(--text-primary); /* 懸停時改變文字顏色 */
 }
 
 .zoom-controls button:disabled {
-  background-color: darkgrey; /* 禁用時更深的灰色 */
+  background-color: var(--bg-control-active); /* 禁用時更深的灰色 */
   cursor: not-allowed;
 }
 .hover-line {
@@ -336,7 +362,7 @@
   top: 0;
   bottom: 0;
   width: 2px;
-  background-color: rgb(68, 143, 100);
+  background-color: var(--wave-bg);
   pointer-events: none;
 }
 
@@ -352,33 +378,43 @@
   top: 100%;
   left: 0;
   margin-bottom: 8px;
-  background-color: rgb(49, 47, 47); /* 與按鈕一致的實色背景 */
-  border: 1px solid rgb(70, 70, 70); /* 加入微細邊框增加層次感 */
+  background-color: var(--bg-control); /* 與按鈕一致的實色背景 */
+  border: 1px solid var(--border-strong); /* 加入微細邊框增加層次感 */
   border-radius: 5px;
   padding: 4px 0;
   z-index: 1000;
   display: flex;
   flex-direction: column;
   min-width: 110px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
+  box-shadow: 0 4px 12px var(--overlay-soft);
 }
 
 .effect-menu-item {
   padding: 0px 15px;
   cursor: pointer;
-  color: rgb(150, 146, 146); /* 未選取時的一致灰色 */
+  color: var(--text-muted); /* 未選取時的一致灰色 */
   font-size: 14px;
   white-space: nowrap;
   position: relative;
   transition: background-color 0.2s, color 0.2s;
-  background-color: rgb(49, 47, 47); /* 預設與背景同色 */
+  background-color: var(--bg-control); /* 預設與背景同色 */
 }
 
 /* 選取/懸停時的樣式：顏色變白，背景加亮 */
 .effect-menu-item:hover, 
 .effect-menu-item.active {
-  background-color: rgb(70, 70, 70) !important; 
-  color: white !important;
+  background-color: var(--bg-control-active) !important; 
+  color: var(--text-primary) !important;
+}
+
+/*
+ * 選單裡的分隔線：上面三項是「套一個效果上去」，下面三項是「把已經有的東西
+ * 排整齊」。兩組的心智模型不同，中間需要一條線才讀得出是兩組。
+ */
+.effect-menu-sep {
+  height: 1px;
+  margin: var(--space-1) 0;
+  background: var(--border-subtle);
 }
 
 /* 子選單容器：向右平移 */
@@ -387,13 +423,13 @@
   left: 100%; /* 從父項目右邊緣開始 */
   top: -4px; /* 稍微向上校準對齊父項目頂部 */
   margin-left: 2px; /* 子選單與母選單的小間隙 */
-  background-color: rgb(49, 47, 47); /* 顏色完全一致 */
-  border: 1px solid rgb(70, 70, 70);
+  background-color: var(--bg-control); /* 顏色完全一致 */
+  border: 1px solid var(--border-strong);
   border-radius: 5px;
   padding: 4px 0;
   display: flex;
   flex-direction: column;
-  box-shadow: 4px 0 12px rgba(0, 0, 0, 0.5);
+  box-shadow: 4px 0 12px var(--overlay-soft);
 }
 
 /* 確保子選單內的項目寬度與間距一致 */
@@ -411,10 +447,10 @@
   margin-top: 40px;
   /* top: 80px;
   right: 20px; */
-  background: #222;
+  background: var(--bg-control);
   padding: 12px;
   border-radius: 8px;
-  color: #fff;
+  color: var(--text-primary);
   z-index: 1001;
   white-space: nowrap; /* 單行不換行 */
 }
@@ -432,20 +468,20 @@
   display: flex;
   justify-content: space-between;
   margin-top: 20px;
-  background-color: rgba(0, 0, 0, 0.9);
+  background-color: var(--overlay-strong);
 }
 
 .gradient-settings-actions button {
   padding: 10px 20px;
   border: none;
   border-radius: 5px;
-  background-color: rgb(49, 47, 47); /* 預設背景色 */
-  color: rgb(150, 146, 146);
+  background-color: var(--bg-control); /* 預設背景色 */
+  color: var(--text-muted);
   cursor: pointer;
 }
 
 .gradient-settings-actions button:hover {
-  color: #ffffff; /* 悬停背景色 */
+  color: var(--text-primary); /* 悬停背景色 */
 }
 
 /* 平移功能外層 */
@@ -456,8 +492,8 @@
 
 /* 主按鈕樣式 - 繼承自原本的 .cut-button 等 */
 .shift-main-button {
-  background-color: rgb(49, 47, 47);
-  color: rgb(150, 146, 146);
+  background-color: var(--bg-control);
+  color: var(--text-muted);
   border: none;
   border-radius: 5px;
   padding: 5px 10px;
@@ -467,21 +503,17 @@
 }
 
 .shift-main-button:hover {
-  color: white;
+  color: var(--text-primary);
 }
 
 /* 懸停 Tooltip (與原本 logic 相同) */
-.shift-main-button:hover .tooltip {
-  visibility: visible;
-  opacity: 1;
-}
 
 /* 引導面板樣式 */
 .shift-guide-panel {
   display: flex;
   align-items: center;
-  background: rgb(30, 30, 30);
-  border: 1px solid #0dcaf0;
+  background: var(--bg-control);
+  border: 1px solid var(--text-secondary);
   border-radius: 5px;
   padding: 4px 12px;
   gap: 10px;
@@ -490,7 +522,7 @@
 }
 
 .shift-message {
-  color: #0dcaf0;
+  color: var(--text-primary);
   font-size: 14px;
   font-weight: bold;
   white-space: nowrap;
@@ -498,8 +530,8 @@
 
 /* 面板內的確定/取消按鈕 */
 .shift-confirm-btn, .shift-cancel-btn {
-  background-color: rgb(49, 47, 47);
-  color: white;
+  background-color: var(--bg-control);
+  color: var(--text-primary);
   border: none;
   border-radius: 4px;
   padding: 2px 8px;
@@ -508,68 +540,72 @@
 }
 
 .shift-confirm-btn:hover {
-  background-color: #0dcaf0;
-  color: black;
+  background-color: var(--bg-inverse);
+  color: var(--text-inverse);
 }
 
 .shift-cancel-btn:hover {
-  background-color: #dc3545;
+  background-color: var(--state-danger-bg);
 }
 
 /* 動態發光效果 */
 @keyframes pulse-border {
-  0% { box-shadow: 0 0 0 0 rgba(13, 202, 240, 0.4); }
-  70% { box-shadow: 0 0 0 8px rgba(13, 202, 240, 0); }
-  100% { box-shadow: 0 0 0 0 rgba(13, 202, 240, 0); }
+  0% { box-shadow: 0 0 0 0 var(--pulse-ring); }
+  70% { box-shadow: 0 0 0 8px transparent; }
+  100% { box-shadow: 0 0 0 0 transparent; }
 }
 
 /* 平移戳記通用樣式 */
 .shift-marker {
   position: absolute;
+  top: 0;
   bottom: 0;
   width: 2px;
-  height: 100%; /* 貫穿整個波形與時間軸區域 */
-  z-index: 15;
-  pointer-events: none; /* 不影響滑鼠操作 */
+  height: auto;
+  z-index: 30;
+  pointer-events: none;
   transition: left 0.1s ease-out;
+  transform: translateX(-1px);
 }
 
 /* 戳記上方的文字標籤 */
 .marker-label {
   position: absolute;
-  top: -20px;
+  top: 6px;
   left: 50%;
   transform: translateX(-50%);
   font-size: 10px;
   padding: 2px 4px;
   border-radius: 3px;
-  color: white;
+  color: var(--text-primary);
   white-space: nowrap;
 }
 
-/* 起始點樣式: 鮮綠色 */
+/* 起始點：白色實心，靠 .marker-label 的文字區分起訖，不靠顏色 */
 .start-marker {
-  background-color: #2ecc71;
-  box-shadow: 0 0 8px #2ecc71;
+  background-color: var(--ring-selected);
+  box-shadow: 0 0 8px var(--overlay-light);
 }
 .start-marker .marker-label {
-  background-color: #2ecc71;
+  background-color: var(--bg-inverse);
+  color: var(--text-inverse);
 }
 
-/* 結束點樣式: 亮橘色 */
+/* 結束點：同樣白色，但標籤寫「迄」 */
 .end-marker {
-  background-color: #e67e22;
-  box-shadow: 0 0 8px #e67e22;
+  background-color: var(--ring-selected);
+  box-shadow: 0 0 8px var(--overlay-light);
 }
 .end-marker .marker-label {
-  background-color: #e67e22;
+  background-color: var(--bg-inverse);
+  color: var(--text-inverse);
 }
 
 /* 播放紅線樣式微調 (確保層級最高) */
 .progress-flag {
   z-index: 20;
   width: 3px;
-  box-shadow: 0 0 10px rgba(255, 0, 0, 0.7);
+  box-shadow: 0 0 10px var(--playhead);
 }
 
 /* 區間複製模式下的提示標籤 (選填) */
@@ -578,14 +614,14 @@
   top: 10px;
   left: 50%;
   transform: translateX(-50%);
-  background: rgba(46, 204, 113, 0.9);
-  color: white;
+  background: var(--bg-control-active);
+  color: var(--text-primary);
   padding: 8px 20px;
   border-radius: 20px;
   z-index: 1000;
   font-weight: bold;
   pointer-events: none;
-  box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+  box-shadow: 0 4px 15px var(--overlay-soft);
 }
 
 /* 確保多選框與目標框有明顯區別 */
@@ -593,21 +629,64 @@
   transition: border 0.2s ease;
 }
 
+/*
+ * 複製模式的提示。
+ *
+ * ⚠️ **它蓋在畫面最上層，所以兩件事都要做到：不吃滑鼠事件、不擋著控制項。**
+ *
+ * 舊版是 `top: 20px` 的置中膠囊，正好蓋住 header 的 Load / Edit / Logout
+ * ——和先前「尚未儲存」橫幅蓋掉 Edit/Logout 是同一個病因（版面稽核抓不到，
+ * 因為它只在複製模式下才出現）。改到畫面底部之後只會疊到波形，而波形是
+ * 顯示用的；再加上 `pointer-events: none`，連波形上的 seek 都不會被它擋掉。
+ *
+ * 真正的落點回饋現在是時間軸上那個跟著游標的虛線框（見 `PastePreview.jsx`），
+ * 這條橫幅只補一句「按左鍵貼上、Esc 取消」，所以它不需要顯眼的位置。
+ */
 .copy-mode-banner {
   position: fixed;
-  top: 20px;
+  bottom: 16px;
   left: 50%;
   transform: translateX(-50%);
-  background: #27ae60;
-  color: white;
-  padding: 10px 20px;
+  pointer-events: none;
+  background: var(--bg-control-active);
+  color: var(--text-primary);
+  padding: 8px 18px;
   border-radius: 30px;
-  box-shadow: 0 4px 15px rgba(0,0,0,0.4);
+  box-shadow: 0 4px 15px var(--overlay-soft);
   z-index: 2000;
   display: flex;
   flex-direction: column;
   align-items: center;
-  animation: slide-down 0.3s ease-out;
+  animation: slide-up 0.3s ease-out;
+}
+
+/*
+ * 跑馬燈的間隔欄。
+ *
+ * ⚠️ `pointer-events: auto` 是必要的：橫幅整體是 `pointer-events: none`
+ * （它蓋在畫面上，不該吃任何滑鼠事件），而那會一併關掉裡面所有東西的命中
+ * 判定——欄位畫得出來就是點不到。和光衣卡片的隱藏鈕是同一個坑。
+ */
+.copy-mode-banner__phase {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  margin-top: 4px;
+  pointer-events: auto;
+  font-size: var(--fs-xs);
+  color: var(--text-secondary);
+  white-space: nowrap;
+}
+
+.copy-mode-banner__phase input {
+  width: 64px;
+  padding: 1px 4px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  background: var(--bg-panel);
+  color: var(--text-primary);
+  font-size: var(--fs-xs);
+  font-variant-numeric: tabular-nums;
 }
 
 .hint-text {
@@ -616,9 +695,9 @@
   margin-top: 4px;
 }
 
-@keyframes slide-down {
-  from { top: -50px; opacity: 0; }
-  to { top: 20px; opacity: 1; }
+@keyframes slide-up {
+  from { bottom: -50px; opacity: 0; }
+  to { bottom: 16px; opacity: 1; }
 }
 
 /* 修改或新增以下樣式 */
@@ -628,20 +707,20 @@
   bottom: 100%; /* 位於按鈕上方 */
   left: 0;
   margin-bottom: 5px; /* 與按鈕保持一點距離 */
-  background-color: rgb(49, 47, 47); /* 使用與按鈕一致的顏色 */
+  background-color: var(--bg-control); /* 使用與按鈕一致的顏色 */
   border-radius: 5px;
   padding: 5px 0;
   z-index: 1000;
   display: flex;
   flex-direction: column;
   min-width: 100px;
-  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.5);
+  box-shadow: 0 4px 8px var(--overlay-soft);
 }
 
 .effect-menu-item {
   padding: 8px 15px;
   cursor: pointer;
-  color: rgb(150, 146, 146);
+  color: var(--text-muted);
   font-size: 14px;
   white-space: nowrap;
   position: relative; /* 為了讓 submenu 定位 */
@@ -650,8 +729,8 @@
 
 .effect-menu-item:hover, 
 .effect-menu-item.active {
-  background-color: rgb(70, 70, 70); /* Hover 時稍微變亮 */
-  color: white;
+  background-color: var(--bg-control-active); /* Hover 時稍微變亮 */
+  color: var(--text-primary);
 }
 
 /* 向右延伸的子選單樣式 */
@@ -660,16 +739,97 @@
   left: 100%; /* 正好在父項目的右邊 */
   top: 0;
   margin-left: 2px; /* 稍微空出一點縫隙，避免視覺太擠 */
-  background-color: rgb(49, 47, 47); /* 顏色與原本一致 */
+  background-color: var(--bg-control); /* 顏色與原本一致 */
   border-radius: 5px;
   padding: 5px 0;
   display: flex;
   flex-direction: column;
-  box-shadow: 4px 4px 8px rgba(0, 0, 0, 0.5);
+  box-shadow: 4px 4px 8px var(--overlay-soft);
 }
 
 /* 讓子選單中的項目也具備一樣的 Hover 效果 */
 .effect-submenu .effect-menu-item {
   min-width: 80px;
   border-bottom: none;
+}
+
+.uniform-alpha-wrapper {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+}
+
+.uniform-alpha-menu {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  z-index: 9999;
+  background: var(--bg-control);
+  border: 1px solid var(--border-strong);
+  border-radius: 6px;
+  padding: 6px;
+  min-width: 90px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.uniform-alpha-option {
+  width: 100%;
+  padding: 5px 10px;
+  background: transparent;
+  color: var(--text-primary);
+  border: none;
+  border-radius: 4px;
+  text-align: left;
+  cursor: pointer;
+  font-size: 14px;
+}
+
+.uniform-alpha-option:hover {
+  background: var(--bg-control-hover);
+}
+
+.uniform-alpha-wrapper .shift-main-button {
+  position: relative;
+}
+
+
+/*
+ * 工具列分組。
+ *
+ * 14 顆圖示平鋪、權重全等的時候，使用者只能一顆一顆 hover 過去猜。
+ * 分成五組（音樂 / 導航 / 編輯 / 效果 / 播放）之後，光靠間距與一條細線
+ * 就能讓同一批按鈕變成五個讀得出來的區塊。
+ */
+.tool-group {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  flex-shrink: 0;
+}
+
+/*
+ * 播放控制靠右。
+ *
+ * 這一組（速度 / 播放 / 時間 / 縮放 / 音量）有 647px 寬，1280 視窗下必定換行。
+ * 先前它換行後落在第二排的**最左邊**——正下方是空的軌名欄，看起來像一排
+ * 跟誰都沒關係的控制項孤零零地掛在那裡。
+ *
+ * 靠右之後兩種寬度都成立：排得下時它貼齊時間軸的右緣（和上面的光表區同一條
+ * 線），排不下時第二排從右邊接續第一排的末端，讀起來仍然是連續的一塊。
+ *
+ * 「把它縮到排得下」試算過：四組工具加分隔線佔 628px，剩 456px 給它，
+ * 得把兩條滑桿砍到 40px 以下——那是把可用性換版面，不划算。
+ */
+.tool-group--transport {
+  margin-left: auto;
+}
+
+.tool-sep {
+  width: 1px;
+  align-self: stretch;
+  margin: var(--space-2) var(--space-3);
+  background: var(--border-strong);
+  flex-shrink: 0;
 }

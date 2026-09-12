@@ -1,164 +1,298 @@
+/* 這一欄高度很緊（1280×800 下只有 220px），調色器從 56 收到 44——按得到就夠了 */
 #colorWell {
-  width: 100px;
-  height: 100px;
-  margin-top: 5%;
+  width: 44px;
+  height: 44px;
   position: relative;
   z-index: 10;
+  flex-shrink: 0;
+  padding: 0;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  background: none;
+  cursor: pointer;
 }
+
+/*
+ * 調色盤 —— 上半部右側唯一的欄。欄寬定義在 pages/Home.css 的 .homepage。
+ *
+ * 從 header 下方（60px）才開始，和 .people-container 同一條線。先前它從 0
+ * 開始，於是 header 得用 `right: calc(欄寬 + 間距)` 讓開——那個耦合在欄寬變大
+ * 之後讓 header 在 1280 寬放不下六顆按鈕，最後一顆溢出到這一欄底下被蓋住。
+ */
 .palette {
-  right: 0.3%;
-  top: 0.3%;
-  width: 10%;
-  display: flex;
   position: absolute;
+  top: 60px;
+  right: var(--page-inset);
+  bottom: 0;
+  width: var(--palette-w);
+
+  display: flex;
   flex-direction: column;
-  background: rgb(26, 26, 26);
+  align-items: stretch;
   justify-content: start;
-  /*left: 400px;*/
-  height: 100%;
-  align-items: center;
-}
-.color_example {
-  width: 0px;
-  height: 0px;
-  margin-top: 10px;
-  border-radius: 10px;
-  /* background-color: rgba(0, 0, 0, 1); 主要顏色示例 */
-  z-index: 10;
-  position: absolute;
-  border: solid #a1aaae;
-}
+  box-sizing: border-box;
 
-.color_example_background {
-  width: 75px;
-  height: 75px;
+  background: var(--bg-panel);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
 
-  border-radius: 10px;
-  background-color: rgba(255, 255, 255, 1); /* 背景色 */
-  z-index: 1;
-  position: relative;
-  /* justify-content: center; 水平居中 */
-  /* justify-self: center; */
-  /* align-items: center; 垂直居中 */
-  border: solid #a1aaae;
+  /* 由 flex 依序往下排，不要靠各自的 margin/absolute 硬喬位置 */
+  gap: var(--space-2);
+  padding: var(--space-2);
+
+  /* 內容放不下時自己捲。1280×800 下這一欄只有 220px 高，字級或行高一變
+     就會頂出去——最壞情況是捲一下，而不是內容跑到面板外面點不到 */
+  overflow-y: auto;
+  overflow-x: hidden;
 }
 
-.favorite_color_sample {
-  margin-top: 0px;
-  width: 40px;
-  height: 40px;
-  border-radius: 10px;
-  border: solid #a1aaae;
-  background-color: rgba(0, 0, 0, 1); /* 默認顏色示例 */
-}
-
-.favorite_color_background {
+/*
+ * 調色器 + HEX + 亮度並排成一列。
+ *
+ * 這一區直排時是 140px 高，而這一欄在 1280×800 下只有 220px——加上色票與
+ * 兩塊色盤之後會頂出去。並排之後這一區收成 56px。
+ */
+.palette-row {
   display: flex;
-  bottom: 5%;
-  position: absolute;
-  justify-self: center;
   align-items: center;
+  gap: var(--space-2);
+  width: 100%;
+  box-sizing: border-box;
+  flex-shrink: 0;
+}
+
+.palette-row__fields {
+  flex: 1;
+  min-width: 0;
+  display: flex;
   flex-direction: column;
-  gap: 10px;
-  /* margin-top: 10px; */
+  gap: var(--space-1);
 }
 
-.favorite_color_line {
+/*
+ * HEX 欄位。
+ *
+ * 取代原本顯示 32-bit 打包整數的那一格——那是 debug 產物。這個位置本來就
+ * 該回答「目前顏色是什麼」，換成看得懂、也能貼色碼進去的欄位嚴格更好。
+ */
+.hex-field {
   display: flex;
-  /* flex-direction: row; 水平排列 */
-  gap: 10px; /* 每個顏色樣本之間的間距 */
-  /* justify-content: center; 水平居中 */
-  /* align-items: center; 垂直居中 */
-  z-index: 10;
+  align-items: center;
+  gap: var(--space-2);
+  width: 100%;
+  height: 26px;
+  padding: 0 var(--space-2);
+  background: var(--bg-control);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  box-sizing: border-box;
+  flex-shrink: 0;
 }
 
-/* Firefox 瀏覽器的滑塊樣式 
-input[type="range"]::-moz-range-thumb {
-  width: 10px; 長方形寬度 
-  height: 20px;  長方形高度 
-  background: #ffffff; /* 滑塊背景色 
-  border-radius: 5px; /* 圓角設置 
-  cursor: pointer; /* 滑鼠指標樣式 
-  border: 1px solid #ccc; /* 滑塊邊框 
+.hex-field label {
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+  letter-spacing: 0.08em;
+  color: var(--text-muted);
 }
 
-/* WebKit 瀏覽器（Chrome、Safari）的滑塊樣式 
-input[type="range"]::-webkit-slider-thumb {
-  appearance: none; /* 移除預設樣式 
-  width: 10px; /* 長方形寬度 
-  height: 20px; /* 長方形高度 
-  background: #ffffff; /* 滑塊背景色 
-  border-radius: 5px; /* 圓角設置 
-  cursor: pointer; /* 滑鼠指標樣式 
-  border: 1px solid #ccc; /* 滑塊邊框 
+.hex-field input {
+  flex: 1 1 auto;
+  min-width: 0;
+  background: none;
+  border: 0;
+  outline: none;
+  color: var(--text-primary);
+  font-family: var(--font-mono);
+  font-size: var(--fs-sm);
+  font-variant-numeric: tabular-nums;
 }
 
-/* Edge 瀏覽器的滑塊樣式 
-input[type="range"]::-ms-thumb {
-  width: 10px; /* 長方形寬度 
-  height: 20px; /* 長方形高度 
-  background: #ffffff; /* 滑塊背景色 
-  border-radius: 5px; /* 圓角設置 
-  cursor: pointer; /* 滑鼠指標樣式 
-  border: 1px solid #ccc; /* 滑塊邊框 
-}*/
-
-.color-status {
-  width: 170px;
-  display: flex; /* 使用 Flexbox 進行水平排列 */
-  align-items: center; /* 讓子元素垂直置中 */
-  justify-content: space-between; /* 子元素在容器內平均分布 */
-  gap: 10px; /* 設定子元素之間的水平間距 */
-  position: relative; /* 如果需要調整容器位置可保留 */
-  top: 8px; /* 容器的垂直位置 */
+.hex-field:focus-within {
+  border-color: var(--text-muted);
 }
-.color-slider {
-  z-index: 20;
-  width: 70px;
-  height: 20px;
-  /*position: absolute;
-  top: 180px;
-  left: 2px;*/
+
+/*
+ * 亮度。
+ *
+ * 舊版是 `-  N%  +` 三格按鈕，一步 ±20%，所以走得到的值只有六個
+ * （0 / 20 / 40 / 60 / 80 / 100%）——而 `Ctrl+1~9` 早就在設 10%~90%，
+ * 同一個屬性有兩套精度，滑桿使用者永遠對不上快捷鍵設出來的值。
+ */
+.alpha-field {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  width: 100%;
+  height: 26px;
+  padding: 0 var(--space-2);
+  background: var(--bg-control);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  box-sizing: border-box;
+  flex-shrink: 0;
+}
+
+.alpha-field__label {
+  font-size: var(--fs-xs);
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+.alpha-field__value {
+  min-width: 34px;
+  text-align: right;
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+  font-variant-numeric: tabular-nums;
+  color: var(--text-secondary);
+}
+
+.alpha-slider {
+  flex: 1 1 auto;
+  min-width: 0;
+  height: 4px;
+  appearance: none;
+  -webkit-appearance: none;
+  border-radius: var(--radius-pill);
+  /* 由暗到亮 —— 滑桿本身就說明了它在調什麼 */
+  background: linear-gradient(to right, var(--bg-canvas), var(--text-primary));
   cursor: pointer;
-  appearance: none; /* 移除瀏覽器預設樣式 */
-  background: linear-gradient(to right, #adadad, #4f4f4f);
-  border-radius: 5px;
 }
 
-.color-slider::-webkit-slider-thumb {
-  appearance: none; /* 移除預設樣式 */
-  width: 10px; /* 長方形寬度 */
-  height: 20px; /* 長方形高度 */
-  background: #ffffff; /* 滑塊背景色 */
-  border-radius: 5px; /* 圓角設置 */
-  cursor: pointer; /* 滑鼠指標樣式 */
-  border: 1px solid #ccc; /* 滑塊邊框 */
-}
-
-.color-slider::-moz-range-thumb {
-  width: 15px;
-  height: 15px;
-  background: #ffffff; /* 滑塊顏色 */
+.alpha-slider::-webkit-slider-thumb {
+  appearance: none;
+  -webkit-appearance: none;
+  width: 12px;
+  height: 12px;
   border-radius: 50%;
+  background: var(--bg-inverse);
+  border: 1px solid var(--bg-canvas);
   cursor: pointer;
 }
-.color-slider::-ms-thumb {
-  width: 10px; /* 長方形寬度 */
-  height: 20px; /* 長方形高度 */
-  background: #ffffff; /* 滑塊背景色 */
-  border-radius: 5px; /* 圓角設置 */
-  cursor: pointer; /* 滑鼠指標樣式 */
-  border: 1px solid #ccc; /* 滑塊邊框 */
+
+.alpha-slider::-moz-range-thumb {
+  width: 12px;
+  height: 12px;
+  border: 1px solid var(--bg-canvas);
+  border-radius: 50%;
+  background: var(--bg-inverse);
+  cursor: pointer;
 }
 
-.color-status span {
-  /*position: absolute;
-  top: 150px;
-  left: 10px;*/
-  /*width: 120px;*/
+/*
+ * 「最近」與「最愛」兩塊。
+ *
+ * 兩塊長得一樣但語意相反：最近是系統自動記的（會被擠掉），最愛是使用者明確
+ * 存的（不會自己消失）。所以標題不能省——沒有標題的話兩排色票看起來就是
+ * 十二個沒有差別的方塊。
+ */
+.palette-section {
   display: flex;
-  font-weight: bold;
-  font-size: 13px;
-  color: white;
-  z-index: 20;
+  flex-direction: column;
+  gap: var(--space-1);
+  width: 100%;
+  flex-shrink: 0;
+}
+
+.palette-section__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  font-size: var(--fs-xs);
+  letter-spacing: 0.08em;
+  color: var(--text-muted);
+}
+
+.swatch-row {
+  display: flex;
+  gap: var(--space-1);
+  width: 100%;
+}
+
+/*
+ * 一格色票。
+ *
+ * 寬度隨欄位縮放，不寫死 40px——欄位窄的時候寫死值會擠出去。但也要有上限：
+ * 不設限的話色票會長到 140px 高，把下面的控制項推出可視範圍。
+ */
+.swatch {
+  flex: 1 1 0;
+  min-width: 0;
+  max-width: 34px;
+  aspect-ratio: 1;
+  padding: 0;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-strong);
+  background-color: var(--armor-stage);
+  color: var(--text-disabled);
+  font-size: var(--fs-sm);
+  line-height: 1;
+  cursor: pointer;
+}
+
+.swatch:hover {
+  box-shadow: 0 0 0 2px var(--text-muted);
+}
+
+/*
+ * 還沒存過的格子：虛線框加一個 `+`。
+ *
+ * 舊版把空格填成白色，於是「還沒存」與「存了白色」在畫面上完全一樣——
+ * 而白色是最常用的燈色之一，不能拿它當哨兵。
+ */
+.swatch--empty {
+  border-style: dashed;
+  background-color: transparent;
+}
+
+/* 最近使用還沒滿時的佔位：不可點，只是把格子的位置留著不讓色票變形 */
+.swatch--placeholder {
+  flex: 1 1 0;
+  min-width: 0;
+  max-width: 34px;
+  aspect-ratio: 1;
+  border: 1px dashed var(--border-subtle);
+  border-radius: var(--radius-sm);
+  opacity: 0.5;
+}
+
+/*
+ * 使用 / 存色 的二選一。
+ *
+ * 舊版是一支 `<input type="range" min=0 max=1 step=1>` —— 用連續值的控制項
+ * 表達兩個狀態，而且預設停在「覆蓋」那一端：點任何一格最愛色都會把它蓋掉。
+ * 破壞性的操作不該是預設值。
+ */
+.mode-switch {
+  display: flex;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+}
+
+.mode-switch__option {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 2px 6px;
+  border: 0;
+  background: var(--bg-control);
+  color: var(--text-muted);
+  font: inherit;
+  font-size: var(--fs-xs);
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.mode-switch__option:hover {
+  background: var(--bg-control-hover);
+  color: var(--text-primary);
+}
+
+/* 目前這一邊：亮底反相，和按鈕階層的 primary 同一套語意（不靠色相） */
+.mode-switch__option[aria-pressed="true"] {
+  background: var(--bg-inverse);
+  color: var(--text-inverse);
 }

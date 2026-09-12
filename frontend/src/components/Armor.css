@@ -5,56 +5,292 @@
   z-index: 10;
 }
 
-.personBackGround {
-  display: inline-block;
-  /* align-self: center; */
-  margin: 15px;
-  z-index: 10;
-  width: 270px;
-  height: 330px;
-}
-
-/* 舞者容器 - 包含標籤和 SVG */
-.armor-container {
-  position: relative;
+/* 光衣排成一列，吃掉舞者開關以外的高度 */
+.people-row {
   display: flex;
-  flex-direction: column;
+  flex: 1 1 auto;
+  min-height: 0;
+  width: 100%;
+  justify-content: space-around;
   align-items: center;
 }
 
-/* 舞者編號標籤 */
-.dancer-label {
-  /* 定位 - 對齊畫布頂部 */
-  position: absolute;
-  top: 5px;  /* 距離頂部 5px，保持在畫布內 */
-  left: 50%;
-  transform: translateX(-50%);
+/*
+ * 一位舞者佔一格，七格平均分配整列的寬度。
+ *
+ * 先前卡片的寬度是由內容撐出來的（SVG 的固有比例）。人與道具並排之後那條路
+ * 走不通：SVG 在 flex row 裡沒有固有寬度，卡片沒有確定寬度時它不是塌成一條線
+ * 就是溢出到卡片外面（兩種都實測過）。改成先把寬度分好，圖形再在裡面等比縮放。
+ */
+.personBackGround {
+  flex: 1 1 0;
+  min-width: 0;
+  margin: 0 var(--space-1);
+  z-index: 10;
 
-  /* 視覺樣式 */
-  background: linear-gradient(135deg, #4a9eff 0%, #3a8eef 100%);
-  color: white;
-  padding: 6px 16px;
-  border-radius: 20px;
-  font-size: 14px;
-  font-weight: bold;
+  /* 撐滿 people-container 的高度，讓底下的 SVG 有可以縮放的依據（見下方） */
+  display: flex;
+  align-items: center;
+  height: 100%;
+}
 
-  /* 陰影與深度 */
-  box-shadow: 0 4px 8px rgba(74, 158, 255, 0.3),
-              0 2px 4px rgba(0, 0, 0, 0.2);
+/*
+ * 舞者容器 = 一張黑卡。
+ *
+ * 部位的 fill 是 rgba(R,G,B,A)，而 alpha 在資料模型裡是 LED 亮度，
+ * 所以它會跟**後面的底色**合成。底色越亮，低亮度的顏色被沖淡得越厲害：
+ *
+ *   30% 亮度的紅，合成在 rgb(70,70,70) 上 → rgb(126,67,63)  （磚紅，差很遠）
+ *   合成在面板的 #171717 上              → rgb(93,35,33)
+ *   合成在純黑上（實際演出的樣子）        → rgb(77,18,14)
+ *
+ * 面板本身維持深灰是為了保留區塊感，但每位舞者站在自己的黑卡上，
+ * 讓預覽跟實際演出一致。黑卡同時給了「一人一格」的分隔。
+ */
+.armor-container {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  cursor: pointer;
+  height: 100%;
+  background: var(--armor-stage);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  padding: var(--space-2);
+  gap: var(--space-2);
 
-  /* 動畫過渡 */
-  transition: all 0.3s ease;
+  /* 內容盒模型：卡片的高度是外面給的，圖形要能被壓縮才不會撐破 */
+  box-sizing: border-box;
+  min-height: 0;
+}
 
-  /* 確保在最上層 */
-  z-index: 100;
+/*
+ * 人 + 道具並排。
+ *
+ * 道具是掛在這位舞者身上的東西，放在同一張卡片裡才看得出來是一體的——
+ * 先前它們在右側一個獨立側欄，離所屬的舞者好幾百像素遠，播放時根本對不起來。
+ */
+.armor-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  align-items: stretch;
+  gap: var(--space-1);
+}
 
-  /* 確保不會被 SVG 遮擋 */
+/* 道具那一直排：窄，讓光衣拿走大部分寬度 */
+.armor-props {
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: var(--space-1);
+}
+
+.armor-props__group {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+}
+
+.armor-props__label {
+  font-size: 9px;
+  line-height: 1;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+/* 一組道具燈最多兩顆一列，再多就往下排——刀身有四顆 */
+.armor-props__leds {
+  display: grid;
+  grid-template-columns: repeat(2, 12px);
+  gap: 2px;
+}
+
+/*
+ * 一顆道具燈。
+ *
+ * 描邊而不是墊底色：填色帶 alpha，而 alpha 是 LED 亮度，墊在後面的底色會跟
+ * 它合成讓低亮度偏亮（和光衣站在黑卡上是同一個理由）。沒亮的時候靠描邊看得出
+ * 這裡有一顆燈。
+ */
+.armor-props__led {
+  width: 12px;
+  height: 12px;
+  padding: 0;
+  border: 1px solid var(--armor-outline);
+  border-radius: 3px;
+  cursor: pointer;
+}
+
+.armor-props__led[aria-selected="true"] {
+  box-shadow:
+    inset 0 0 0 2px var(--ring-selected),
+    inset 0 0 0 3px var(--ring-outer);
+}
+
+/*
+ * 光衣填滿標籤以下的空間。
+ *
+ * `viewBox` 已經收緊到圖形的實際範圍（見 config/armorShapes.js），
+ * 交給 SVG 等比縮放置中即可——不必寫死 width/height，換視窗尺寸時
+ * 圖形自己跟著長大或縮小。
+ */
+.armor-figure {
+  /*
+   * 吃掉道具那一欄以外的空間，圖形靠 viewBox 等比縮放置中（preserveAspectRatio
+   * 預設 meet）。`min-width: 0` 是必要的：flex 項目的預設最小寬度是內容寬，
+   * 少了它道具一多就會把圖形推出卡片外。
+   */
+  flex: 1 1 auto;
+  min-width: 0;
+  min-height: 0;
+  height: 100%;
+  display: block;
+}
+
+/*
+ * 舞台地板。
+ *
+ * 沒有它的時候光衣是浮在卡片正中間的，七個人各浮在各的高度感，看起來像
+ * 隨手擺上去的圖。有一條地板之後每套光衣都「站」在同一個平面上。
+ */
+.armor-floor {
+  stroke: var(--armor-outline);
+  stroke-width: 1.5;
+  stroke-linecap: round;
+}
+
+/*
+ * 目前正在編輯裝備的那位舞者。
+ *
+ * 只加亮邊框與標籤，不動背景——背景一亮，部位的 alpha（= LED 亮度）就會跟
+ * 它合成，同一個顏色在被選到的舞者身上看起來會比較亮。預覽必須跟實際演出
+ * 一致，這是整個黑卡設計的前提。
+ */
+.armor-container.is-current {
+  border-color: var(--text-muted);
+}
+
+.armor-container.is-current .dancer-label {
+  background: var(--bg-control-active);
+  color: var(--text-primary);
+}
+
+/* 選取高亮：白色雙圈，和時間軸色塊的選取用同一個 token */
+.armor-highlight {
+  stroke: var(--ring-selected);
+  stroke-width: 2;
   pointer-events: none;
 }
 
-/* 懸停效果 */
+/*
+ * 部位描邊。
+ * （地板與選取高亮沒有 fill，不受這條影響。）
+ *
+ * 未點亮的部位是純黑，畫在黑卡上完全看不見——七套光衣在預設狀態是七團黑影，
+ * 分不出哪塊是手臂哪塊是腿。輪廓不能靠「後面的底色」表達（見上方 alpha 合成
+ * 的問題），只能靠**外面的描邊**，這樣跟顏色完全解耦。
+ *
+ * 亮度刻意壓低（比面板亮兩階，不是白色）：沒顏色時剛好夠讀，有顏色時退到背景。
+ * 選取高亮的路徑是 fill="none"，用選擇器排除掉，免得蓋掉它們的白色描邊。
+ */
+.armor-container svg [fill]:not([fill="none"]) {
+  stroke: var(--armor-outline);
+  stroke-width: 1.5;
+}
+
+/*
+ * 舞者編號：卡片的標題列。
+ *
+ * 原本是 `position: absolute` 的膠囊，浮在光衣的頭上——為了不擋到圖形，
+ * SVG 還得整個往下平移 35px 讓位。那個平移就是 viewBox 底下空一大塊的
+ * 原因之一。改成佔一行之後圖形拿回全部的空間，標籤也不會壓在帽子上。
+ */
+.dancer-label {
+  /*
+   * 標題列現在同時放名字與「隱藏」鈕。名字置中、× 靠右——用 grid 的三欄
+   * （空白 / 名字 / 按鈕）而不是 space-between，否則名字會被按鈕推得偏左。
+   */
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  text-align: center;
+  padding: 3px 8px;
+  border-radius: var(--radius-sm);
+  background: var(--bg-control);
+  color: var(--text-secondary);
+  font-size: var(--fs-xs);
+  font-weight: 600;
+  letter-spacing: 0.5px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  transition: background 0.2s ease, color 0.2s ease;
+  /*
+   * 標題列本身讓點擊穿過去（點卡片的任何地方都是「選這位舞者」），
+   * 但裡面的按鈕要自己把事件收回來——見 `.dancer-hide`。
+   */
+  pointer-events: none;
+}
+
+/*
+ * 滑過時標籤提亮。
+ *
+ * 舊版是放大 1.1 倍 + 加陰影——絕對定位時不影響版面，現在它佔一行，
+ * 放大會把下面的光衣往下推，滑鼠一進一出整張卡片就抖一下。
+ */
 .armor-container:hover .dancer-label {
-  transform: translateX(-50%) scale(1.1);
-  box-shadow: 0 6px 12px rgba(74, 158, 255, 0.4),
-              0 3px 6px rgba(0, 0, 0, 0.3);
+  background: var(--bg-control-hover);
+  color: var(--text-primary);
+}
+
+/* 名字在中間那一欄，左右兩欄等寬，所以它是真的置中 */
+.dancer-label__name {
+  grid-column: 2;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/*
+ * 隱藏這位舞者。
+ *
+ * 平常淡到幾乎看不見，hover 卡片時才浮出來——它是不常用的操作，不該和
+ * 舞者名稱搶注意力。但**一直佔著位子**（不是 display: none 再冒出來），
+ * 否則 hover 時整列會跳一下。
+ */
+.dancer-hide {
+  grid-column: 3;
+  justify-self: end;
+  /*
+   * ⚠️ 一定要寫。父層 `.dancer-label` 是 `pointer-events: none`（讓點擊
+   * 穿過去選這位舞者），而那會一併關掉裡面所有東西的命中判定——按鈕畫得出來、
+   * hover 也看得到，就是點不到。實測 `elementFromPoint` 在按鈕正中央回傳的是
+   * `.armor-container`，e2e 就是這樣紅的。
+   */
+  pointer-events: auto;
+  width: 16px;
+  height: 16px;
+  padding: 0;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-muted);
+  font-size: var(--fs-sm);
+  line-height: 1;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.15s ease, background 0.15s ease, color 0.15s ease;
+}
+
+.armor-container:hover .dancer-hide,
+.dancer-hide:focus-visible {
+  opacity: 1;
+}
+
+.dancer-hide:hover {
+  background: var(--bg-control-active);
+  color: var(--text-primary);
 }

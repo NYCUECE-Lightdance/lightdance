@@ -12,18 +12,93 @@
 
 /* Timeline 方塊通用樣式 */
 .timeline-block {
-  transition: border 0.1s ease;
+  transition: box-shadow 0.1s ease;
 }
 
-/* 綠色目標框：代表 Ctrl+V 會貼到這個部位 */
-.timeline-block[style*="rgb(0, 255, 0)"] {
-  box-shadow: 0 0 10px rgba(0, 255, 0, 0.8);
-  border: 4px solid #00FF00 !important;
-  z-index: 10;
+/*
+ * 貼上目標的四角標記。
+ *
+ * 三種選取狀態（普通選取 / 複製來源 / 貼上目標）現在都是白色 ring，
+ * 靠線型區分：實線 / 虛線 / 加粗加四角。舊版是靠顏色分（橘 / 橘 / 綠），
+ * 前兩者長得一模一樣，而綠色又會跟綠色的燈光色塊混淆。
+ *
+ * ring 本身畫在 Timeline.jsx 的 inline style（要跟色塊寬度一起算），
+ * 四個角落的方塊放這裡，因為它需要偽元素。
+ */
+/* 四角一律畫在框內——`.timeline` 非 move mode 時會裁切，畫在框外會被切掉 */
+.timeline-block.is-paste-target::before,
+.timeline-block.is-paste-target::after {
+  content: "";
+  position: absolute;
+  width: 5px;
+  height: 5px;
+  background: var(--ring-selected);
+  z-index: 3;
+}
+.timeline-block.is-paste-target::before {
+  left: 0;
+  top: 0;
+  box-shadow: calc(100% - 5px) 0 0 var(--ring-selected);
+}
+.timeline-block.is-paste-target::after {
+  left: 0;
+  bottom: 0;
+  box-shadow: calc(100% - 5px) 0 0 var(--ring-selected);
 }
 
-/* 懸浮英文文字提示位置微調 */
-.shift-main-button:hover .tooltip {
-  width: 300px;
-  left: -120px;
+/*
+ * 亮度未滿的角標。
+ *
+ * 「鮮紅 30% 亮度」與「暗紅 100% 亮度」合成後像素完全相同，用眼睛分不出來。
+ * 這個三角形不佔色相，只回答「這塊是不是全亮」——要知道確切數值可以 hover
+ * 看 title，或選起來看工具列。
+ */
+.block-dim-mark {
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 0;
+  height: 0;
+  border-style: solid;
+  border-width: 0 9px 9px 0;
+  border-color: transparent var(--ring-selected) transparent transparent;
+  z-index: 2;
+
+  /*
+   * 刻意**不設** `pointer-events: none`：這個角標帶著 `title`，寫了
+   * `pointer-events: none` 的話那個原生提示永遠不會出現——註解叫使用者去 hover，
+   * 但 hover 不到。
+   *
+   * 讓它接收事件是安全的：點擊會照常冒泡到 `.timeline-block` 的
+   * `onMouseDown`，選取行為不受影響；而它只有右上角 9×9px，
+   * 版面稽核量的是元素中心點，也不會被它擋到。
+   */
+}
+
+/*
+ * 頻閃的角標。
+ *
+ * 頻閃是段上的 metadata（見 `utils/segments/effects.js`），色塊不會被切開——
+ * 少了記號的話畫面上完全看不出這一塊在閃，只能靠播放才知道。
+ *
+ * 用一排明暗交替的短豎線而不是圖示：它直接畫出「亮、滅、亮、滅」這件事，
+ * 而且不佔色相（編輯器介面無彩色，飽和的顏色只留給使用者的燈光資料）。
+ * 畫在**左下角**，右上角留給亮度角標與漸變的魔杖圖示——三個記號可能同時出現
+ * 在同一塊上，疊在一起就都讀不到了。
+ */
+.block-blink-mark {
+  position: absolute;
+  left: 3px;
+  bottom: 3px;
+  width: 14px;
+  height: 8px;
+  z-index: 2;
+  border-radius: 1px;
+  background: repeating-linear-gradient(
+    to right,
+    var(--ring-selected) 0 2px,
+    transparent 2px 4px
+  );
+
+  /* 和亮度角標同樣的理由：帶著 title，設了 pointer-events: none 就 hover 不到 */
 }

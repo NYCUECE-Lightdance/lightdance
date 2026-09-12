@@ -24,8 +24,12 @@ RUN uv venv /opt/venv && \
 #### Stage 2. Create a minimal, secure runtime image ####
 FROM python:3.11-alpine AS runtime
 
-# Install curl for healthchecks
-RUN apk update && apk add --no-cache curl && rm -rf /var/cache/apk/*
+# Install curl for healthchecks and tzdata
+RUN apk update && apk add --no-cache curl tzdata && rm -rf /var/cache/apk/*
+
+# 設定時區
+ENV TZ=Asia/Taipei
+RUN ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone
 
 # Copy the virtual environment with all dependencies from the builder stage
 COPY --from=builder /opt/venv /opt/venv

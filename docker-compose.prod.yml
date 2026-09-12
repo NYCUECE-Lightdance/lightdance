@@ -41,6 +41,18 @@ services:
       # 生產環境關閉熱重載
       - APP_RELOAD=false
       - MUSIC_FILE_PATH=/music
+      # 存取權杖的簽章秘鑰（見 backend/auth.py）。**正式環境一定要設**——
+      # 沒設的話後端每次重啟都會換一把新的，所有人被登出
+      - AUTH_SECRET=${AUTH_SECRET:-}
+      # 漏設秘鑰時讓後端**啟動失敗**，而不是臨時產生一把之後每次重啟把大家登出。
+      # 那個症狀（「怎麼又要登入」）看起來像網站不穩，不像設定漏了，
+      # 而啟動日誌裡的一行 warning 沒有人會看到
+      - REQUIRE_AUTH_SECRET=1
+      - AUTH_TOKEN_TTL_HOURS=${AUTH_TOKEN_TTL_HOURS:-12}
+      # 建立帳號的邀請碼。留空 = 開放註冊
+      - REGISTER_CODE=${REGISTER_CODE:-}
+      # 留空 = 用程式裡的預設清單
+      - CORS_ORIGINS=${CORS_ORIGINS:-}
     networks:
       app-network:
         aliases:

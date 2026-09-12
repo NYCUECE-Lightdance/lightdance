@@ -1,0 +1,18 @@
+/*
+ * 框選的矩形。
+ *
+ * 白色細框 + 極淡的填色，和色塊的選取 ring 用同一組 token——畫面上唯一飽和的
+ * 顏色必須是使用者的燈光資料，框選是介面，所以不引入色相。
+ *
+ * `pointer-events: none` 是必要的：矩形蓋在時間軸上面，會吃掉 mousemove
+ * 與 mouseup，拖到一半就會像斷線一樣停住。
+ */
+.marquee-box {
+  position: absolute;
+  display: none;
+  z-index: 30;
+  pointer-events: none;
+  border: 1px solid var(--ring-selected);
+  border-radius: var(--radius-sm);
+  background: var(--overlay-light);
+}

@@ -3,24 +3,18 @@ export const UPDATEFULLPEAKS = "UPDATEFULLPEAKS";
 export const UPDATEDURATION = "UPDATEDURATION";
 export const UPDATEACTIONTABLE = "UPDATEACTIONTABLE";
 export const UPDATEMUSICFILENAME = "UPDATEMUSICFILENAME";
-export const UPDATETIMELINEBLOCKS = "UPDATETIMELINEBLOCKS";
 export const UPDATECHOSENCOLOR = "UPDATECHOSENCOLOR";
 export const UPDATECURRENTTIME = "UPDATECURRENTTIME";
 export const UPDATEACCESSTOKEN = "UPDATEACCESSTOKEN";
 export const UPDATEUSERNAME = "UPDATEUSERNAME";
-export const UPDATETIMELINEBLOCK = "UPDATETIMELINEBLOCK";
 export const UPDATEAUTOREFRESH = "UPDATEAUTOREFRESH";
-export const UPDATETEMPACTIONTABLE = "UPDATETEMPACTIONTABLE";
 export const UPDATEPALETTECOLOR = "UPDATEPALETTECOLOR";
-export const UPDATEHISTORY = "UPDATEHISTORY";
 export const UPDATEISCOLORCHANGEACTIVE = "UPDATEISCOLORCHANGEACTIVE";
 export const UPDATEPLAYBACKRATE = "UPDATEPLAYBACKRATE";
-export const UPDATEMAGNETACTIVE = "UPDATEMAGNETACTIVE";
 export const UPDATESHOWPART = "UPDATESHOWPART";
 export const UPDATEFAVORITECOLOR = "UPDATEFAVORITECOLOR";
 export const UPDATEDANCERVISIBILITY = "UPDATEDANCERVISIBILITY";
 export const UPDATECLIPBOARD = "UPDATECLIPBOARD";
-export const UPDATE_IS_DIRTY = "UPDATE_IS_DIRTY";
 
 export const updateUser = (value) => ({ type: UPDATEUSER, payload: value });
 export const updateFullpeaks = (value) => ({
@@ -43,10 +37,22 @@ export const updateMusicFilename = (value) => ({
   payload: value,
 });
 
-export const updateTimelineBlocks = ({ armorIndex, partIndex, value }) => ({
-  type: UPDATETIMELINEBLOCKS,
-  payload: { armorIndex, partIndex, value },
+/**
+ * 整條音訊時間軸（一場表演接續播放的那幾首歌）。
+ *
+ * 形狀與不變式在 `utils/audio/clips.js`，讀取一律走 `hooks/useAudioClips.js`。
+ */
+export const updateAudioClips = (clips) => ({
+  type: "UPDATEAUDIOCLIPS",
+  payload: clips,
 });
+
+/** 接縫重疊多久（ms）。改這個會把整張清單重排一次 */
+export const updateAudioOverlap = (overlapMs) => ({
+  type: "UPDATEAUDIOOVERLAP",
+  payload: overlapMs,
+});
+
 export const updateChosenColor = (value) => ({
   type: UPDATECHOSENCOLOR,
   payload: value,
@@ -67,28 +73,13 @@ export const updateUserName = (value) => ({
   payload: value,
 });
 
-export const updateTimelineBlock = (value) => ({
-  type: UPDATETIMELINEBLOCK,
-  payload: value,
-});
-
 export const updateAutoRefresh = (value) => ({
   type: UPDATEAUTOREFRESH,
   payload: value,
 });
 
-export const updateTempActionTable = (value) => ({
-  type: UPDATETEMPACTIONTABLE,
-  payload: value,
-});
-
 export const updatePaletteColor = (value) => ({
   type: UPDATEPALETTECOLOR,
-  payload: value,
-});
-
-export const updateHistory = (value) => ({
-  type: UPDATEHISTORY,
   payload: value,
 });
 
@@ -102,16 +93,29 @@ export const updatePlaybackRate = (value) => ({
   payload: value,
 });
 
-export const updateMagnetActive = (value) => ({
-  type: UPDATEMAGNETACTIVE,
-  payload: value,
-});
 export const updateUndo = () => ({ type: "UPDATEUNDO" });
 export const updateRedo = () => ({ type: "UPDATEREDO" });
 
+/** 改寫**目前這一組工作集**的軌道清單（payload 形狀與舊的 showPart 相同） */
 export const updateShowPart = (value) => ({
   type: UPDATESHOWPART,
   payload: value,
+});
+
+/* ── 工作集 ────────────────────────────────────────────
+   軌道組合的命名、切換與增刪。實作與不變式見 utils/worksets.js。 */
+export const switchWorkset = (id) => ({ type: "WORKSET_SWITCH", payload: id });
+export const addWorkset = (name) => ({ type: "WORKSET_ADD", payload: name });
+export const renameWorkset = (id, name) => ({
+  type: "WORKSET_RENAME",
+  payload: { id, name },
+});
+export const removeWorkset = (id) => ({ type: "WORKSET_REMOVE", payload: id });
+
+/** 全域軌道行高（像素）。逐軌覆寫請用 updateShowPart 帶 track.height */
+export const updateRowHeight = (height) => ({
+  type: "UPDATEROWHEIGHT",
+  payload: height,
 });
 
 export const updateFavoriteColor = (value) => ({
@@ -129,14 +133,18 @@ export const updateClipboard = (value) => ({
   payload: value,
 });
 
-export const updateIsDirty = (value) => ({
-  type: UPDATE_IS_DIRTY,
-  payload: value,
-});
-
 export const UPDATE_MULTI_SELECTED_BLOCKS = "UPDATE_MULTI_SELECTED_BLOCKS";
 
 export const updateMultiSelectedBlocks = (blocks) => ({
   type: UPDATE_MULTI_SELECTED_BLOCKS,
   payload: blocks,
+});
+
+export const toggleMoveMode = () => ({ type: "TOGGLEMOVEMODE" });
+export const updateMoveMode = (value) => ({ type: "UPDATEMOVEMODE", payload: value });
+
+export const UPDATE_SELECTED_DANCER = "UPDATE_SELECTED_DANCER";
+export const updateSelectedDancer = (value) => ({
+  type: UPDATE_SELECTED_DANCER,
+  payload: value,
 });

@@ -1,0 +1,124 @@
+/**
+ * 工具列提示 —— 全站唯一一份定義
+ * ================================
+ *
+ * 改之前有兩個問題，都是同一個病因：
+ *
+ * ## 1. 位置寫死
+ *
+ * ```css
+ * .choosetimeline:hover .tooltip { left: 28%; }
+ * .undo:hover .tooltip           { width: 120px; left: 48%; }
+ * .redo:hover .tooltip           { width: 120px; left: 68%; }
+ * .add-timeline:hover .tooltip   { width: 110px; left: 88%; }
+ * .effect-button:hover .tooltip  { left: 64%; top: -40px; }
+ * .shift-main-button:hover .tooltip { width: 300px; left: -120px; }
+ * ```
+ *
+ * 那些百分比是照著「工具列**當時**有幾顆按鈕」量出來的。任何人加一顆按鈕，
+ * 全部提示就指到錯的地方；寬度寫死則讓文字長一點就被裁掉。跟 2026-08-12
+ * 修掉的版面 bug 是同一個病因（`position: absolute` + 魔術數字）。
+ *
+ * 現在只有一條規則：**自己相對於宿主置中**，寬度由內容決定。
+ *
+ * ## 2. 顯示規則是白名單
+ *
+ * 舊版列出 15 個類別名稱才會顯示。新增按鈕時忘了加進白名單，提示就寫了
+ * 卻永遠不出現——而且不會有任何錯誤，只是靜靜地沒作用。
+ *
+ * 改成 `:hover > .tooltip`：只要提示是宿主的直接子節點就會顯示，不必登記。
+ */
+
+/* 有提示的元素要自己當定位基準，否則提示會跑去對齊更外層的容器 */
+:has(> .tooltip) {
+  position: relative;
+}
+
+/*
+ * ⚠️ **選擇器故意寫兩次。**
+ *
+ * `.tooltip` 是 Bootstrap 也在用的類別名稱（`bootstrap.min.css` 裡那條把
+ * `white-space` 設成 `normal`、`text-align` 設成 `start`、`opacity` 設成 0），
+ * 而 Bootstrap 在 `App.jsx` 裡比這份晚載入。兩邊的權重都是一個類別，
+ * 於是**後到的贏**——這份檔案的 `white-space: nowrap` 從來沒有生效過。
+ *
+ * 後果是每一則提示都會照宿主的寬度折行：34px 的按鈕配一則 8 個字的提示，
+ * 實測折成 48px 寬、96px 高的一長條。畫面上它「有出現」，所以不會有人覺得
+ * 壞掉，只是每一則都難讀。這和 CLAUDE.md 記的 `.btn` 撞名是同一個病因。
+ *
+ * 寫成 `.tooltip.tooltip` 把權重提到兩個類別，不必改動 17 個呼叫端的類別名稱。
+ * 版面稽核第三項會量提示有沒有被折行，改壞了會被指出來。
+ */
+.tooltip.tooltip {
+  position: absolute;
+
+  /* 浮在宿主正上方，並自己水平置中 —— 與宿主在工具列的哪個位置無關 */
+  bottom: calc(100% + 6px);
+  left: 50%;
+  transform: translateX(-50%);
+
+  /* 寬度由內容決定，取代原本三個寫死的 width */
+  white-space: nowrap;
+
+  background-color: var(--bg-control-active);
+  color: var(--text-primary);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  padding: 5px 9px;
+  font-size: var(--fs-sm);
+  font-weight: 400;
+  line-height: 1.4;
+  text-align: center;
+
+  visibility: hidden;
+  opacity: 0;
+  transition: opacity 0.13s ease-in-out;
+  pointer-events: none;
+  z-index: 60;
+}
+
+/* 快捷鍵壓成次要顏色，視覺上自然分成「這是什麼」與「怎麼按」兩段 */
+.tooltip kbd {
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+  color: var(--text-muted);
+  background: none;
+  border: 0;
+  padding: 0;
+  margin-left: var(--space-2);
+}
+
+:hover > .tooltip {
+  visibility: visible;
+  opacity: 1;
+}
+
+/*
+ * 貼著畫面左右邊緣的區塊，提示改成靠邊對齊而不是置中，否則會跑出畫面。
+ *
+ * ⚠️ **用後代選擇器，不要用 `> *:first-child >`。** 舊版寫的是那個形狀，
+ * 而 `.lefttool-container` 底下的按鈕實際上多包了一層 `.leftupcorner`——
+ * 於是規則從來沒有生效過。它一直沒被發現，是因為那時每一則提示都被
+ * Bootstrap 折成又窄又高的一條（見上方說明），窄到不會超出畫面左緣；
+ * 折行修好之後同一則提示立刻跑出畫面，被稽核抓到。
+ *
+ * 巢狀深度是版面的細節，會隨著重構改變；「這一欄貼著畫面左緣」才是規則
+ * 真正依賴的事實。
+ */
+.tool-group:first-child .tooltip,
+.lefttool-container .tooltip {
+  left: 0;
+  transform: none;
+}
+
+.tool-group:last-child .tooltip {
+  left: auto;
+  right: 0;
+  transform: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tooltip {
+    transition: none;
+  }
+}

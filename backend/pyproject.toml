@@ -4,7 +4,9 @@ version = "0.1.0"
 description = "LightDance Backend API - 燈光舞蹈控制系統後端服務"
 requires-python = ">=3.11"
 dependencies = [
+    "bcrypt>=5.0.0",
     "fastapi>=0.116.1",
+    "pyjwt>=2.13.0",
     "pymongo>=4.13.2",
     "python-dotenv>=1.1.1",
     "python-multipart>=0.0.20",
@@ -13,3 +15,15 @@ dependencies = [
 
 [tool.setuptools]
 py-modules = ["main", "models"]
+
+[dependency-groups]
+dev = [
+    "httpx>=0.28.1",
+    "pytest>=9.1.1",
+]
+
+[tool.pytest.ini_options]
+# main.py / models.py 在 backend/ 根目錄，測試在 backend/tests/，
+# 讓 pytest 把根目錄放進 sys.path
+pythonpath = ["."]
+testpaths = ["tests"]

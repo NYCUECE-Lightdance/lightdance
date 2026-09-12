@@ -1,0 +1,40 @@
+/*
+ * 節拍格線。
+ *
+ * 顏色一律走 tokens（styles/tokens.css），這裡不出現任何色碼。
+ */
+
+/*
+ * 蓋滿整個 `.main-controlPanel`，但**不吃滑鼠事件**——它躺在軌道底下當背景，
+ * 攔到事件的話色塊就拖不動了。
+ *
+ * `position: absolute` + `inset: 0` 讓它跟著縮放後的容器一起變寬，不必自己
+ * 算捲動；`z-index: 0` 把它壓在色塊下面（色塊沒有指定 z-index，會蓋在上面）。
+ */
+.beat-grid {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  overflow: hidden;
+}
+
+.beat-line {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 1px;
+}
+
+/* 三階亮度：小節最清楚，細分最淡。靠亮度分層不靠色相 */
+.beat-line.is-bar {
+  background: var(--beat-bar);
+}
+
+.beat-line.is-beat {
+  background: var(--beat-beat);
+}
+
+.beat-line.is-sub {
+  background: var(--beat-sub);
+}
