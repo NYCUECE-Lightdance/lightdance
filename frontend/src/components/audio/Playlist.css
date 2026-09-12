@@ -1,0 +1,249 @@
+/*
+ * 播放清單。收起時只佔一顆按鈕，展開才是完整的歌單。
+ *
+ * 顏色一律走 tokens（styles/tokens.css），這裡不出現任何色碼——
+ * styles/__tests__/tokens.test.js 會掃描到。
+ */
+
+.playlist-wrapper {
+  position: relative;
+  display: inline-block;
+}
+
+.playlist-button {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  height: var(--control-h);
+  padding: 0 var(--space-3);
+  max-width: 200px;
+  background: var(--bg-control);
+  color: var(--text-secondary);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  font-size: var(--fs-sm);
+  cursor: pointer;
+  position: relative;
+}
+
+.playlist-button:hover {
+  background: var(--bg-control-hover);
+  color: var(--text-primary);
+}
+
+/* 收起時也看得出是哪一場的歌單：第一首的名字 + 還有幾首 */
+.playlist-summary {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.playlist-count {
+  margin-left: var(--space-1);
+  color: var(--text-muted);
+  font-size: var(--fs-xs);
+}
+
+.playlist-panel {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  margin-top: var(--space-2);
+  z-index: 1000;
+  min-width: 360px;
+  padding: var(--space-3);
+  background: var(--bg-control);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-md);
+  box-shadow: 0 4px 12px var(--overlay-soft);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.playlist-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.playlist-title {
+  color: var(--text-secondary);
+  font-size: var(--fs-sm);
+}
+
+.playlist-items {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  max-height: 240px;
+  overflow-y: auto;
+}
+
+.playlist-item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-1) var(--space-2);
+  background: var(--bg-panel);
+  border-radius: var(--radius-sm);
+  /* 節拍那一列換到第二行——它是這一首的細節，不該跟名字擠在同一排 */
+  flex-wrap: wrap;
+}
+
+/*
+ * 節拍設定。整列獨佔第二行（`flex-basis: 100%`），左邊留一個和序號同寬的
+ * 內縮，看起來就會像是掛在這首歌底下的細節而不是另一個項目。
+ */
+.playlist-tempo {
+  flex: 1 0 100%;
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding-left: 24px;
+  color: var(--text-muted);
+  font-size: var(--fs-xs);
+}
+
+.playlist-tempo label {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  margin: 0;
+  /* 這一列排不下時要讓數字欄位縮，不是把「每小節」折成一個字一行 */
+  white-space: nowrap;
+  flex: 0 0 auto;
+}
+
+.playlist-tempo input {
+  width: 52px;
+  background: var(--bg-control);
+  color: var(--text-primary);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  padding: 1px var(--space-1);
+  font-size: var(--fs-xs);
+}
+
+.playlist-tempo .ld-btn {
+  margin-left: auto;
+  padding: 0 var(--space-2);
+  min-height: 20px;
+  height: 20px;
+  font-size: var(--fs-xs);
+  line-height: 1;
+}
+
+.playlist-index {
+  width: 16px;
+  color: var(--text-muted);
+  font-size: var(--fs-xs);
+  font-variant-numeric: tabular-nums;
+}
+
+/* 名字本身就是改名的按鈕——多一顆鉛筆圖示只是多一個要瞄準的目標 */
+.playlist-name {
+  flex: 1 1 auto;
+  min-width: 0;
+  text-align: left;
+  background: none;
+  border: none;
+  padding: 0;
+  color: var(--text-primary);
+  font-size: var(--fs-sm);
+  cursor: text;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.playlist-name:hover {
+  text-decoration: underline;
+}
+
+.playlist-length {
+  color: var(--text-muted);
+  font-size: var(--fs-xs);
+  font-variant-numeric: tabular-nums;
+}
+
+.playlist-order {
+  display: inline-flex;
+  gap: 2px;
+}
+
+.playlist-order .ld-btn,
+.playlist-item .ld-btn--danger {
+  padding: 0 var(--space-2);
+  min-height: 22px;
+  height: 22px;
+  font-size: var(--fs-xs);
+  line-height: 1;
+}
+
+.playlist-empty {
+  color: var(--text-muted);
+  font-size: var(--fs-sm);
+  padding: var(--space-2);
+}
+
+.playlist-add {
+  display: flex;
+  gap: var(--space-2);
+  align-items: center;
+}
+
+.playlist-add .dropdown-select {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.playlist-seam {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  color: var(--text-secondary);
+  font-size: var(--fs-xs);
+}
+
+.playlist-seam input[type="range"] {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.playlist-seam-value {
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+  min-width: 44px;
+  text-align: right;
+}
+
+/*
+ * 時間軸上的接縫標記。與 TimeRuler / ShiftMarkers 同一層，靠 % 定位，
+ * 所以縮放與捲動自動同步。
+ */
+.clip-markers {
+  position: relative;
+  height: 0; /* 不佔高度：標籤自己浮在刻度尺下方 */
+}
+
+.clip-marker {
+  position: absolute;
+  top: 0;
+  width: 1px;
+  height: 14px;
+  background: var(--border-strong);
+  pointer-events: none;
+}
+
+.clip-marker-label {
+  position: absolute;
+  left: var(--space-1);
+  top: 0;
+  white-space: nowrap;
+  color: var(--text-muted);
+  font-size: var(--fs-xs);
+}

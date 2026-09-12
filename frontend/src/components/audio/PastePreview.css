@@ -1,0 +1,20 @@
+/*
+ * 貼上的落點預覽。
+ *
+ * 虛線框，和「複製來源」用同一個線型——兩者是同一件事的兩端（這裡複製的，
+ * 要貼到那裡），實線留給「已經選起來」。無彩色，理由和框選一樣：畫面上唯一
+ * 飽和的顏色必須是使用者的燈光資料。
+ *
+ * `pointer-events: none` 是必要的：框蓋在時間軸上面，會吃掉 mousemove
+ * 與 mousedown，游標一移到框上預覽就會停住（框自己擋住了它要追的東西）。
+ */
+.paste-ghost {
+  position: absolute;
+  display: none;
+  z-index: 25;
+  pointer-events: none;
+  border: 2px dashed var(--ring-selected);
+  border-radius: var(--radius-sm);
+  background: var(--overlay-light);
+  box-sizing: border-box;
+}

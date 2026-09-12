@@ -1,0 +1,90 @@
+/**
+ * 按鈕階層 —— 全站只有這四種
+ * ================================
+ *
+ * 改之前，header 一排裡有**四種樣式並存**：描邊（Output / Shortcuts / Load /
+ * Edit / Logout）、綠色實心（New Project）、橘色實心（未儲存警告）、
+ * 純圖示（裝置）。Logout 和 Output 視覺權重完全相同 —— 但一個是每天用幾十次
+ * 的主要動作，一個是離開。使用者沒有任何線索判斷該先看哪個。
+ *
+ * 四階的判準是「這個動作有多常按、按錯有多痛」：
+ *
+ *   primary    每個畫面**最多一個**。編輯器是 Output，Dashboard 是開始創作。
+ *   secondary  常用但不是主線：Shortcuts / Load / Edit
+ *   ghost      工具列所有圖示、Logout —— 存在但不搶戲
+ *   danger     破壞性：刪除軌道、刪除色塊
+ *
+ * primary 是全站唯一的「亮底深字」。在一片深灰裡，反相比任何顏色都醒目，
+ * 而且不佔用色相 —— 色相要留給燈光資料。
+ *
+ * ## 為什麼前綴是 `ld-`
+ *
+ * 不能叫 `.btn` —— Bootstrap 也用這個名字，而 `bootstrap.min.css` 在
+ * `App.jsx` 裡比這支晚載入。同權重下後載入的贏，結果就是四個階層全部失效、
+ * header 五顆按鈕一起變回預設的暗灰（實測截圖確認過）。
+ */
+
+.ld-btn {
+  font: inherit;
+  font-family: "Kanit", sans-serif;
+  font-size: var(--fs-sm);
+  height: var(--control-h);
+  padding: 0 var(--space-3);
+  border-radius: var(--radius-md);
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--text-secondary);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  white-space: nowrap;
+  transition:
+    background-color 0.12s ease,
+    color 0.12s ease,
+    border-color 0.12s ease;
+}
+
+.ld-btn:focus-visible {
+  outline: 2px solid var(--ring-focus);
+  outline-offset: 2px;
+}
+
+.ld-btn:disabled {
+  color: var(--text-disabled);
+  cursor: not-allowed;
+}
+
+.ld-btn--primary {
+  background: var(--bg-inverse);
+  color: var(--text-inverse);
+  font-weight: 600;
+}
+.ld-btn--primary:hover:not(:disabled) {
+  background: var(--bg-inverse-hover);
+}
+
+.ld-btn--secondary {
+  border-color: var(--border-strong);
+  color: var(--text-primary);
+}
+.ld-btn--secondary:hover:not(:disabled) {
+  background: var(--bg-control-hover);
+}
+
+.ld-btn--ghost {
+  color: var(--text-secondary);
+}
+.ld-btn--ghost:hover:not(:disabled) {
+  background: var(--bg-control-hover);
+  color: var(--text-primary);
+}
+
+.ld-btn--danger {
+  border-color: var(--state-danger-border);
+  color: var(--state-danger);
+}
+.ld-btn--danger:hover:not(:disabled) {
+  background: var(--state-danger-bg);
+}

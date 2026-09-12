@@ -1,0 +1,141 @@
+/*
+ * 工作集列。
+ *
+ * ⚠️ 這裡不能出現寫死的顏色（`styles/__tests__/tokens.test.js` 會掃）。
+ * 也不引入任何色相：目前這一組靠**亮度**與邊框表達，不靠色彩——畫面上唯一
+ * 飽和的東西必須是使用者的燈光資料。
+ */
+
+.workset-bar {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  /* 左右兩緣與下面兩排對齊：左緣 0、右緣 --page-inset（播放器也停在那裡）；
+     內容的左內縮則用 --row-inset，和工具列、軌名列共用 */
+  width: auto;
+  margin-right: var(--page-inset);
+  padding: var(--space-1) var(--space-3) var(--space-1) var(--row-inset);
+  background: var(--bg-panel);
+  border-bottom: 1px solid var(--border-subtle);
+  box-sizing: border-box;
+  flex: none;
+  align-self: stretch;
+}
+
+.workset-bar__label {
+  flex: none;
+  padding-right: var(--space-2);
+  border-right: 1px solid var(--border-subtle);
+  font-size: var(--fs-xs);
+  letter-spacing: 0.12em;
+  color: var(--text-muted);
+}
+
+/*
+ * 工作集多到排不下時橫向捲動，而不是換行把整條列撐高——
+ * 這一列的高度是固定的，撐高會把下面的時間軸擠掉。
+ */
+.workset-bar__list {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  flex: 1;
+  min-width: 0;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.workset-bar__list::-webkit-scrollbar {
+  display: none;
+}
+
+.workset-chip {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 22px;
+  padding: 0 10px;
+  border: 1px solid transparent;
+  border-radius: var(--radius-pill);
+  background: var(--bg-control);
+  color: var(--text-secondary);
+  font: inherit;
+  font-size: var(--fs-xs);
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.workset-chip:hover {
+  background: var(--bg-control-hover);
+  color: var(--text-primary);
+}
+
+.workset-chip.is-current {
+  background: var(--bg-control-active);
+  border-color: var(--border-strong);
+  color: var(--text-primary);
+}
+
+.workset-chip__count {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  color: var(--text-disabled);
+}
+.workset-chip.is-current .workset-chip__count {
+  color: var(--text-muted);
+}
+
+.workset-bar__action {
+  position: relative;
+  flex: none;
+  width: 24px;
+  height: 22px;
+  display: grid;
+  place-items: center;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: var(--bg-control);
+  color: var(--text-muted);
+  font-size: var(--fs-xs);
+  cursor: pointer;
+}
+
+.workset-bar__action:hover:not(:disabled) {
+  background: var(--bg-control-hover);
+  color: var(--text-primary);
+}
+
+.workset-bar__action:disabled {
+  color: var(--text-disabled);
+  cursor: default;
+}
+
+/*
+ * 行高滑桿。
+ *
+ * 拉它只會改一個數字，Timeline 的色塊一個都不會重繪——零 re-render 的
+ * 拖曳路徑因此完全不受影響。逐軌覆寫在軌名列左緣的把手上。
+ */
+.workset-bar__rowh {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding-left: var(--space-2);
+  border-left: 1px solid var(--border-subtle);
+  font-size: var(--fs-xs);
+  color: var(--text-muted);
+}
+
+.workset-bar__rowh input {
+  width: 96px;
+  accent-color: var(--text-muted);
+}
+
+.workset-bar__rowh-value {
+  width: 40px;
+  text-align: right;
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  color: var(--text-secondary);
+}

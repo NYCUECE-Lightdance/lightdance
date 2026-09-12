@@ -1,227 +1,93 @@
 import { useMemo, memo } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import "./Armor.css";
+import { PART_KEYS } from "../constants/parts.js";
+import { TICK_MS } from "../constants/time.js";
+import { getColorAt, insertColorSegment } from "../utils/segments/color.js";
 import {
-  updateActionTable,
   updateCurrentTime,
+  updateDancerVisibility,
   updateSelectedDancer,
 } from "../redux/actions";
+import { useSegmentArmorTimelines } from "../hooks/useSegmentActionTable.js";
+import {
+  ARMOR_FLOOR,
+  ARMOR_SHAPES,
+  ARMOR_VIEWBOX,
+  radiusOf,
+} from "../config/armorShapes.js";
+import { ACCESSORY_CONFIGS } from "../config/accessoryConfig.js";
 
 const Armor = (props) => {
   const dispatch = useDispatch();
-  const data = useSelector((state) => state.profiles.data);
-  const actionTable = data?.actionTable || [];
+  // 只訂閱**自己這位舞者**的 22 個部位。訂閱整張表的話，
+  // 任何舞者被編輯都會讓 7 個 Armor 全部重算 22 個顏色。
+  const { armorSegments, commitPart } = useSegmentArmorTimelines(props.index);
   const time = useSelector((state) => state.profiles.currentTime);
   const duration = useSelector((state) => state.profiles.duration);
   const chosenColor = useSelector((state) => state.profiles.chosenColor);
-  const multiSelectedBlocks = useSelector((state) => state.profiles.multiSelectedBlocks);
+  const multiSelectedBlocks = useSelector(
+    (state) => state.profiles.multiSelectedBlocks,
+  );
+  const selectedDancerId = useSelector(
+    (state) => state.profiles.selectedDancerId,
+  );
+  const dancerVisibility = useSelector(
+    (state) => state.profiles.dancerVisibility,
+  );
+
+  /** 把這位舞者收起來。叫回來的入口在卡片外面（見 DancerToggle.jsx） */
+  const hideDancer = () => {
+    const next = [...dancerVisibility];
+    next[props.index] = false;
+    dispatch(updateDancerVisibility(next));
+  };
   const myId = props.index;
-  const blackthreshold = 10;
 
   // 新的部位名稱（對應 Home.jsx 的輸出映射）
-  const partNames = [
-    "hat",           // 0:帽子
-    "face",          // 1:臉部
-    "chestL",        // 2:左胸
-    "chestR",        // 3:右胸
-    "armL",          // 4:左手臂
-    "armR",          // 5:右手臂
-    "tie",           // 6:領帶
-    "belt",          // 7:腰帶
-    "gloveL",        // 8:左手套
-    "gloveR",        // 9:右手套
-    "legL",          // 10:左腿
-    "legR",          // 11:右腿
-    "shoeL",         // 12:左鞋
-    "shoeR",         // 13:右鞋
-    "acc0",          // 14:配件燈0
-    "acc1",          // 15:配件燈1
-    "acc2",          // 16:配件燈2
-    "acc3",          // 17:配件燈3
-    "acc4",          // 18:配件燈4
-    "acc5",          // 19:配件燈5
-    "acc6",          // 20:配件燈6
-    "acc7",          // 21:配件燈7
-  ];
+  const partNames = PART_KEYS;
 
-
-  // 根據部位名稱和當前時間計算顏色
+  // 根據部位和當前時間計算顏色。
+  //
+  // 舊版在這裡自己走一遍「找前後關鍵格、判斷是不是漸變、插值」的邏輯
+  // （飾品面板還有一份幾乎相同的複本）。segment 模型把這件事收斂成
+  // `getColorAt`：空隙回傳黑色、漸變段內回傳插值，兩個元件共用同一份。
   const getColorForPart = (part) => {
-    const partData = actionTable?.[myId]?.[part] || [];
-    const timeIndex = binarySearchFirstGreater(partData, time);
-    const prevData = partData?.[timeIndex - 1];
-    const nextData = partData?.[timeIndex];
-
-    if (prevData && prevData.linear === 1 && nextData) {
-      const afterNextData = partData?.[timeIndex + 1];
-
-      const startTime = prevData.time;
-      const endTime = nextData.time;
-      const currentTime = time;
-
-      const startColor = prevData.color;
-      const endColor = afterNextData?.color || { R: 0, G: 0, B: 0, A: 1 };
-
-      if (endTime > startTime) {
-        const ratio = (currentTime - startTime) / (endTime - startTime);
-        const r = Math.round(
-          startColor.R * (1 - ratio) + endColor.R * ratio
-        );
-        const g = Math.round(
-          startColor.G * (1 - ratio) + endColor.G * ratio
-        );
-        const b = Math.round(
-          startColor.B * (1 - ratio) + endColor.B * ratio
-        );
-        const startA = startColor.A ?? 1;
-        const endA = endColor.A ?? 1;
-        const a = startA * (1 - ratio) + endA * ratio;
-        return `rgba(${r}, ${g}, ${b}, ${a})`;
-      }
-    }
-
-    const colorData = prevData?.color || {
-      R: 0,
-      G: 0,
-      B: 0,
-      A: 1,
-    };
-    
-    return `rgba(${colorData.R}, ${colorData.G}, ${colorData.B}, ${colorData.A})`;
+    const { R, G, B, A } = getColorAt(armorSegments[part], time);
+    return `rgba(${R}, ${G}, ${B}, ${A})`;
   };
 
   const colors = useMemo(
-    () => Object.fromEntries(
-      partNames.map((name, index) => [name, getColorForPart(index)])
-    ),
-    [time, actionTable, myId]
+    () =>
+      Object.fromEntries(
+        partNames.map((name, index) => [name, getColorForPart(index)]),
+      ),
+    [time, armorSegments, myId],
   );
 
   function insertArray(part) {
-    const partData = actionTable?.[myId]?.[part] || [];
-    const indexToCopy = binarySearchFirstGreater(partData, time);
-    const nowTime = Math.floor(time / 50) * 50;
+    const nowTime = Math.floor(time / TICK_MS) * TICK_MS;
     dispatch(updateCurrentTime(nowTime));
 
-    const updatedActionTableEntries = Object.entries(actionTable).map(
-      ([playerIndex, player]) => {
-        playerIndex = Number(playerIndex);
-        if (playerIndex === myId) {
-          const updatedPlayer = { ...player };
-          let updatedPartData = [...(player[part] || [])];
-
-          const newEntry = {
-            time: nowTime,
-            color: { ...chosenColor },
-            linear: 0
-          };
-
-          const nextElement = updatedPartData[indexToCopy];
-          const previousElement =
-            updatedPartData[indexToCopy - 1] || updatedPartData[indexToCopy];
-
-          const isNextBlack =
-            !nextElement ||
-            (nextElement?.color?.R === 0 &&
-              nextElement?.color?.G === 0 &&
-              nextElement?.color?.B === 0);
-
-          const isPreviousBlack =
-            !previousElement ||
-            (previousElement?.color?.R === 0 &&
-              previousElement?.color?.G === 0 &&
-              previousElement?.color?.B === 0);
-
-          const existingIndex = updatedPartData.findIndex(
-            (entry) => entry.time === nowTime
-          );
-
-          if (existingIndex !== -1) {
-            updatedPartData = updatedPartData.map((entry, index) =>
-              index === existingIndex
-                ? { ...entry, color: { ...chosenColor } }
-                : entry
-            );
-          } else if (indexToCopy === 0) {
-            const blackArray2 = {
-              time: duration,
-              color: { R: 0, G: 0, B: 0, A: 1 },
-              linear: 0,
-            };
-            updatedPartData.splice(partData.length, 0, newEntry, blackArray2);
-          } else if (!isPreviousBlack && isNextBlack) {
-            const blackArray = {
-              time: nowTime - blackthreshold,
-              color: { R: 0, G: 0, B: 0, A: 1 },
-              linear: 0,
-            };
-            updatedPartData.splice(indexToCopy + 1, 0, blackArray, newEntry);
-          } else if (!isPreviousBlack && !isNextBlack) {
-            const blackArray = {
-              time: nowTime - blackthreshold,
-              color: { R: 0, G: 0, B: 0, A: 1 },
-              linear: 0,
-            };
-            const blackArray2 = {
-              time:
-                nextElement?.time - blackthreshold || nowTime + blackthreshold,
-              color: { R: 0, G: 0, B: 0, A: 1 },
-              linear: 0,
-            };
-            updatedPartData.splice(
-              indexToCopy + 1,
-              0,
-              blackArray,
-              newEntry,
-              blackArray2
-            );
-          } else if (isPreviousBlack && !isNextBlack) {
-            const blackArray2 = {
-              time:
-                nextElement?.time - blackthreshold || nowTime + blackthreshold,
-              color: { R: 0, G: 0, B: 0, A: 1 },
-              linear: 0,
-            };
-            updatedPartData.splice(indexToCopy + 1, 0, newEntry, blackArray2);
-          } else {
-            updatedPartData.splice(partData.length, 0, newEntry);
-          }
-
-          updatedPartData.sort((a, b) => a.time - b.time);
-          updatedPlayer[part] = updatedPartData;
-          return [playerIndex, updatedPlayer];
-        }
-        return [playerIndex, player];
-      }
+    commitPart(
+      part,
+      insertColorSegment(armorSegments[part], {
+        time: nowTime,
+        color: chosenColor,
+        duration,
+      }),
     );
-
-    const updatedActionTable = Object.fromEntries(updatedActionTableEntries);
-    dispatch(updateActionTable(updatedActionTable));
   }
 
-  // 二分搜尋找到對應時間
-  function binarySearchFirstGreater(arr, target) {
-    if (!arr) return;
-    let left = 0;
-    let right = arr?.length - 1;
-    let result = 0;
+  /** 這位是不是目前選取的舞者 */
+  const isCurrentDancer = selectedDancerId === myId;
 
-    while (left <= right) {
-      let mid = Math.floor((left + right) / 2);
-      if (arr[mid].time > target) {
-        result = mid;
-        right = mid - 1;
-      } else {
-        left = mid + 1;
-      }
-    }
-    return result;
-  }
+  /** 這位舞者的道具（沒有配置就是沒帶道具） */
+  const accessory = ACCESSORY_CONFIGS[myId] ?? null;
 
   const isSelected = (part) => {
-    return multiSelectedBlocks.some(b => 
-      b.armorIndex === myId && 
-      b.partIndex === part
+    return multiSelectedBlocks.some(
+      (b) => b.armorIndex === myId && b.partIndex === part,
     );
   };
 
@@ -230,231 +96,135 @@ const Armor = (props) => {
     insertArray(part);
   };
 
-  // 渲染高亮邊框
-  const renderHighlight = (
-    x,
-    y,
-    width,
-    height,
-    shape = "rect",
-    options = {}
-  ) => {
-    const { r = null, cx = null, cy = null } = options;
+  /**
+   * 一個形狀畫成 SVG 元素。
+   *
+   * 圖形與選取高亮吃**同一組座標**：高亮只是把 fill 換成 none、加一圈描邊。
+   * 舊版兩份座標各寫一遍，鞋子的高亮框因此比鞋子本身高 10px。
+   */
+  const renderShape = (shape, key, { highlight = false, part = 0 } = {}) => {
+    // key 不能混在 spread 裡（React 會警告並且拿不到它），所以獨立傳
+    const attrs = highlight
+      ? { fill: "none", className: "armor-highlight" }
+      : {
+          // 部位編號寫在元素上，讓測試（單元與 e2e）可以直接指名要點哪個部位。
+          // 先前兩邊都用「第 N 個有 fill 的元素」，帽子與領帶各有兩個形狀之後
+          // 位置就對不上了——而且不會報錯，只會靜默點到別的部位。
+          "data-part": part,
+          fill: colors[partNames[part]],
+          onClick: () => handleColorChange(part),
+        };
 
-    if (shape === "rect") {
+    if (shape.kind === "circle") {
       return (
-        <rect
-          x={x}
-          y={y}
-          width={width}
-          height={height}
-          fill="none"
-          stroke="white"
-          strokeWidth="2"
-        />
+        <circle key={key} {...attrs} cx={shape.cx} cy={shape.cy} r={shape.r} />
       );
     }
-
-    if (shape === "circle") {
-      return (
-        <circle
-          cx={cx}
-          cy={cy}
-          r={r}
-          fill="none"
-          stroke="white"
-          strokeWidth="2"
-        />
-      );
+    if (shape.kind === "polygon") {
+      return <polygon key={key} {...attrs} points={shape.points} />;
     }
-
-    return null;
+    return (
+      <rect
+        key={key}
+        {...attrs}
+        x={shape.x}
+        y={shape.y}
+        width={shape.width}
+        height={shape.height}
+        rx={radiusOf(shape)}
+      />
+    );
   };
 
+
   return (
-    <div className="armor-container" onClick={() => dispatch(updateSelectedDancer(myId))}>
-      {/* 舞者編號標籤 */}
-      <div className="dancer-label">舞者 {myId + 1}</div>
-      <svg width="242" height="480" viewBox="10 0 222 480">
-        {/* 將所有 SVG 內容向下移動 35px，為標籤留出空間 */}
-        <g transform="translate(0, 35)">
-        {/*0:hat*/}
-        {isSelected(0) && (
-          <path
-            d="M 96.8 5 L 145.2 5 L 145.2 23 L 169.4 23 L 169.4 38 L 72.6 38 L 72.6 23 L 96.8 23 Z"
-            fill="none"
-            stroke="white"
-            strokeWidth="2"
-          />
+    <div
+      // 選到的那位要看得出來——右邊的「裝備編輯」顯示的就是他，
+      // 沒有標記的話使用者只能靠記憶對應
+      className={`armor-container${isCurrentDancer ? " is-current" : ""}`}
+      onClick={() => dispatch(updateSelectedDancer(myId))}
+    >
+      <div className="dancer-label">
+        <span className="dancer-label__name">舞者 {myId + 1}</span>
+        {/*
+          隱藏這位舞者。放在卡片自己的標題列上，「關掉這位」的按鈕就在這位身上
+          ——舊版是光衣下面另一整列 50px 的開關，佔掉約 66px 而且平常不會用到。
+          叫回來的入口在卡片外面（`DancerToggle.jsx`），因為卡片一隱藏，
+          長在它上面的按鈕就跟著消失了。
+        */}
+        <button
+          type="button"
+          className="dancer-hide"
+          data-testid={`dancer-hide-${myId}`}
+          title={`隱藏舞者 ${myId + 1}`}
+          aria-label={`隱藏舞者 ${myId + 1}`}
+          onClick={(e) => {
+            e.stopPropagation(); // 不要順便把整張卡片當成「選這位舞者」
+            hideDancer();
+          }}
+        >
+          ×
+        </button>
+      </div>
+      <div className="armor-body">
+      <svg className="armor-figure" viewBox={ARMOR_VIEWBOX}>
+        {/* 舞台地板：讓光衣看起來是站著的，而不是浮在卡片中間 */}
+        <line
+          className="armor-floor"
+          x1={ARMOR_FLOOR.x1}
+          y1={ARMOR_FLOOR.y}
+          x2={ARMOR_FLOOR.x2}
+          y2={ARMOR_FLOOR.y}
+        />
+
+        {ARMOR_SHAPES.map((shapes, part) =>
+          shapes.map((shape, i) => renderShape(shape, `p${part}-${i}`, { part })),
         )}
-        <path
-          d="M 96.8 5 L 145.2 5 L 145.2 23 L 169.4 23 L 169.4 38 L 72.6 38 L 72.6 23 L 96.8 23 Z"
-          fill={colors.hat}
-          onClick={() => handleColorChange(0)}
-        />
 
-        {/*1:face - 臉部*/}
-        {isSelected(1) && renderHighlight(null, null, null, null, "circle", {
-          r: 30,
-          cx: 121,
-          cy: 68
-        })}
-        <circle
-          cx="121"
-          cy="68"
-          r="30"
-          fill={colors.face}
-          onClick={() => handleColorChange(1)}
-        />
-
-        {/*2:chestL - 左胸（螢幕左側）*/}
-        {isSelected(2) && renderHighlight(72, 103, 28, 65)}
-        <rect
-          x="72"
-          y="103"
-          width="28"
-          height="65"
-          fill={colors.chestL}
-          onClick={() => handleColorChange(2)}
-        />
-
-        {/*3:chestR - 右胸（螢幕右側）*/}
-        {isSelected(3) && renderHighlight(142, 103, 28, 65)}
-        <rect
-          x="142"
-          y="103"
-          width="28"
-          height="65"
-          fill={colors.chestR}
-          onClick={() => handleColorChange(3)}
-        />
-
-        {/*4:armL - 左手臂（螢幕左側）*/}
-        {isSelected(4) && renderHighlight(35, 103, 32, 65)}
-        <rect
-          x="35"
-          y="103"
-          width="32"
-          height="65"
-          fill={colors.armL}
-          onClick={() => handleColorChange(4)}
-        />
-
-        {/*5:armR - 右手臂（螢幕右側）*/}
-        {isSelected(5) && renderHighlight(175, 103, 32, 65)}
-        <rect
-          x="175"
-          y="103"
-          width="32"
-          height="65"
-          fill={colors.armR}
-          onClick={() => handleColorChange(5)}
-        />
-
-        {/*6:tie - 領帶*/}
-        {isSelected(6) && renderHighlight(105, 103, 32, 50)}
-        <rect
-          x="105"
-          y="103"
-          width="32"
-          height="50"
-          fill={colors.tie}
-          onClick={() => handleColorChange(6)}
-        />
-        {/* 領帶三角形 - 與矩形完美對齊 */}
-        {isSelected(6) && (
-        <polygon
-         points="105,153 137,153 121,173"
-         fill="none"
-         stroke="white"
-         strokeWidth="2"
-        />
+        {/* 高亮畫在最後，才不會被後面的部位蓋掉 */}
+        {ARMOR_SHAPES.map((shapes, part) =>
+          isSelected(part)
+            ? shapes.map((shape, i) =>
+                renderShape(shape, `h${part}-${i}`, { highlight: true, part }),
+              )
+            : null,
         )}
-        <polygon
-          points="105,153 137,153 121,173"
-          fill={colors.tie}
-          onClick={() => handleColorChange(6)}
-        />
-
-
-        {/*7:belt - 腰帶*/}
-        {isSelected(7) && renderHighlight(78, 173, 86, 35)}
-        <rect
-          x="78"
-          y="173"
-          width="86"
-          height="35"
-          fill={colors.belt}
-          onClick={() => handleColorChange(7)}
-        />
-
-        {/*8:gloveL - 左手套（螢幕左側）*/}
-        {isSelected(8) && renderHighlight(35, 173, 32, 35)}
-        <rect
-          x="35"
-          y="173"
-          width="32"
-          height="35"
-          fill={colors.gloveL}
-          onClick={() => handleColorChange(8)}
-        />
-
-        {/*9:gloveR - 右手套（螢幕右側）*/}
-        {isSelected(9) && renderHighlight(175, 173, 32, 35)}
-        <rect
-          x="175"
-          y="173"
-          width="32"
-          height="35"
-          fill={colors.gloveR}
-          onClick={() => handleColorChange(9)}
-        />
-
-        {/*10:legL - 左腿（螢幕左側）*/}
-        {isSelected(10) && renderHighlight(85, 213, 28, 80)}
-        <rect
-          x="85"
-          y="213"
-          width="28"
-          height="80"
-          fill={colors.legL}
-          onClick={() => handleColorChange(10)}
-        />
-
-        {/*11:legR - 右腿（螢幕右側）*/}
-        {isSelected(11) && renderHighlight(129, 213, 28, 80)}
-        <rect
-          x="129"
-          y="213"
-          width="28"
-          height="80"
-          fill={colors.legR}
-          onClick={() => handleColorChange(11)}
-        />
-
-        {/*12:shoeL - 左鞋（螢幕左側）*/}
-        {isSelected(12) && renderHighlight(75, 298, 45, 25)}
-        <rect
-          x="75"
-          y="298"
-          width="45"
-          height="15"
-          fill={colors.shoeL}
-          onClick={() => handleColorChange(12)}
-        />
-
-        {/*13:shoeR - 右鞋（螢幕右側）*/}
-        {isSelected(13) && renderHighlight(122, 298, 45, 25)}
-        <rect
-          x="122"
-          y="298"
-          width="45"
-          height="15"
-          fill={colors.shoeR}
-          onClick={() => handleColorChange(13)}
-        />
-        </g>
       </svg>
+
+        {/*
+          道具就掛在人旁邊。
+          飾品燈原本列在右側一個獨立的側欄裡，離它所屬的舞者好幾百像素遠——
+          播放的時候你沒辦法一眼看出「這位舞者的刀亮了」。放在同一張卡片上、
+          與光衣並排之後，播放時整個人連同手上的東西一起亮，看得出來是一體的。
+        */}
+        {accessory && (
+          <div className="armor-props" title={accessory.name}>
+            {accessory.groups.map((group) => (
+              <div className="armor-props__group" key={group.label}>
+                <span className="armor-props__label">{group.label}</span>
+                <div className="armor-props__leds">
+                  {group.indices.map((part) => (
+                    <button
+                      key={part}
+                      type="button"
+                      className="armor-props__led"
+                      data-part={part}
+                      aria-selected={isSelected(part)}
+                      aria-label={`${accessory.name} ${group.label}`}
+                      style={{ background: colors[partNames[part]] }}
+                      onClick={(e) => {
+                        e.stopPropagation(); // 不要順便把整張卡片當成「選這位舞者」
+                        dispatch(updateSelectedDancer(myId));
+                        handleColorChange(part);
+                      }}
+                    />
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
     </div>
   );
 };

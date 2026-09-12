@@ -6,7 +6,7 @@ import localforage from "localforage";
 const backupStore = localforage.createInstance({
   name: "LightDanceBackupDB",
   storeName: "backups",
-  driver: [localforage.INDEXEDDB, localforage.WEBSQL, localforage.LOCALSTORAGE]
+  driver: [localforage.INDEXEDDB, localforage.WEBSQL, localforage.LOCALSTORAGE],
 });
 
 /**
@@ -31,7 +31,7 @@ export async function getAllLocalBackups() {
     const backups = [];
     await backupStore.iterate((value, key) => {
       // 確保 value 是物件，避免舊資料格式導致展開報錯
-      if (value && typeof value === 'object') {
+      if (value && typeof value === "object") {
         backups.push({ key, ...value });
       } else {
         backups.push({ key, data: value });

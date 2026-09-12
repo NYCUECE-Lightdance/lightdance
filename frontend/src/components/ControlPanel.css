@@ -1,4 +1,25 @@
+/*
+ * 下半部的欄位尺寸 —— 這三排（工作集列、工具列、軌名列）共用。
+ *
+ * 先前三排各自寫自己的內縮：工作集列 12px、工具列 6px、軌名列 1px，
+ * 於是三排的內容左緣是三個不同的 x（窄視窗下最明顯）。左欄的寬度也對不上：
+ * `.lefttool-container` 是 15%（1600 下 240px）而右邊的播放器從 235px 開始，
+ * 兩者重疊 5px。
+ */
 .control-panel {
+  --gutter-w: 15%; /* 左側軌名欄的寬度，右邊的播放器從這裡接續 */
+  --row-inset: 12px; /* 每一排內容的左內縮，三排共用 */
+
+  /*
+   * 時間刻度尺的高度。
+   *
+   * 刻度尺只存在於右半邊，佔掉軌道上方的一段高度；左側的軌名欄必須讓出
+   * **同樣高**的一段，兩邊的每一列才會落在同一條水平線上。先前左欄沒有讓，
+   * 於是每一列都往上偏 25px——捲到下面時軌名對到的是隔壁那條軌，
+   * 而且畫面上很難確定（兩邊的分隔線各自看起來都很整齊）。
+   */
+  --ruler-h: 24px;
+
   flex-direction: column; /* 垂直排列 */
   height: 65%;
   width: 100%;
@@ -8,16 +29,21 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  background: rgb(0, 0, 0);
+  background: var(--bg-canvas);
   z-index: 0;
 }
 
+/*
+ * 工作集列加進來之後，這一塊改成吃掉剩下的高度而不是寫死 95%——
+ * 兩者相加超過 100% 的話波形會被推出面板外。
+ */
 .downpart-container {
   position: relative;
   display: flex;
   width: 100%;
-  height: 95%;
-  border-top: 1px solid rgb(49, 47, 47);
+  flex: 1;
+  min-height: 0;
+  border-top: 1px solid var(--bg-control);
 }
 .lefttool-container {
   position: absolute;
@@ -25,91 +51,75 @@
   align-items: end;
   display: flex;
   height: 100%;
-  width: 15%;
-  background-color: rgb(21, 21, 21); /* 灰色背景 */
+  width: var(--gutter-w);
+  background-color: var(--bg-panel); /* 灰色背景 */
 }
+/*
+ * 左側五顆工具鈕（選軌 / 復原 / 重做 / 新增軌 / Move Mode）。
+ *
+ * 原本沒有 display:flex，按鈕靠 inline 排版加上 margin 20px 換行，在 240px
+ * 寬的欄位裡會擠成兩排並溢出 `height: 10%` 的框，往下壓到音樂選單與時間軸
+ * 設定區——實測 Add-Timeline 與 Move Mode 完全點不到。
+ *
+ * 改成單行 flex 並縮小按鈕與間距，五顆剛好排得下。
+ */
 .leftupcorner {
-  height: 10%;
-  justify-content: center;
-  align-content: end;
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 4px;
+  /* 左內縮與上面的工作集列共用同一個變數，兩排的內容才會對齊 */
+  padding: 6px var(--row-inset);
+  width: 100%;
+  flex-shrink: 0;
 }
 .choosetimeline,
 .undo,
 .redo,
 .add-timeline,
 .move-mode-button {
-  background-color: rgb(49, 47, 47);
-  color: rgb(150, 146, 146);
+  background-color: var(--bg-control);
+  color: var(--text-muted);
   border: none;
   border-radius: 5px;
   cursor: pointer;
-  margin-right: 20px;
-  margin-bottom: 20px;
-  gap: 5px;
+  /* 間距交給 .leftupcorner 的 gap，不要各自 margin（會撐破那一行）。
+     寬度用 flex 分配，欄位變窄時自動縮，不會有按鈕被擠出去。 */
+  flex: 1 1 0;
+  min-width: 0;
+  max-width: 44px;
+  height: 32px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  flex-shrink: 0;
 }
 .choosetimeline:hover,
 .undo:hover,
 .redo:hover,
 .add-timeline:hover,
 .move-mode-button:hover {
-  color: white; /* 懸停時改變文字顏色 */
+  color: var(--text-primary); /* 懸停時改變文字顏色 */
 }
 /* move mode啟用時高亮 */
 .move-mode-button.active {
-  color: #4fc3f7;
-  background-color: rgb(20, 55, 80);
+  color: var(--text-primary);
+  background-color: var(--bg-control-active);
 }
 
 /* 通用 Tooltip 樣式 */
-.tooltip {
-  visibility: hidden; /* 默認隱藏 */
-  opacity: 0; /* 默認透明 */
-  position: absolute;
-  background-color: rgb(49, 47, 47); /* 和按鈕一致的背景色 */
-  color: rgb(255, 255, 255); /* 和按鈕一致的文字顏色 */
-  text-align: center;
-  align-items: center; /* 垂直置中對齊 */
-  border-radius: 5px;
-  padding: 5px 10px;
-  font-size: 20px;
-  z-index: 10;
-  transition: opacity 0.2s ease-in-out;
-  top: -4px; /* 向上移動，位於按鈕上方 */
-  transform: translateX(-50%); /* 水平居中 */
-}
 
-/* 按鈕懸停時顯示 Tooltip */
-.choosetimeline:hover .tooltip,
-.undo:hover .tooltip,
-.redo:hover .tooltip,
-.add-timeline:hover .tooltip,
-.move-mode-button:hover .tooltip {
-  visibility: visible; /* 顯示 Tooltip */
-  opacity: 1; /* 不透明 */
-}
-.choosetimeline:hover .tooltip {
-  left: 28%;
-}
-.undo:hover .tooltip {
-  width: 120px;
-  left: 48%;
-}
-.redo:hover .tooltip {
-  width: 120px;
-  left: 68%;
-}
-.add-timeline:hover .tooltip {
-  width: 110px;
-  left: 88%;
-}
 
 .timeline-setting-container {
+  /* 讓出右半邊刻度尺佔掉的高度，兩邊的列才對得齊（見 --ruler-h） */
+  padding-top: var(--ruler-h);
   width: 100%;
   overflow-y: scroll; /* 允許垂直滾動 */
-  background-color: rgb(21, 21, 21); /* 灰色背景 */
-  color: white;
+  background-color: var(--bg-panel); /* 灰色背景 */
+  color: var(--text-primary);
   position: relative;
-  border-top: 4px solid rgb(49, 47, 47);
   display: flex;
   flex-direction: column;
 }
@@ -126,10 +136,9 @@
 
 .delete-timeline-button,
 .move-timeline-down-button,
-.move-timeline-up-button,
-.toggle-timeline-visibility-button {
-  background-color: rgb(49, 47, 47);
-  color: rgb(150, 146, 146);
+.move-timeline-up-button {
+  background-color: var(--bg-control);
+  color: var(--text-muted);
   height: 28px;
   width: 28px;
   border: none;
@@ -142,14 +151,58 @@
   gap: 10px;
 }
 
+/*
+ * 一條軌道的設定列。高度由 utils/tracks.js 決定（像素，不是百分比）——
+ * 右邊的 Timeline 吃同一個數字，所以左右兩欄的捲動永遠對得齊。
+ */
 .timeline-settings-block {
+  position: relative;
   box-sizing: border-box; /* 確保邊框不影響高度計算 */
-  border: 1px solid rgb(63, 63, 63);
+  border: 1px solid var(--border-strong);
   display: flex;
   align-items: center;
   justify-content: center;
   overflow: hidden;
   gap: 10px;
+  /* 高度把手是絕對定位的 8px，蓋在這段內縮裡——所以內容左緣仍然對得上其他排 */
+  padding-left: var(--row-inset);
+}
+
+/*
+ * 逐軌調整高度的把手。
+ *
+ * 貼在列的左緣，佔滿整條高度所以很好瞄——放在角落的小方塊在 24px 高的列裡
+ * 根本點不到。拖曳過程只改自己的 DOM，放開才進 redux（見 startHeightDrag）。
+ */
+.track-height-grip {
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 8px;
+  cursor: ns-resize;
+  background: repeating-linear-gradient(
+    to bottom,
+    var(--border-strong) 0 2px,
+    transparent 2px 5px
+  );
+  opacity: 0.5;
+}
+.track-height-grip:hover {
+  opacity: 1;
+  background: var(--bg-control-active);
+}
+
+/*
+ * 矮到放不下的時候收起次要按鈕。
+ *
+ * 上下移是兩顆 28px 的按鈕疊在一起，低於 COMPACT_ROW_H（64px）就會被擠爆——
+ * 畫得出來但點不到，正是版面稽核第一項在抓的那種東西。留下的是兩個下拉選單，
+ * 因為「這一軌是誰的哪個部位」比排序更常用。
+ */
+.timeline-settings-block.is-compact .move-timeline-buttons,
+.timeline-settings-block.is-compact .delete-timeline-button {
+  display: none;
 }
 
 .waveform-setting-block {
@@ -160,8 +213,8 @@
 /* 下拉式选单容器 */
 .timeline-settings-block label select {
   appearance: none; /* 移除浏览器默认样式 */
-  background-color: rgb(49, 47, 47); /* 預設背景色 */
-  color: rgb(150, 146, 146);
+  background-color: var(--bg-control); /* 預設背景色 */
+  color: var(--text-muted);
   height: 30px;
   width: 50px;
   border: 5px solid transparent;
@@ -172,7 +225,7 @@
 
 /* 鼠标悬停时 */
 .timeline-settings-block label select:hover {
-  color: rgb(255, 255, 255); /* 懸停時暫停圖標顏色 */
+  color: var(--text-primary); /* 懸停時暫停圖標顏色 */
 }
 .modal-overlay {
   position: fixed;
@@ -181,17 +234,17 @@
   top: 35%;
   left: 50%;
   transform: translateX(-50%);
-  color: rgb(165, 165, 165);
+  color: var(--text-secondary);
   width: 24%;
   max-height: 65vh;
   overflow: hidden;
   border-radius: 10px;
-  background-color: rgba(0, 0, 0, 0.9);
+  background-color: var(--overlay-strong);
   z-index: 999;
 }
 
 .modal-content {
-  background-color: white;
+  background-color: var(--bg-inverse);
   width: 100%;
   padding: 20px;
   border-radius: 10px;
@@ -204,13 +257,13 @@
   margin-bottom: 10px;
   border: none;
   border-radius: 5px;
-  background-color: rgb(49, 47, 47); /* 預設背景色 */
-  color: rgb(150, 146, 146);
+  background-color: var(--bg-control); /* 預設背景色 */
+  color: var(--text-muted);
   cursor: pointer;
 }
 
 .allsel-button:hover {
-  color: #ffffff; /* 悬停背景色 */
+  color: var(--text-primary); /* 悬停背景色 */
 }
 
 .modal-table-scroll {
@@ -222,7 +275,7 @@
 .modal-table-scroll thead th {
   position: sticky;
   top: 0;
-  background-color: rgba(0, 0, 0, 0.95);
+  background-color: var(--overlay-strong);
   z-index: 1;
 }
 
@@ -236,35 +289,40 @@
   display: flex;
   justify-content: space-between;
   margin-top: 20px;
-  background-color: rgba(0, 0, 0, 0.9);
+  background-color: var(--overlay-strong);
 }
 
 .modal-buttons button {
   padding: 10px 20px;
   border: none;
   border-radius: 5px;
-  background-color: rgb(49, 47, 47); /* 預設背景色 */
-  color: rgb(150, 146, 146);
+  background-color: var(--bg-control); /* 預設背景色 */
+  color: var(--text-muted);
   cursor: pointer;
 }
 
 .modal-buttons button:hover {
-  color: #ffffff; /* 悬停背景色 */
+  color: var(--text-primary); /* 悬停背景色 */
 }
 .checkbox-button {
   width: 80px;
   height: 30px;
-  border: 1px solid #ccc;
-  border-radius: 5px;
-  background-color: white;
-  color: black;
-  font-size: 16px;
+  border: 1px solid var(--bg-inverse);
+  border-radius: var(--radius-sm);
+  background-color: var(--bg-control);
+  color: var(--text-secondary);
+  font-size: var(--fs-base);
   cursor: pointer;
   text-align: center;
 }
 
+/*
+ * 已選＝亮底反相，與按鈕階層的 primary 同一套語意。
+ * （原本未選與已選都是 `--bg-inverse` 底，文字又是 `--text-primary`，
+ *   兩者長得一模一樣而且字直接消失在背景裡。）
+ */
 .checkbox-button.selected {
-  background-color: rgb(68, 143, 100);
-  color: white;
-  border-color: rgb(68, 143, 100);
+  background-color: var(--bg-inverse);
+  color: var(--text-inverse);
+  border-color: var(--bg-inverse);
 }

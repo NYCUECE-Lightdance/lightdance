@@ -31,13 +31,23 @@ NC='\033[0m' # No Color
 echo -e "🚀 ${BOLD}啟動 LightDance 生產環境部署...${NC}"
 
 # 0. 檢查環境變數檔
-if [ -f "$ENV_FILE" ]; then
-    echo -e "   - 使用環境變數檔: ${BOLD}${ENV_FILE}${NC}"
-    ENV_FLAG="--env-file ${ENV_FILE}"
-else
-    echo -e "   - ${YELLOW}未找到 ${ENV_FILE}，將使用預設設定。${NC}"
-    ENV_FLAG=""
+#
+# ⚠️ 沒有這個檔案就**停下來**，不要「使用預設設定」繼續跑。
+#
+# 這個檔案已經不在版控裡了（裡面是資料庫帳密與權杖秘鑰，而這個 repo 是
+# public fork）。舊版在找不到它的時候只印一行黃字就繼續，於是一個新 clone
+# 出來的部署會用空的憑證起 mongo、用臨時秘鑰起後端——而畫面上看起來
+# 「部署成功」。
+if [ ! -f "$ENV_FILE" ]; then
+    echo -e "   - ${RED}找不到 ${ENV_FILE}${NC}"
+    echo -e "     這個檔案裡是資料庫帳密與權杖秘鑰，刻意不進版控。請先建立："
+    echo -e "       ${BOLD}cp .env.deployment.example ${ENV_FILE}${NC}"
+    echo -e "     然後把裡面的值填好（密碼請重新產生，不要沿用舊的）。"
+    exit 1
 fi
+
+echo -e "   - 使用環境變數檔: ${BOLD}${ENV_FILE}${NC}"
+ENV_FLAG="--env-file ${ENV_FILE}"
 
 # 1. 前端構建 (Build Frontend)
 echo ""

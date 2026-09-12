@@ -4,7 +4,7 @@
   left: 0;
   width: 100vw;
   height: 100vh;
-  background: rgba(0, 0, 0, 0.75);
+  background: var(--ring-outer);
   display: flex;
   justify-content: center;
   align-items: center;
@@ -18,14 +18,14 @@
 }
 
 .shortcut-modal-content {
-  background: #1a1a1a;
-  border: 1px solid #333;
+  background: var(--bg-panel);
+  border: 1px solid var(--border-strong);
   border-radius: 12px;
   width: min(700px, 90vw);
   max-height: 85vh;
   display: flex;
   flex-direction: column;
-  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+  box-shadow: 0 20px 60px var(--overlay-soft);
   animation: shortcutSlideUp 0.25s ease-out;
 }
 
@@ -39,7 +39,7 @@
   justify-content: space-between;
   align-items: center;
   padding: 18px 24px;
-  border-bottom: 1px solid #2a2a2a;
+  border-bottom: 1px solid var(--border-subtle);
   flex-shrink: 0;
 }
 
@@ -47,14 +47,14 @@
   font-family: "Kanit", sans-serif;
   font-size: 18px;
   font-weight: 600;
-  color: #ededed;
+  color: var(--text-primary);
   letter-spacing: 0.5px;
 }
 
 .shortcut-close-btn {
   background: none;
   border: none;
-  color: #888;
+  color: var(--text-muted);
   cursor: pointer;
   padding: 4px;
   border-radius: 4px;
@@ -65,15 +65,15 @@
 }
 
 .shortcut-close-btn:hover {
-  color: #fff;
-  background: #333;
+  color: var(--text-primary);
+  background: var(--bg-control-hover);
 }
 
 .shortcut-modal-body {
   padding: 20px 28px 28px;
   overflow-y: auto;
   flex: 1;
-  color: #ccc;
+  color: var(--text-secondary);
   font-size: 14px;
   line-height: 1.7;
 }
@@ -87,7 +87,7 @@
 }
 
 .shortcut-modal-body::-webkit-scrollbar-thumb {
-  background: #444;
+  background: var(--bg-control-active);
   border-radius: 3px;
 }
 
@@ -96,33 +96,33 @@
 .shortcut-h1 {
   font-family: "Kanit", sans-serif;
   font-size: 20px;
-  color: #fff;
+  color: var(--text-primary);
   margin: 0 0 16px;
   padding-bottom: 8px;
-  border-bottom: 1px solid #2a2a2a;
+  border-bottom: 1px solid var(--border-subtle);
 }
 
 .shortcut-h2 {
   font-family: "Kanit", sans-serif;
   font-size: 16px;
-  color: #28a745;
+  color: var(--text-primary);
   margin: 24px 0 10px;
 }
 
 .shortcut-h3 {
   font-family: "Kanit", sans-serif;
   font-size: 14px;
-  color: #aaa;
+  color: var(--text-secondary);
   margin: 16px 0 8px;
 }
 
 .shortcut-p {
   margin: 0 0 10px;
-  color: #bbb;
+  color: var(--text-secondary);
 }
 
 .shortcut-strong {
-  color: #fff;
+  color: var(--text-primary);
   font-weight: 600;
 }
 
@@ -133,12 +133,12 @@
 
 .shortcut-li {
   margin-bottom: 4px;
-  color: #bbb;
+  color: var(--text-secondary);
 }
 
 .shortcut-code {
-  background: #2a2a2a;
-  color: #e0a040;
+  background: var(--bg-control-hover);
+  color: var(--text-secondary);
   padding: 2px 6px;
   border-radius: 3px;
   font-family: "SF Mono", "Fira Code", monospace;
@@ -146,17 +146,17 @@
 }
 
 .shortcut-blockquote {
-  background: #1e2a1e;
-  border-left: 3px solid #28a745;
+  background: var(--bg-control);
+  border-left: 3px solid var(--border-strong);
   margin: 8px 0 16px;
   padding: 8px 14px;
   border-radius: 0 6px 6px 0;
-  color: #9c9;
+  color: var(--text-secondary);
 }
 
 .shortcut-hr {
   border: none;
-  border-top: 1px solid #2a2a2a;
+  border-top: 1px solid var(--border-subtle);
   margin: 20px 0;
 }
 
@@ -170,15 +170,15 @@
 }
 
 .shortcut-thead {
-  background: #222;
+  background: var(--bg-control);
 }
 
 .shortcut-th {
   text-align: left;
   padding: 10px 14px;
-  color: #aaa;
+  color: var(--text-secondary);
   font-weight: 600;
-  border-bottom: 2px solid #333;
+  border-bottom: 2px solid var(--border-strong);
   font-family: "Kanit", sans-serif;
   font-size: 13px;
   letter-spacing: 0.3px;
@@ -186,17 +186,17 @@
 
 .shortcut-td {
   padding: 9px 14px;
-  border-bottom: 1px solid #2a2a2a;
-  color: #bbb;
+  border-bottom: 1px solid var(--border-subtle);
+  color: var(--text-secondary);
   vertical-align: top;
 }
 
 .shortcut-table tbody tr:hover {
-  background: rgba(255, 255, 255, 0.03);
+  background: var(--overlay-light);
 }
 
 .shortcut-error {
-  color: #e06060;
+  color: var(--state-danger);
   text-align: center;
   padding: 40px 0;
   font-size: 15px;
