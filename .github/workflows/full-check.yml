@@ -1,0 +1,147 @@
+# =================================================================
+#     完整驗收：手動觸發，不擋合併
+# =================================================================
+#
+# 在 Actions 頁面選「完整驗收」→ Run workflow → 選分支。
+#
+# 這裡檢查的是「目前的功能與畫面是不是照預期運作」：全部單元測試、瀏覽器
+# 驗收、版面稽核、JS 大小預算、全部後端測試。它們寫死了現在的行為，所以
+# **大改版之後變紅是正常的**——那是提醒你測試要跟著改，不是程式壞了。
+# 這正是它們不放在 ci.yml 的原因：CI 紅了就不能合併，不該因為測試還沒跟上
+# 就擋住一個正確的改版。
+#
+# 建議在這些時候手動跑一次：
+#   - 發 dev → main 的 PR 之前（也就是部署之前）
+#   - 改了編輯器的核心邏輯（色塊、複製貼上、拖曳、音訊）之後
+#   - 動過 CSS 或版面之後（版面稽核抓得到重疊、裁切、對不齊）
+#
+# 本機跑同一套：
+#   cd frontend && npm test && npm run audit:bundle
+#   cd frontend && npm run dev   # 另一個終端機
+#   cd frontend && npm run e2e && npm run audit:layout
+#   cd backend  && uv run ruff check --extend-select F . && uv run pytest
+
+name: 完整驗收
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  # ---------------------------------------------------------------
+  frontend:
+    name: 前端：全部單元測試、JS 大小預算
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: frontend
+
+    steps:
+      - uses: actions/checkout@v7.0.1
+
+      - uses: actions/setup-node@v7.0.0
+        with:
+          node-version: "24"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: 安裝依賴
+        run: npm ci
+
+      - name: 全部單元測試
+        run: npm test
+
+      - name: 初始 JS 大小預算
+        # 功能越加越多，這個數字只會往上爬。超過時先看是不是有東西該 lazy 載入
+        # （見 CLAUDE.md「路由層 lazy 與大小預算」），真的需要再調高預算
+        if: always()
+        run: npm run audit:bundle
+
+  # ---------------------------------------------------------------
+  e2e:
+    name: 前端：瀏覽器驗收、版面稽核
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: frontend
+
+    steps:
+      - uses: actions/checkout@v7.0.1
+
+      - uses: actions/setup-node@v7.0.0
+        with:
+          node-version: "24"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: 安裝依賴與 Chromium
+        # --with-deps 會一併裝系統字型（含中日韓字型）。少了中文字型的話，
+        # 版面稽核量到的文字寬度會和真實環境不同
+        run: |
+          npm ci
+          npx playwright install --with-deps chromium
+
+      - name: 啟動開發伺服器
+        # 腳本會攔截所有 /api/** 回假資料，所以不需要後端
+        run: |
+          npm run dev > vite.log 2>&1 &
+          for i in $(seq 1 60); do
+            curl -sf -o /dev/null http://localhost:3000 && exit 0
+            sleep 1
+          done
+          echo "::error::vite 開發伺服器 60 秒內沒有起來"
+          cat vite.log
+          exit 1
+
+      - name: 功能驗收（npm run e2e）
+        run: npm run e2e
+
+      - name: 版面稽核（npm run audit:layout）
+        # 功能驗收失敗時也照樣跑，兩份結果一次看完
+        if: always()
+        run: npm run audit:layout
+
+      - name: 上傳截圖與伺服器日誌
+        # 成功時也上傳：改完版面想看看新畫面長什麼樣，不必自己在本機跑一次
+        if: always()
+        uses: actions/upload-artifact@v7.0.1
+        with:
+          name: e2e-shots
+          path: |
+            frontend/e2e/shots/
+            frontend/vite.log
+          retention-days: 7
+
+  # ---------------------------------------------------------------
+  backend:
+    name: 後端：全部測試、完整 pyflakes
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: backend
+
+    steps:
+      - uses: actions/checkout@v7.0.1
+
+      - uses: astral-sh/setup-uv@v10.2.0
+        with:
+          python-version: "3.11"
+          enable-cache: true
+          cache-dependency-glob: backend/uv.lock
+
+      - name: 安裝依賴
+        run: uv sync --frozen
+
+      - name: Ruff（含沒用到的 import／變數）
+        run: uv run --frozen ruff check --extend-select F .
+
+      - name: 全部測試
+        if: always()
+        env:
+          MONGO_CONNECT_URI: mongodb://127.0.0.1:1/?serverSelectionTimeoutMS=500
+        run: uv run --frozen pytest

@@ -46,6 +46,7 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:update-golden": "node scripts/generate-golden.mjs",
+    "test:contract": "vitest run src/utils/export/__tests__/buildPlayers.golden.test.js",
     "e2e": "node e2e/checklist.mjs",
     "audit:layout": "node e2e/layout-audit.mjs",
     "audit:bundle": "node e2e/bundle-budget.mjs",

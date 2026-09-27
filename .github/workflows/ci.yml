@@ -1,19 +1,27 @@
 # =================================================================
-#     CI：每個 PR 與每次推上 main / dev 都會跑
+#     CI：每個 PR 與每次推上 main / dev 都會跑，失敗會擋合併
 # =================================================================
 #
-# 原則：**每一項檢查都是真的會擋下來的。**
+# ⚠️ **這裡只放「不管功能或介面怎麼改，失敗都代表真的壞了」的檢查。**
 #
-# 這份檔案的前身（pr-checks.yml）有一半的步驟掛著 `continue-on-error: true`：
-# ESLint 在沒有設定檔的情況下每次都失敗、Docker 建置失敗也照樣顯示綠勾、
-# 後端只跑格式檢查而從來沒跑過測試。綠勾於是只代表「前端單元測試過了」，
-# 其他東西壞掉時畫面上一樣是綠的——那比沒有檢查更糟，因為大家會以為有人在守。
+# CI 紅了就不能合併，所以它不能因為「畫面改版了、測試還沒跟上」而變紅——
+# 那種誤報一多，大家就會學會無視紅叉，真的壞掉時也沒人理。四類：
 #
-# 本機跑同一套檢查：
-#   cd frontend && npm run lint && npm test && npm run audit:bundle
-#   cd frontend && npm run dev   # 另一個終端機
-#   cd frontend && npm run e2e && npm run audit:layout
-#   cd backend  && uv run ruff check . && uv run pytest
+#   1. 建得起來：前端 build、兩個 Docker 映像、兩份 compose 設定
+#   2. 一定是錯的靜態檢查：未定義的變數、hook 用錯順序、語法錯誤
+#      （規則在 frontend/eslint.config.mjs 與 backend/pyproject.toml，
+#       沒用到的變數這類清理項目只是 warning）
+#   3. 對外契約：韌體輸出格式（buildPlayers golden）。它只在「硬體會看到
+#      不一樣的東西」時失敗，改編輯器的功能或畫面不會碰到它
+#   4. 安全底線：權杖驗證、路徑穿越。改功能不會動到，會動到就是在削弱安全性
+#
+# 檢查「目前的功能與畫面長得對不對」的（全部單元測試、e2e、版面稽核、
+# JS 大小預算）在 full-check.yml，手動觸發、不擋合併。大改版之後那些本來
+# 就該跟著更新，它們紅了是提醒，不是錯誤。
+#
+# 本機跑同一套：
+#   cd frontend && npm run lint && npm run test:contract && npm run build
+#   cd backend  && uv run ruff check . && uv run pytest tests/test_auth.py tests/test_paths.py
 
 name: CI
 
@@ -35,9 +43,9 @@ permissions:
 jobs:
   # ---------------------------------------------------------------
   frontend:
-    name: 前端：lint、單元測試、建置
+    name: 前端：靜態檢查、韌體契約、建置
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 10
     defaults:
       run:
         working-directory: frontend
@@ -55,77 +63,21 @@ jobs:
       - name: 安裝依賴
         run: npm ci
 
-      - name: ESLint
-        # 只有 error 會失敗；warning（例如 effect 相依陣列）只是提示。
-        # 分級的理由寫在 frontend/eslint.config.mjs 開頭
+      - name: ESLint（只有一定是錯的會失敗）
         run: npm run lint
 
-      - name: 單元測試（含韌體輸出的 golden 契約）
-        # golden 測試紅燈代表 handleOutput 的輸出變了——硬體會看到不一樣的畫面
-        run: npm test
+      - name: 韌體輸出契約（buildPlayers golden）
+        # 紅燈代表上傳給韌體的資料變了——硬體會看到不一樣的畫面。
+        # 真的是刻意改輸出格式的話，跑 npm run test:update-golden 更新基準，
+        # 並且和韌體那邊同步
+        run: npm run test:contract
 
-      - name: 建置 + 初始 JS 大小預算
-        # audit:bundle 自己會跑一次 vite build，所以不必另外 build
-        run: npm run audit:bundle
-
-  # ---------------------------------------------------------------
-  e2e:
-    name: 前端：瀏覽器驗收
-    runs-on: ubuntu-latest
-    timeout-minutes: 20
-    defaults:
-      run:
-        working-directory: frontend
-
-    steps:
-      - uses: actions/checkout@v7.0.1
-
-      - uses: actions/setup-node@v7.0.0
-        with:
-          node-version: "24"
-          cache: npm
-          cache-dependency-path: frontend/package-lock.json
-
-      - name: 安裝依賴與 Chromium
-        # --with-deps 會一併裝系統字型（含中日韓字型）。少了中文字型的話，
-        # 版面稽核量到的文字寬度會和真實環境不同
-        run: |
-          npm ci
-          npx playwright install --with-deps chromium
-
-      - name: 啟動開發伺服器
-        # 腳本會攔截所有 /api/** 回假資料，所以不需要後端
-        run: |
-          npm run dev > vite.log 2>&1 &
-          for i in $(seq 1 60); do
-            curl -sf -o /dev/null http://localhost:3000 && exit 0
-            sleep 1
-          done
-          echo "::error::vite 開發伺服器 60 秒內沒有起來"
-          cat vite.log
-          exit 1
-
-      - name: 功能驗收（npm run e2e）
-        run: npm run e2e
-
-      - name: 版面稽核（npm run audit:layout）
-        # if: always() —— 功能驗收失敗時也照樣跑，兩份結果一次看完
-        if: always()
-        run: npm run audit:layout
-
-      - name: 上傳截圖與伺服器日誌
-        if: failure()
-        uses: actions/upload-artifact@v7.0.1
-        with:
-          name: e2e-shots
-          path: |
-            frontend/e2e/shots/
-            frontend/vite.log
-          retention-days: 7
+      - name: 建置
+        run: npm run build
 
   # ---------------------------------------------------------------
   backend:
-    name: 後端：靜態檢查、測試
+    name: 後端：靜態檢查、安全底線
     runs-on: ubuntu-latest
     timeout-minutes: 10
     defaults:
@@ -145,17 +97,16 @@ jobs:
       - name: 安裝依賴（照 uv.lock，不重新解析）
         run: uv sync --frozen
 
-      - name: Ruff（pyflakes：未定義的名稱、沒用到的 import）
-        # 規則在 backend/pyproject.toml 的 [tool.ruff.lint]
+      - name: Ruff（語法錯誤、未定義的名稱）
         run: uv run --frozen ruff check .
 
-      - name: pytest
+      - name: 安全底線（權杖驗證、路徑穿越）
         env:
           # 測試用的是假的 collection，不需要 MongoDB。但 main.py 在 import 時會
           # ping 一次資料庫，預設要等 30 秒才放棄；指向一個不存在的位址並把
           # 逾時縮短，讓那一下立刻失敗
           MONGO_CONNECT_URI: mongodb://127.0.0.1:1/?serverSelectionTimeoutMS=500
-        run: uv run --frozen pytest
+        run: uv run --frozen pytest tests/test_auth.py tests/test_paths.py
 
   # ---------------------------------------------------------------
   docker:
@@ -188,14 +139,13 @@ jobs:
   result:
     name: CI 結果
     runs-on: ubuntu-latest
-    needs: [frontend, e2e, backend, docker]
+    needs: [frontend, backend, docker]
     if: always()
 
     steps:
       - name: 彙整
         run: |
           echo "前端：${{ needs.frontend.result }}"
-          echo "瀏覽器驗收：${{ needs.e2e.result }}"
           echo "後端：${{ needs.backend.result }}"
           echo "Docker：${{ needs.docker.result }}"
           if ${{ contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled') }}; then
