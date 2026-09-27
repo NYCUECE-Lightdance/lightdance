@@ -172,7 +172,7 @@ describe("round-trip 冪等", () => {
           );
 
           // id 每次新生成，比較時忽略
-          const strip = (segments) => segments.map(({ id, ...rest }) => rest); // eslint-disable-line no-unused-vars
+          const strip = (segments) => segments.map(({ id, ...rest }) => rest);  
 
           expect(strip(second), `${fixture.name} round-trip 非冪等`).toEqual(
             strip(first),

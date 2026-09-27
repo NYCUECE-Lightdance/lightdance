@@ -1,10 +1,8 @@
-import React, { useRef, useState, useEffect, useMemo, forwardRef, memo } from "react";
+import { useRef, useState, useEffect, useMemo, forwardRef, memo } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import {
-  updateIsColorChangeActive,
   updateMultiSelectedBlocks,
   updateMoveMode,
-  updateCurrentTime,
 } from "../../redux/actions";
 import {
   useSegmentPartTimeline,
@@ -38,13 +36,6 @@ import {
   faWandMagicSparkles,
 } from "@fortawesome/free-solid-svg-icons";
 
-const colorDistance = (color1, color2) => {
-  return Math.sqrt(
-    Math.pow((color1.R || 0) - (color2.R || 0), 2) +
-    Math.pow((color1.G || 0) - (color2.G || 0), 2) +
-    Math.pow((color1.B || 0) - (color2.B || 0), 2)
-  );
-};
 // Timeline 組件
 const Timeline = forwardRef(
   (
@@ -375,27 +366,6 @@ const Timeline = forwardRef(
         document.removeEventListener('mousedown', handleGlobalMouseDown);
       };
     }, [moveMode, armorIndex, partIndex, dispatch]);
-
-    // 左、右箭頭的樣式
-    const leftarrowStyle = {
-      position: "absolute",
-      top: "50%",
-      left: "2px",
-      transform: "translateY(-40%) scaleX(-1)",
-      fontSize: "22px",
-      color: "white",
-      pointerEvents: "none", // 禁用滑鼠事件
-    };
-
-    const rightarrowStyle = {
-      position: "absolute",
-      top: "50%",
-      right: "2px",
-      transform: "translateY(-50%)",
-      fontSize: "22px",
-      color: "white",
-      pointerEvents: "none", // 禁用滑鼠事件
-    };
 
     /*
      * 「點到色塊以外就取消選取」原本掛在這裡。

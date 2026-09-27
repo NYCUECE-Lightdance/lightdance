@@ -15,8 +15,8 @@
 services:
   # ------------------ 前端開發服務 (React Dev Server) ------------------
   frontend-dev:
-    # Vite 7+ 需要 Node.js 20+，因此升級基礎映像檔
-    image: node:20-alpine
+    # 和 CI、run-deploy.sh、frontend/Dockerfile 同一個大版本（Node 20 已於 2026-04 停止維護）
+    image: node:24-alpine
     container_name: frontend-dev
     ports:
       # 將主機的 3000 port 映射到容器內的 3000 port，與 vite.config.js 保持一致

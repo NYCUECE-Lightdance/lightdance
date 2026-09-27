@@ -11,17 +11,11 @@ import {
 } from "../redux/actions.js";
 import { API_ENDPOINTS } from "../config/api.js";
 import { getAllLocalBackups } from "../utils/indexedDB.js";
-import { PART_COUNT } from "../constants/parts.js";
 import { loadProjectData } from "../utils/migration/loadProjectData.js";
 
-function Dropdown({ userName, setIsDirty, isDirty, setIsLoaded, isLoaded }) {
+function Dropdown({ userName, setIsDirty }) {
   const [timeList, setTimeList] = useState([]);
-  const [userList, setUserList] = useState([]);
-  const [anchorIndex, setAnchorIndex] = useState(0);
   const dispatch = useDispatch();
-  const actionTable = useSelector(
-    (state) => state.profiles.data?.actionTable || [],
-  );
   const duration = useSelector((state) => state.profiles.duration);
   const [localBackups, setLocalBackups] = useState([]);
 
@@ -68,60 +62,12 @@ function Dropdown({ userName, setIsDirty, isDirty, setIsLoaded, isLoaded }) {
         // console.log(data.list); // Log the returned data
         let timeListArray = data.list;
         setTimeList(timeListArray);
-        const uniqueArray = [
-          ...new Set(timeListArray.map((array) => array.user)),
-        ];
-        setUserList(uniqueArray);
-
-        // console.log(uniqueArray);
-        setAnchorIndex(0);
       })
       .catch((error) => {
         console.error("Error fetching data:", error); // Handle any errors
       });
 
     // console.log("TimeList API Response:", data);
-  }
-
-  async function handleChoose(user, time) {
-    // console.log(time);
-    // Define the API endpoint
-    const apiEndpoint = `${API_ENDPOINTS.ITEMS}/${user}/${time}`; // Example API
-    // Use fetch to send a GET request
-    fetch(apiEndpoint)
-      .then((response) => {
-        if (!response.ok) {
-          throw new Error(`HTTP error! status: ${response.status}`);
-        }
-        return response.json(); // Parse the JSON data
-      })
-      .then((data) => {
-        console.log("Fetched Data:", data); // Log the returned data
-        // console.log(data.players); // Log the returned data
-        // reverseConversion 從韌體 players 反推出來的是 keyframe 格式，
-        // 一樣要經過遷移入口才能進 store
-        const { segmentTable } = loadProjectData(reverseConversion(data), {
-          duration,
-        });
-
-        dispatch(updateActionTable(segmentTable));
-        console.log("After : ", segmentTable);
-
-        // let timeListArray = data.list;
-        // setTimeList(timeListArray);
-        // const uniqueArray = [
-        //   ...new Set(timeListArray.map((array) => array.user)),
-        // ];
-        // setUserList(uniqueArray);
-        // // console.log(uniqueArray);
-        // setAnchorIndex(0);
-        if (data.music_filename !== undefined) {
-          dispatch(updateMusicFilename(data.music_filename));
-        }
-      })
-      .catch((error) => {
-        console.error("Error fetching data:", error); // Handle any errors
-      });
   }
 
   const handleLoadLocal = (backup) => {
@@ -240,72 +186,6 @@ function Dropdown({ userName, setIsDirty, isDirty, setIsLoaded, isLoaded }) {
 
   //   return actionTable;
   // };
-
-  function reverseConversion(result) {
-    const actionTable = [];
-
-    result.players.forEach((player) => {
-      const playerGroup = {};
-
-      player.forEach((mergedItem) => {
-        const time = mergedItem.time;
-
-        // Iterate over each key in mergedItem (like 'head', 'shoulder', etc.)
-        Object.keys(mergedItem).forEach((key, index) => {
-          if (key !== "time") {
-            // Use the numeric index as the key (e.g., "0", "1", "2", etc.)
-            const numericKey = String(index - 1);
-
-            // Initialize the numeric key in playerGroup if not already present
-            if (!playerGroup[numericKey]) {
-              playerGroup[numericKey] = [];
-            }
-
-            let color = {
-              R: (mergedItem[key] >> 24) & 0xff,
-              G: (mergedItem[key] >> 16) & 0xff,
-              B: (mergedItem[key] >> 8) & 0xff,
-              A: (mergedItem[key] & 0xff) / 100,
-              // A: 1,
-            };
-
-            // Compare the new color with the previous one
-
-            // Push the new color and time if it's different from the previous one
-            playerGroup[numericKey].push({ time: time * 50, color: color });
-            // Update the previous color
-          }
-        });
-      });
-
-      // Push the playerGroup into the actionTable
-      actionTable.push(playerGroup);
-    });
-    console.log("table : ", actionTable);
-
-    actionTable.forEach((player) => {
-      Object.values(player).forEach((item) => {
-        let prevColor = null;
-        for (let index = 0; index < item.length; index++) {
-          const element = item[index];
-          if (
-            prevColor &&
-            prevColor.R === element.color.R &&
-            prevColor.G === element.color.G &&
-            prevColor.B === element.color.B &&
-            prevColor.A === element.color.A &&
-            index !== item.length - 1
-          ) {
-            // Remove the element from the array if the color is the same as the previous one
-            item.splice(index, 1);
-            index--; // Adjust index after removal
-          }
-          prevColor = element.color;
-        }
-      });
-    });
-    return actionTable;
-  }
 
   return (
     <div>

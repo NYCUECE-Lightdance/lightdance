@@ -4,7 +4,7 @@ import ControlPanel from "../components/ControlPanel.jsx";
 import Palette from "../components/Palette.jsx";
 import People from "../components/People.jsx";
 import DancerToggle from "../components/DancerToggle.jsx";
-import { MdOutput, MdInput, MdKeyboard } from "react-icons/md";
+import { MdOutput, MdKeyboard } from "react-icons/md";
 import { FiEdit } from "react-icons/fi";
 import { Suspense, lazy, useEffect, useState } from "react";
 import { FaSignOutAlt } from "react-icons/fa";
@@ -28,7 +28,6 @@ import { localMusicFiles } from "../components/audio/musicData.js";
 import {
   saveLocalBackup,
   cleanExpiredBackups,
-  deleteLocalBackup,
 } from "../utils/indexedDB.js";
 import { buildPlayers } from "../utils/export/buildPlayers.js";
 import { segmentsToActionTable } from "../utils/segments/convert.js";
@@ -234,8 +233,7 @@ function Home({ rgba, setRgba, setButtonState }) {
     };
 
     console.log(">>> [2] 上傳的播放資料 (Translated Items):", result);
-    let BearerToken = "";
-    token === "" ? (BearerToken = " ") : (BearerToken = token);
+    const BearerToken = token === "" ? " " : token;
 
     // 使用新的合併端點上傳，確保時間戳記一致
     const fullUploadData = {
@@ -375,7 +373,7 @@ function Home({ rgba, setRgba, setButtonState }) {
         dispatch(updateMusicFilename(pendingMusic));
         dispatch(updateActionTable(initialTable, { skipHistory: true }));
         console.log("actionTable to save:", actionTable);
-      } catch (e) {
+      } catch {
         alert("儲存失敗，已取消新建。");
         return;
       }

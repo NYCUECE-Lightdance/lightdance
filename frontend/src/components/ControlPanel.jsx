@@ -6,7 +6,6 @@ import "./ControlPanel.css";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import {
   faTrash,
-  faRotate,
   faPlus,
   faReply,
   faShare,
@@ -21,10 +20,6 @@ import {
   updateShowPart,
   updateMultiSelectedBlocks,
   toggleMoveMode,
-  addWorkset,
-  removeWorkset,
-  renameWorkset,
-  switchWorkset,
 } from "../redux/actions.js";
 import { isPartAllowed } from "../config/accessoryConfig.js";
 import { findNearestSegment } from "../utils/segments/core.js";
@@ -58,8 +53,7 @@ function ControlPanel({ setButtonState }) {
   const segmentTable = useSelector(
     (state) => state.profiles.data?.actionTable || [],
   );
-  const currentTime = useSelector((state) => state.profiles.currentTime);
-  const { sets, current, tracks: showPart } = useWorksets();
+  const { tracks: showPart } = useWorksets();
   const rowHeight = useSelector((state) => state.profiles.rowHeight);
   const dispatch = useDispatch();
   const partName = PART_LABELS;

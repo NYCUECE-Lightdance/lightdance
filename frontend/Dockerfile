@@ -1,5 +1,6 @@
 #### Stage 1. Build the application with dependencies ####
-FROM node:20-alpine AS build
+# 和 CI（.github/workflows/ci.yml）、run-deploy.sh、docker-compose.dev.yml 同一個大版本
+FROM node:24-alpine AS build
 
 WORKDIR /app
 

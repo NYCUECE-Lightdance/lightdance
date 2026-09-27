@@ -237,11 +237,12 @@ docker compose -f docker-compose.dev.yml logs mongo --tail=50 # 資料庫最後 
 改程式碼之前最好先確認測試在你的電腦上是全綠的，這樣之後紅了就知道是自己改出來的。
 這一節要用到主機上的 Node.js 20+ 和 uv。
 
-### 前端單元測試
+### 前端單元測試與靜態檢查
 
 ```bash
 cd frontend
 npm install          # 裝在主機上，跟容器裡那份 node_modules 是分開的
+npm run lint         # ESLint：只有 error 算失敗，warning 是提示
 npm test
 ```
 
@@ -269,8 +270,16 @@ npm run audit:bundle              # JS 大小預算（自己會 build，不需�
 ```bash
 cd backend
 uv sync
+uv run ruff check .   # 未定義的名稱、沒用到的 import
 uv run pytest
 ```
+
+GitHub 上有兩組自動檢查：
+
+- **CI**（每個 PR 自動跑，失敗會擋合併）：只檢查「不管功能怎麼改都一定是錯」的東西——
+  建不起來、未定義的變數、上傳給韌體的格式變了、安全檢查被削弱。改功能或改介面不會讓它變紅。
+- **完整驗收**（在 Actions 頁面手動按）：上面這一節的全部測試、e2e、版面稽核。
+  大改版之後它變紅是正常的，代表測試要跟著更新，不代表程式壞了。
 
 ---
 

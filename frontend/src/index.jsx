@@ -2,7 +2,6 @@
 import "./styles/tokens.css";
 import "./styles/buttons.css";
 import "./styles/tooltip.css";
-import React from "react";
 import ReactDOM from "react-dom/client";
 import { Provider } from "react-redux"; // 引入 Redux Provider
 import { PersistGate } from "redux-persist/integration/react"; // 引入 PersistGate

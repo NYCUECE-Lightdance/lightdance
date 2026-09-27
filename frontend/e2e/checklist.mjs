@@ -1768,7 +1768,6 @@ const run = async () => {
     );
 
     // 加回來，後面的 Output 與 /edit 兩項才有音樂可用
-    const fetchesBeforeReadd = musicFetches.length;
     await page.selectOption("[data-testid='playlist-panel'] select", { index: 0 });
     await page.click("[data-testid='playlist-panel'] .playlist-add button");
     await page.waitForTimeout(1500);
