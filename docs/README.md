@@ -1,6 +1,6 @@
 # LightDance 專案文檔
 
-這個資料夾包含了 LightDance 專案的所有技術文檔和開發參考文件。
+這個資料夾包含了 LightDance 專案的所有技術文檔和開發參考文件。test
 
 ## 文檔目錄
 
@@ -13,7 +13,6 @@
 
 - [`getting-started.md`](./getting-started.md) — 在全新電腦上把開發環境跑起來（含匯入真實資料、跑測試、常見問題）
 - [`data-handoff.md`](./data-handoff.md) — 給維護者：新成員需要哪些資料、怎麼從伺服器安全地打包光表與音樂
-
 - [`data-flow-pipeline.md`](./data-flow-pipeline.md) — 從前端編輯器到 MongoDB 的完整資料流：actionTable 格式、32-bit RGBA 轉換、上傳 API
 - [`backend-management.md`](./backend-management.md) — 後端管理操作：MongoDB 備份還原、Docker 容器管理、日誌查看
 - [`shortcuts.md`](./shortcuts.md) — 鍵盤快速鍵速查表：播放、編輯、複製貼上、顏色亮度、配件編輯等快速鍵總覽
