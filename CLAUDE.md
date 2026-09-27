@@ -156,6 +156,8 @@ IndexedDB（localforage）自動備份，30 天自動清理。Redux 透過 redux
 
 ### 文件檔案
 - **`README.md`**：專案說明文件（散文式，重點在資料模型與驗收方式）
+- **`docs/getting-started.md`**：全新電腦從零跑起 dev 環境（含匯入真實資料、跑測試）
+- **`docs/data-handoff.md`**：給維護者：交接給新成員的資料（只給 `color`/`raw_json` 與音樂，不給 `users`/`.env.deployment`）與伺服器打包步驟
 - **`docs/technical-analysis.md`**：詳細技術分析報告（架構、API、安全問題、改進路線圖）
 - **`docs/configuration.md`**：完整配置說明（環境變數、API 端點、部署模式）
 - **`docs/data-flow-pipeline.md`**：從編輯器到資料庫的完整資料流說明
