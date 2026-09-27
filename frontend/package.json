@@ -46,15 +46,11 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:update-golden": "node scripts/generate-golden.mjs",
+    "test:contract": "vitest run src/utils/export/__tests__/buildPlayers.golden.test.js",
     "e2e": "node e2e/checklist.mjs",
     "audit:layout": "node e2e/layout-audit.mjs",
-    "audit:bundle": "node e2e/bundle-budget.mjs"
-  },
-  "eslintConfig": {
-    "extends": [
-      "react-app",
-      "react-app/jest"
-    ]
+    "audit:bundle": "node e2e/bundle-budget.mjs",
+    "lint": "eslint ."
   },
   "browserslist": {
     "production": [
@@ -71,7 +67,11 @@
   "description": "",
   "main": "index.js",
   "devDependencies": {
+    "@eslint/js": "^10.0.1",
     "@vitejs/plugin-react": "^4.7.0",
+    "eslint": "^10.11.0",
+    "eslint-plugin-react-hooks": "^7.1.1",
+    "globals": "^17.12.0",
     "jsdom": "^30.0.1",
     "playwright": "^1.62.1",
     "tailwindcss": "^3.4.14",

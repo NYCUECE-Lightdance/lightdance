@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState, memo } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, memo } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { API_ENDPOINTS } from "../../config/api.js";
 import { localMusicMap } from "./musicData.js";
@@ -57,7 +57,6 @@ const AudioWaveform = ({
   const [hoverPosition, setHoverPosition] = useState(null); // 懸停的 X 位置
   const [viewportWidth, setViewportWidth] = useState(0);
   const [scrollPosition, setScrollPosition] = useState(0);
-  const animationFrameRef = useRef(null); // 用於 requestAnimationFrame
 
   // P0 效能優化：播放期間的 ref（不觸發 re-render）
   const redLineRef = useRef(null);       // 紅線 DOM 元素，60fps 直接操作

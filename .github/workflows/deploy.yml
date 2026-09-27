@@ -1,63 +1,105 @@
+# =================================================================
+#     部署到正式伺服器
+# =================================================================
+#
+# 觸發：推上 main（也就是 dev → main 的 PR 合併時），或在 Actions 頁面
+# 按「Run workflow」手動重新部署。
+#
+# 流程：GitHub 的機器先加入 Tailscale（校園網路擋外部連線，只能走這條）→
+# SSH 進伺服器 → 更新程式碼 → run-deploy.sh → 確認後端真的起來了。
+#
+# 需要的 secrets（org repo 的 Settings → Secrets → Actions）：
+#   TS_OAUTH_CLIENT_ID / TS_OAUTH_SECRET  Tailscale 的 OAuth client（tag:ci）
+#   SSH_HOST      伺服器的 **Tailscale 位址**（100.x.x.x），不是公開 IP
+#   SSH_PORT      SSH 埠
+#   SSH_USERNAME  登入帳號。要跟 /usr/share/nginx/html/lightdance 的擁有者
+#                 是同一個，否則複製前端檔案時會 Permission denied
+#   SSH_PRIVATE_KEY  ⚠️ 名字叫 key，但下面是當成 **password** 傳的（歷史因素，
+#                 裡面存的是密碼）。要改用金鑰登入的話，把 `password:` 換成 `key:`
+
 name: Deploy to Server
 
 on:
   push:
-    branches:
-      - main
+    branches: [main]
+  workflow_dispatch:
+
+# 同一時間只跑一個部署。後到的排隊，**不取消**正在跑的那個——
+# 部署跑到一半被砍掉（容器停了、檔案複製到一半）比多等幾分鐘危險得多
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
+
+permissions:
+  contents: read
 
 jobs:
   deploy:
+    # fork 沒有這些 secrets，跑了只會在 Tailscale 那一步失敗、留下一排紅叉
+    if: github.repository == 'NYCUECE-Lightdance/lightdance'
     runs-on: ubuntu-latest
+    timeout-minutes: 30
 
     steps:
-      - name: Tailscale
-        uses: tailscale/github-action@v3
+      - name: 加入 Tailscale
+        uses: tailscale/github-action@v4.2.0
         with:
           oauth-client-id: ${{ secrets.TS_OAUTH_CLIENT_ID }}
           oauth-secret: ${{ secrets.TS_OAUTH_SECRET }}
           tags: tag:ci
           version: latest
+          # 先確認伺服器在 Tailscale 上連得到。連不到時在這一步就失敗，
+          # 而不是等到 SSH 才吐一行看不出原因的 `dial tcp: i/o timeout`。
+          # 常見原因：伺服器重開機後 tailscaled 沒起來、登入金鑰過期
+          ping: ${{ secrets.SSH_HOST }}
 
-      - name: Deploy to server via SSH
-        uses: appleboy/ssh-action@master
+      - name: SSH 進伺服器部署
+        uses: appleboy/ssh-action@v1.2.5
         with:
           host: ${{ secrets.SSH_HOST }}
           username: ${{ secrets.SSH_USERNAME }}
           password: ${{ secrets.SSH_PRIVATE_KEY }}
           port: ${{ secrets.SSH_PORT }}
+          # 前端在伺服器上用 Docker 建置，第一次要下載映像，預設的 10 分鐘不夠
+          command_timeout: 25m
           script: |
-            echo "🚀 開始部署 LightDance 專案..."
-            
-            # 切換到專案目錄
+            # 任何一步失敗就停下來。舊版沒有這一行，於是 git pull 失敗之後
+            # 照樣往下跑、把舊版本重新部署一次，而 Actions 顯示綠勾
+            set -eu
+
             cd /home/eesa/lightdance
-            
-            # 確保從 main 分支拉取最新版本
-            echo "📦 正在從 main 分支拉取最新程式碼..."
-            git fetch origin
+
+            echo "📦 更新到最新的 main"
+            git fetch origin main
             git checkout main
-            git pull origin main
-            
-            # 執行停用腳本，清理舊的部署環境
-            echo "🛑 正在停用舊的部署環境..."
-            chmod +x ./disable-deploy.sh
-            ./disable-deploy.sh
-            
-            # 等待容器完全停止
-            echo "⏳ 等待容器完全停止..."
-            sleep 5
-            
-            # 執行部署腳本
-            echo "🚀 正在執行新的部署..."
-            chmod +x ./run-deploy.sh
-            ./run-deploy.sh
-            
-            # 等待服務啟動並檢查狀態
-            echo "🔍 檢查部署狀態..."
-            sleep 10
-            docker compose -f docker-compose.prod.yml ps
-            
-            # 清理未使用的 Docker 映像以節省空間
-            echo "🧹 清理未使用的 Docker 映像..."
-            docker image prune -a -f
-            
-            echo "✅ 部署完成！"
+            # --ff-only：伺服器上的 main 不該有自己的 commit。真的有的話停下來
+            # 讓人看，而不是自動做一個合併把正式環境的程式碼變成沒人審過的組合
+            git merge --ff-only origin/main
+            git log -1 --format='   目前版本：%h %s'
+
+            # run-deploy.sh 會先檢查 env 檔與目錄權限、建好前端，最後才重啟容器。
+            # （舊版會先跑 disable-deploy.sh 把整個站停掉再開始建置，
+            #  建置要幾分鐘，建置失敗時站就一直停著）
+            bash ./run-deploy.sh
+
+            echo "🔍 等後端起來"
+            for i in $(seq 1 30); do
+              if curl -sf -o /dev/null http://localhost:8000/api/; then
+                echo "✅ 後端正常回應"
+                docker compose -f docker-compose.prod.yml ps
+                break
+              fi
+              if [ "$i" -eq 30 ]; then
+                echo "❌ 後端 60 秒內沒有回應，最後 50 行日誌："
+                docker compose -f docker-compose.prod.yml logs --tail=50 backend
+                exit 1
+              fi
+              sleep 2
+            done
+
+            # 只清掉懸空的舊映像（每次重新建置後端都會留下一個）。
+            # 舊版用 `prune -a`，會連建置前端用的 node 映像一起刪，
+            # 於是每次部署都要重新下載一次
+            docker image prune -f
+
+            echo "✅ 部署完成"

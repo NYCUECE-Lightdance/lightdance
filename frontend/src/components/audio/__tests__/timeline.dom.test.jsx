@@ -6,7 +6,6 @@ import Timeline from "../Timeline.jsx";
 import {
   renderWithStore,
   createTestStore,
-  timelineOf,
 } from "../../../test/renderEditor.jsx";
 
 /**

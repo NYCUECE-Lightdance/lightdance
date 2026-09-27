@@ -1,0 +1,154 @@
+# =================================================================
+#     CI：每個 PR 與每次推上 main / dev 都會跑，失敗會擋合併
+# =================================================================
+#
+# ⚠️ **這裡只放「不管功能或介面怎麼改，失敗都代表真的壞了」的檢查。**
+#
+# CI 紅了就不能合併，所以它不能因為「畫面改版了、測試還沒跟上」而變紅——
+# 那種誤報一多，大家就會學會無視紅叉，真的壞掉時也沒人理。四類：
+#
+#   1. 建得起來：前端 build、兩個 Docker 映像、兩份 compose 設定
+#   2. 一定是錯的靜態檢查：未定義的變數、hook 用錯順序、語法錯誤
+#      （規則在 frontend/eslint.config.mjs 與 backend/pyproject.toml，
+#       沒用到的變數這類清理項目只是 warning）
+#   3. 對外契約：韌體輸出格式（buildPlayers golden）。它只在「硬體會看到
+#      不一樣的東西」時失敗，改編輯器的功能或畫面不會碰到它
+#   4. 安全底線：權杖驗證、路徑穿越。改功能不會動到，會動到就是在削弱安全性
+#
+# 檢查「目前的功能與畫面長得對不對」的（全部單元測試、e2e、版面稽核、
+# JS 大小預算）在 full-check.yml，手動觸發、不擋合併。大改版之後那些本來
+# 就該跟著更新，它們紅了是提醒，不是錯誤。
+#
+# 本機跑同一套：
+#   cd frontend && npm run lint && npm run test:contract && npm run build
+#   cd backend  && uv run ruff check . && uv run pytest tests/test_auth.py tests/test_paths.py
+
+name: CI
+
+on:
+  pull_request:
+    branches: [main, dev]
+  push:
+    branches: [main, dev]
+  workflow_dispatch:
+
+# 同一個 PR（或同一個分支）有新的推送時，取消還在跑的舊那一輪
+concurrency:
+  group: ci-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  # ---------------------------------------------------------------
+  frontend:
+    name: 前端：靜態檢查、韌體契約、建置
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: frontend
+
+    steps:
+      - uses: actions/checkout@v7.0.1
+
+      - uses: actions/setup-node@v7.0.0
+        with:
+          # 和 frontend/Dockerfile、docker-compose.dev.yml、run-deploy.sh 用同一個大版本
+          node-version: "24"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: 安裝依賴
+        run: npm ci
+
+      - name: ESLint（只有一定是錯的會失敗）
+        run: npm run lint
+
+      - name: 韌體輸出契約（buildPlayers golden）
+        # 紅燈代表上傳給韌體的資料變了——硬體會看到不一樣的畫面。
+        # 真的是刻意改輸出格式的話，跑 npm run test:update-golden 更新基準，
+        # 並且和韌體那邊同步
+        run: npm run test:contract
+
+      - name: 建置
+        run: npm run build
+
+  # ---------------------------------------------------------------
+  backend:
+    name: 後端：靜態檢查、安全底線
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: backend
+
+    steps:
+      - uses: actions/checkout@v7.0.1
+
+      - uses: astral-sh/setup-uv@v10.2.0
+        with:
+          # 和 backend/Dockerfile 的 python:3.11 一致
+          python-version: "3.11"
+          enable-cache: true
+          cache-dependency-glob: backend/uv.lock
+
+      - name: 安裝依賴（照 uv.lock，不重新解析）
+        run: uv sync --frozen
+
+      - name: Ruff（語法錯誤、未定義的名稱）
+        run: uv run --frozen ruff check .
+
+      - name: 安全底線（權杖驗證、路徑穿越）
+        env:
+          # 測試用的是假的 collection，不需要 MongoDB。但 main.py 在 import 時會
+          # ping 一次資料庫，預設要等 30 秒才放棄；指向一個不存在的位址並把
+          # 逾時縮短，讓那一下立刻失敗
+          MONGO_CONNECT_URI: mongodb://127.0.0.1:1/?serverSelectionTimeoutMS=500
+        run: uv run --frozen pytest tests/test_auth.py tests/test_paths.py
+
+  # ---------------------------------------------------------------
+  docker:
+    name: Docker：映像建置與 compose 設定
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - uses: actions/checkout@v7.0.1
+
+      - name: 建置後端映像
+        run: docker build -t lightdance-backend:ci ./backend
+
+      - name: 建置前端映像
+        run: docker build -t lightdance-frontend:ci ./frontend
+
+      - name: 檢查 docker-compose.dev.yml
+        run: docker compose -f docker-compose.dev.yml --env-file .env.development config --quiet
+
+      - name: 檢查 docker-compose.prod.yml
+        # 正式環境的 .env.deployment 不在版控裡（裡面是真的帳密），
+        # 用範本檔代替，只驗證 compose 檔本身的語法與結構
+        run: |
+          cp .env.deployment.example .env.deployment
+          docker compose -f docker-compose.prod.yml --env-file .env.deployment config --quiet
+
+  # ---------------------------------------------------------------
+  # 分支保護只要把「CI 結果」這一項設成必須通過就好：以後新增或改名
+  # 其他 job，不必再回去改保護規則
+  result:
+    name: CI 結果
+    runs-on: ubuntu-latest
+    needs: [frontend, backend, docker]
+    if: always()
+
+    steps:
+      - name: 彙整
+        run: |
+          echo "前端：${{ needs.frontend.result }}"
+          echo "後端：${{ needs.backend.result }}"
+          echo "Docker：${{ needs.docker.result }}"
+          if ${{ contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled') }}; then
+            echo "::error::有檢查沒有通過，請看上面是哪一項"
+            exit 1
+          fi

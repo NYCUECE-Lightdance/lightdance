@@ -49,9 +49,36 @@ fi
 echo -e "   - 使用環境變數檔: ${BOLD}${ENV_FILE}${NC}"
 ENV_FLAG="--env-file ${ENV_FILE}"
 
+# 0.5 在動到任何東西之前，先確認後面兩個會失敗的地方不會失敗
+#
+# 這兩項都曾經在部署**做到一半**時才失敗：靜態檔案已經刪掉、或容器已經停了，
+# 然後腳本才發現寫不進去或後端起不來——站就一直停在那裡。
+# 先檢查，失敗時什麼都還沒動。
+
+# (a) 正式環境的後端缺 AUTH_SECRET 會拒絕啟動（docker-compose.prod.yml 設了
+#     REQUIRE_AUTH_SECRET=1），但那要等到最後一步起容器時才看得到
+if ! grep -qE '^AUTH_SECRET=.+' "$ENV_FILE"; then
+    echo -e "   - ${RED}${ENV_FILE} 裡的 AUTH_SECRET 是空的${NC}"
+    echo -e "     後端在正式環境缺少它會拒絕啟動。產生一把並填進去："
+    echo -e "       ${BOLD}python3 -c \"import secrets; print(secrets.token_urlsafe(32))\"${NC}"
+    exit 1
+fi
+
+# (b) 靜態檔案目錄裡只要有一個檔案不是目前的帳號寫得動，步驟 2 就會在
+#     「舊檔案刪了一半、新檔案複製不進去」的狀態下失敗——那是一個打不開的網站
+if [ -d "$DEPLOY_TARGET_DIR" ]; then
+    NOT_WRITABLE=$(find "$DEPLOY_TARGET_DIR" ! -writable -print -quit 2>/dev/null)
+    if [ -n "$NOT_WRITABLE" ]; then
+        echo -e "   - ${RED}$(whoami) 沒有權限寫入 ${NOT_WRITABLE}${NC}"
+        echo -e "     把整個目錄交給部署用的帳號（只需要做一次）："
+        echo -e "       ${BOLD}sudo chown -R $(whoami):$(whoami) ${DEPLOY_TARGET_DIR}${NC}"
+        exit 1
+    fi
+fi
+
 # 1. 前端構建 (Build Frontend)
 echo ""
-echo -e "🔨 ${BLUE}步驟 1/3: 正在構建前端靜態檔案 (使用 Docker node:20-alpine)...${NC}"
+echo -e "🔨 ${BLUE}步驟 1/3: 正在構建前端靜態檔案 (使用 Docker node:24-alpine)...${NC}"
 
 # 使用 Docker 執行 npm install && npm run build
 # -v 掛載 frontend 目錄
@@ -63,7 +90,7 @@ docker run --rm \
     -v "$(pwd)/${FRONTEND_DIR}:/app" \
     -v "$(pwd)/docs:/docs" \
     -w /app \
-    node:20-alpine \
+    node:24-alpine \
     sh -c "npm install && npm run build && chown -R $CURRENT_UID:$CURRENT_GID /app/dist"
 
 if [ $? -eq 0 ]; then

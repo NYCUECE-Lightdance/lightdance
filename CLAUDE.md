@@ -156,6 +156,8 @@ IndexedDB（localforage）自動備份，30 天自動清理。Redux 透過 redux
 
 ### 文件檔案
 - **`README.md`**：專案說明文件（散文式，重點在資料模型與驗收方式）
+- **`docs/getting-started.md`**：全新電腦從零跑起 dev 環境（含匯入真實資料、跑測試）
+- **`docs/data-handoff.md`**：給維護者：交接給新成員的資料（只給 `color`/`raw_json` 與音樂，不給 `users`/`.env.deployment`）與伺服器打包步驟
 - **`docs/technical-analysis.md`**：詳細技術分析報告（架構、API、安全問題、改進路線圖）
 - **`docs/configuration.md`**：完整配置說明（環境變數、API 端點、部署模式）
 - **`docs/data-flow-pipeline.md`**：從編輯器到資料庫的完整資料流說明
@@ -185,6 +187,49 @@ IndexedDB（localforage）自動備份，30 天自動清理。Redux 透過 redux
 1. 使用 `docker compose logs -f` 查看錯誤日誌
 2. 查閱 README.md 中的故障排除章節
 3. 如果是安全性相關問題，參考 `docs/technical-analysis.md` 第五章節
+
+### CI 與部署（`.github/workflows/`）
+
+| 檔案 | 什麼時候跑 | 擋合併？ | 做什麼 |
+|---|---|---|---|
+| `ci.yml` | 每個 PR、推上 main / dev | **擋** | 建得起來（前端 build、兩個 Docker 映像、兩份 compose）、一定是錯的靜態檢查、韌體輸出契約、安全底線 |
+| `full-check.yml` | 在 Actions 頁面手動觸發 | 不擋 | 全部單元測試、e2e、版面稽核、JS 大小預算、全部後端測試 |
+| `deploy.yml` | 推上 main，或手動觸發 | — | Tailscale → SSH → `run-deploy.sh` → 確認後端有回應 |
+
+⚠️ **`ci.yml` 只放「不管功能或介面怎麼改，失敗都代表真的壞了」的檢查**（使用者
+2026-09-27 拍板）。判斷方式：想像把整個編輯器的畫面重做一遍、功能全部改掉——這項
+檢查會不會因此變紅？會的話它就屬於 `full-check.yml`。
+
+| 放在 `ci.yml` | 為什麼改版碰不到它 |
+|---|---|
+| build / Docker / compose | 建不起來就是壞了 |
+| ESLint 的 error、ruff 的 E9 / F63 / F7 / F82 | 未定義的變數、hook 用錯順序、語法錯誤。沒用到的變數這類清理項目刻意設成 warning——大改版拆到一半時一定會有 |
+| `npm run test:contract`（buildPlayers golden） | 只在上傳給韌體的資料變了時失敗。那是硬體的契約，不是編輯器的功能 |
+| `tests/test_auth.py`、`tests/test_paths.py` | 權杖驗證、路徑穿越。改功能不會動到，會動到就是在削弱安全性 |
+
+e2e、版面稽核、其餘單元測試寫死的是「現在的功能與畫面」，改版之後本來就該跟著更新；
+放進會擋合併的 CI 只會製造誤報，而誤報一多大家就學會無視紅叉。JS 大小預算則是
+功能越加越多一定會超過。這些在發 dev → main 的 PR（也就是部署）之前手動跑一次。
+
+⚠️ **兩邊都不要加 `continue-on-error`。** 前身 `pr-checks.yml` 有一半的步驟掛著它：
+ESLint 沒有設定檔每次都失敗、Docker 建置壞了也顯示綠勾、後端從來沒跑過測試——綠勾
+不代表任何事，而大家以為每一項都有人在守。一項檢查不該擋合併，就把它移到
+`full-check.yml`，不要讓它假裝通過。
+
+分支保護只需要把 **「CI 結果」** 設成必須通過——它彙整其他所有 job，之後新增或
+改名 job 不必回去改保護規則。
+
+`react-hooks` 沒用 recommended——v7 起它包含 React Compiler 的規則，會把 Timeline
+拖曳時直接寫 DOM 的零 re-render 路徑標成錯誤。ruff 不開格式類規則：`main.py` 混用
+tab 與空白，為了排版改整份檔案會讓每一條還開著的分支都衝突。
+
+⚠️ **`run-deploy.sh` 在動到任何東西之前先檢查 `AUTH_SECRET` 與靜態檔案目錄的寫入
+權限。** 兩者都曾經在部署做到一半才失敗（舊檔案刪了、新檔案複製不進去；或容器停了
+卻起不來），站就一直停著。部署帳號（`SSH_USERNAME`）必須是
+`/usr/share/nginx/html/lightdance` 的擁有者。
+
+⚠️ Node 的大版本在五個地方要一致：`ci.yml`、`full-check.yml`、`frontend/Dockerfile`、
+`docker-compose.dev.yml`、`run-deploy.sh`。CI 測的必須是實際部署的那一版。
 
 ### 前端驗收（瀏覽器，不需要後端）
 
@@ -1139,6 +1184,17 @@ public fork——那個檔案永遠不得 import 進 fixture、不得 commit。*
 - 確保安全性問題沒有被引入
 
 ## 更新記錄
+
+- **2026-09-27**：**CI 只擋「一定是壞了」的東西**。CI 拆成兩份：`ci.yml` 擋合併，只放改功能、改介面都碰不到的檢查（build、必錯的靜態檢查、韌體輸出契約、安全底線）；e2e、版面稽核、其餘單元測試與 JS 大小預算移到手動觸發的 `full-check.yml`。ESLint 與 ruff 的清理類規則（沒用到的變數等）降成 warning／不擋。
+  同一天稍早：**CI 從「看起來有在檢查」變成真的會擋**。`pr-checks.yml` 改寫成
+  `ci.yml`：拿掉所有 `continue-on-error`；ESLint 補上設定檔（ESLint 10 + hooks 規則，
+  清掉 50 個錯誤，全是沒用到的變數與 import——其中 `ControlPanel` 訂閱了
+  `currentTime` 卻沒用，播放時每一幀都被喚醒；`LoadData` 訂閱整張光表也沒用）；
+  後端第一次在 CI 跑 pytest，並加 ruff 抓未定義的名稱；e2e 與版面稽核進 CI。
+  `deploy.yml` 釘住 action 版本（原本是 `@master`）、加 `set -eu`、先 `tailscale ping`
+  讓連線問題在第一步就講清楚、部署後確認後端有回應、不再先停站再建置。
+  `run-deploy.sh` 部署前先檢查 `AUTH_SECRET` 與目錄權限。Node 統一 24。
+  另修 `audit:bundle` 在 Windows 上路徑錯誤（`.pathname` 在路徑有空白時會變 `%20`）
 
 - **2026-09-11**：**把稽核抓到的兩個缺陷修掉**。①**輸出前沒有人把關**：
   `isPartAllowed` 只用在「畫面上要不要讓你點」，而跨軌貼上的落點是座標差推出來

@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from "react";
+import { useEffect, useRef } from "react";
 // 使用 Create React App (CRA) 或类似工具，file-loader 会处理 .glb 文件
 import modelUrl from "../model/rigged.glb";
 import "@google/model-viewer"; // 注册 custom element

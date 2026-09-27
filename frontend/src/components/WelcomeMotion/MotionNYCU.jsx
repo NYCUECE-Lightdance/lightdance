@@ -26,7 +26,9 @@ const MotionNYCU = () => {
         },
         { duration: 1, delay: 0.3 }
       );
-    } catch {}
+    } catch {
+      // 動畫只是裝飾，元素還沒掛上或已經卸載時直接略過
+    }
   };
 
   useEffect(() => {
