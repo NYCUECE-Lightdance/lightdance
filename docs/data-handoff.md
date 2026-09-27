@@ -66,13 +66,17 @@ docker ps --format '{{.Names}}\t{{.Image}}\t{{.Status}}'
 用 `docker-compose.prod.yml` 部署的話它叫 **`mongo`**（不是 `mongo-express`）。
 下面的指令都假設是這個名字，不一樣的話自己換掉。
 
-不記得 repo 放在伺服器的哪裡時，問容器就知道了。它會印出 `db/` 資料夾的完整路徑，
-上一層就是 repo：
+**接下來的指令都要在 repo 的根目錄執行**（看得到 `db/`、`music_file/`、`run-deploy.sh`
+的那一層，**不是** `db/` 裡面）。不記得 repo 放在哪裡的話，這一行會直接切過去——
+它問容器「掛在 `/data/db` 的是主機上哪個資料夾」，然後切到那個資料夾的上一層：
 
 ```bash
-docker inspect mongo --format '{{range .Mounts}}{{.Source}}  {{end}}'
-cd <印出來的那個 db 路徑>/..
+cd "$(dirname "$(docker inspect mongo --format '{{range .Mounts}}{{if eq .Destination "/data/db"}}{{.Source}}{{end}}{{end}}')")"
+ls    # 應該看得到 db、music_file、run-deploy.sh
 ```
+
+⚠️ 不要在 `db/` 裡面操作：那是 MongoDB 自己的資料目錄，後面匯出的 `ld-dump/`
+會被複製進去，而且 `music_file/` 在上一層，第 3.4 步會找不到。
 
 ### 3.2 先看一下有哪些人、各有幾份光表
 
@@ -134,7 +138,8 @@ ls ld-dump/test/
 test ! -e ld-dump/test/users.bson && echo "OK: 沒有 users"
 ```
 
-只應該看到 `color` 與 `raw_json` 開頭的四個檔案。
+只應該看到 `color` 與 `raw_json` 開頭的四個檔案，新版的 `mongodump` 還會多一個
+`prelude.json`（只記錄工具版本與匯出設定，沒有使用者資料）。
 
 ### 3.4 收集音樂檔（選用）
 
@@ -144,12 +149,17 @@ test ! -e ld-dump/test/users.bson && echo "OK: 沒有 users"
 du -sh music_file/*
 ```
 
-把要給的人的資料夾複製出來：
+把要給的人的資料夾**整個**複製出來（帳號那一層要留著）：
 
 ```bash
 mkdir -p ld-music
 cp -r music_file/eesa1 music_file/eesa2 ld-music/
+ls ld-music                       # 應該看到 eesa1/ eesa2/，不是一堆 mp3
 ```
+
+⚠️ 不要寫成 `cp music_file/eesa1/* ld-music/`。後端讀音樂的路徑是
+`music_file/<帳號>/<檔名>`，少了帳號那一層，對方照著上手文件放好之後編輯器會找不到音樂，
+而且對方也無從得知那些歌是誰的。
 
 遇到 `Permission denied` 的話（檔案是容器用 root 身分寫的），在 `cp` 前面加 `sudo`，
 然後 `sudo chown -R $USER ld-music` 把擁有者改回自己。
