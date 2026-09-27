@@ -220,9 +220,9 @@ tail -50 db/dump_data/cron.log
 | 問題 | 參考資源 |
 |------|---------|
 | MongoDB 連線失敗 / 登入 500 錯誤 | `docs/troubleshooting-login-500.md` |
-| 開發/生產環境 API 路由不一致 | `docs/network-architecture-refactor-plan.md` |
-| 環境變數設定問題 | `docs/configuration.md` |
-| 完整架構分析與安全問題 | `docs/technical-analysis.md` |
+| 環境變數設定問題 | `.env.development`、`.env.deployment.example` 裡每個變數旁邊的註解 |
+| 部署失敗 | `run-deploy.sh` 印出的訊息（它在動到任何東西之前會先檢查 env 檔與目錄權限） |
+| 架構與各模組的設計理由 | 根目錄的 `CLAUDE.md` |
 
 ### 常見快速修復
 

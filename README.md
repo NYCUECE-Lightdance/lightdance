@@ -138,7 +138,7 @@ cd backend && ./mongo-backup.sh                        # 手動備份資料庫
 
 ⚠️ **`.env.deployment` 裡那組 MongoDB root 帳密曾經被 commit 進這個 public fork。** 檔案已經移出版控，但**移出版控不等於收回**——git 歷史、GitHub 的 fork 與快取都還在，那組密碼必須換掉。同理，`db/dump_data/**/users.bson` 裡有七組帳號的明文密碼，那個檔案永遠不得 commit、不得 import 進測試 fixture（`frontend/scripts/import-mongo-fixtures.mjs` 的白名單只允許 `raw_json` 與 `color`，不要繞過）。
 
-還沒做的只剩其他端點的輸入驗證（上傳 payload 的內容、query 參數的範圍）。細節在 `docs/technical-analysis.md` 第五章。
+還沒做的只剩其他端點的輸入驗證（上傳 payload 的內容、query 參數的範圍）。追蹤在 `todo.md` 的 C3b。
 
 ## 輸出前的把關
 
@@ -148,6 +148,6 @@ cd backend && ./mongo-backup.sh                        # 手動備份資料庫
 
 ## 文件
 
-`docs/` 底下依主題分開放。想了解架構與已知問題看 `technical-analysis.md`，環境變數與部署模式看 `configuration.md`，從編輯器到資料庫的完整資料流看 `data-flow-pipeline.md`，前端效能與渲染細節看 `frontend-rendering-optimization.md`，UI 設計系統的決策與施工回顧看 `ui-design-plan.md`，鍵盤快捷鍵看 `shortcuts.md`（編輯器裡按 Shortcuts 按鈕也看得到），MongoDB 備份與 Docker 操作看 `backend-management.md`。
+`docs/` 底下依主題分開放，索引在 `docs/README.md`。第一次上手看 `getting-started.md`，從編輯器到資料庫的完整資料流看 `data-flow-pipeline.md`，前端效能與渲染細節看 `frontend-rendering-optimization.md`，UI 設計系統的決策與施工回顧看 `ui-design-plan.md`，鍵盤快捷鍵看 `frontend/public/shortcuts.md`（編輯器裡按 Shortcuts 按鈕看到的就是這一份），MongoDB 備份與 Docker 操作看 `backend-management.md`。
 
 寫程式碼的時候註解用中文、命名用英文，而且註解要說明**為什麼**這樣做，不要複述程式碼在做什麼。品質的優先順序是可讀性 > 可維護性 > 可擴展性 > 簡潔。

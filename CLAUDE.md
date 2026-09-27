@@ -20,7 +20,8 @@
                     └── 靜態檔案 (React build)
 ```
 
-> **注意**：開發與生產環境的 API 路由方式不同，詳見 `docs/network-architecture-refactor-plan.md`。
+> **注意**：開發時 `/api` 由 Vite 轉發（`frontend/vite.config.js`），正式環境由伺服器主機上的
+> Nginx 轉發；後端的路由一律掛在 `APIRouter(prefix="/api")` 底下，兩邊看到的路徑相同。
 
 ## 開發環境指令
 
@@ -158,15 +159,13 @@ IndexedDB（localforage）自動備份，30 天自動清理。Redux 透過 redux
 - **`README.md`**：專案說明文件（散文式，重點在資料模型與驗收方式）
 - **`docs/getting-started.md`**：全新電腦從零跑起 dev 環境（含匯入真實資料、跑測試）
 - **`docs/data-handoff.md`**：給維護者：交接給新成員的資料（只給 `color`/`raw_json` 與音樂，不給 `users`/`.env.deployment`）與伺服器打包步驟
-- **`docs/technical-analysis.md`**：詳細技術分析報告（架構、API、安全問題、改進路線圖）
-- **`docs/configuration.md`**：完整配置說明（環境變數、API 端點、部署模式）
 - **`docs/data-flow-pipeline.md`**：從編輯器到資料庫的完整資料流說明
 - **`docs/backend-management.md`**：MongoDB 備份與 Docker 管理操作指南
-- **`docs/network-architecture-refactor-plan.md`**：網路路由架構重構計畫
-- **`docs/shortcuts.md`**：鍵盤快速鍵速查表，前端 Home 頁面可透過 Shortcuts 按鈕查看
+- **`frontend/public/shortcuts.md`**：鍵盤快速鍵速查表，編輯器的 Shortcuts 按鈕讀的就是這一份（只有這一份，改快捷鍵時更新它）
 - **`docs/troubleshooting-login-500.md`**：MongoDB 連線 500 錯誤 SOP
 - **`docs/frontend-rendering-optimization.md`**：前端渲染邏輯與效能優化詳解（元件樹、播放管線、Redux 配置、memo 策略、區塊索引語意、duration 溢出防護）
 - **`docs/ui-design-plan.md`**：UI 設計系統的診斷、六項拍板決策與施工回顧（token 層、無彩色原則、按鈕階層、時間刻度尺）
+- **`docs/archive/`**：描述過去狀態的文件（2025 年的技術分析、設定說明、已完成的路由重構計畫、舊的 Nginx 說明）。只用來查歷史，不要照著操作
 
 ### 後端管理腳本
 - **`backend/mongo-backup.sh`**：MongoDB 自動備份主腳本
@@ -178,7 +177,7 @@ IndexedDB（localforage）自動備份，30 天自動清理。Redux 透過 redux
 ## 常見開發任務
 
 ### 新增功能開發
-1. 先閱讀 `docs/technical-analysis.md` 了解現有架構
+1. 先閱讀 `README.md` 的資料模型，以及本檔中與要改的模組對應的那一節
 2. 確認功能需求符合專案目標（燈光控制相關）
 3. 遵循程式碼品質標準進行開發
 4. 確保前後端都能正常運行後再提交
@@ -186,7 +185,7 @@ IndexedDB（localforage）自動備份，30 天自動清理。Redux 透過 redux
 ### 修復 Bug
 1. 使用 `docker compose logs -f` 查看錯誤日誌
 2. 查閱 README.md 中的故障排除章節
-3. 如果是安全性相關問題，參考 `docs/technical-analysis.md` 第五章節
+3. 如果是安全性相關問題，先讀本檔的「安全性注意事項」
 
 ### CI 與部署（`.github/workflows/`）
 
@@ -1158,7 +1157,7 @@ public fork——那個檔案永遠不得 import 進 fixture、不得 commit。*
 `frontend/scripts/import-mongo-fixtures.mjs` 的 `ALLOWED_COLLECTIONS` 白名單
 （只允許 `raw_json` / `color`）是硬性防線，不要繞過。
 
-詳細改進方案請參考 `docs/technical-analysis.md`。
+還沒處理的安全項目追蹤在 `todo.md` 的 C3b。
 
 ## 學習建議
 

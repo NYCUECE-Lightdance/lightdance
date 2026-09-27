@@ -288,5 +288,5 @@ GitHub 上有兩組自動檢查：
 1. [`README.md`](../README.md)：資料模型為什麼是「色塊」而不是「關鍵格」，這一點先搞懂，
    後面大半的程式碼才看得懂
 2. [`data-flow-pipeline.md`](./data-flow-pipeline.md)：按下 Output 之後資料怎麼變成韌體的格式
-3. [`shortcuts.md`](./shortcuts.md)：編輯器的快捷鍵
+3. [`frontend/public/shortcuts.md`](../frontend/public/shortcuts.md)：編輯器的快捷鍵
 4. 根目錄的 `CLAUDE.md`：每個模組的設計理由和踩過的坑，改哪一塊之前先讀那一節
