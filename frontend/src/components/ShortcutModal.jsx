@@ -30,7 +30,9 @@ export default function ShortcutModal({ isOpen, onClose }) {
   useEffect(() => {
     if (!isOpen) return;
 
-    fetch("/shortcuts.md")
+    // 要帶上 BASE_URL：正式環境掛在 /lightdance/ 底下，寫死 "/shortcuts.md"
+    // 會去抓網站根目錄而 404。開發環境的 BASE_URL 剛好是 "/"，所以本機看不出來
+    fetch(`${import.meta.env.BASE_URL}shortcuts.md`)
       .then((res) => {
         if (!res.ok) throw new Error("Failed to fetch");
         return res.text();
