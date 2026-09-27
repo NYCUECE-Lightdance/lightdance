@@ -4,7 +4,8 @@ NYCU 電機系的燈光舞蹈編排系統。七位舞者身上各穿一套 LED �
 
 ## 先看這個：怎麼跑起來
 
-需要 Docker，其餘什麼都不用裝。
+需要 Docker 與 Git，其餘什麼都不用裝。全新電腦從零開始的完整步驟（Windows 要用 Git Bash、
+第一次啟動要等多久、怎麼匯入真實的光表、常見問題）在 [`docs/getting-started.md`](docs/getting-started.md)。
 
 ```bash
 git clone <repository-url>
@@ -12,7 +13,9 @@ cd lightdance
 ./start-dev.sh
 ```
 
-跑起來之後編輯器在 [localhost:3000](http://localhost:3000)，API 文件在 [localhost:8000/docs](http://localhost:8000/docs)，資料庫管理介面在 [localhost:8081](http://localhost:8081)。要停就 Ctrl+C，或另開一個終端機下 `docker compose -f docker-compose.dev.yml down`。
+⚠️ `start-dev.sh` 一開始會停掉這台電腦上**所有**正在跑的 Docker 容器，不只是這個專案的。
+
+跑起來之後用 `testuser` / `testpassword` 登入。編輯器在 [localhost:3000](http://localhost:3000)，API 文件在 [localhost:8000/docs](http://localhost:8000/docs)，資料庫管理介面在 [localhost:8081](http://localhost:8081)。要停就 Ctrl+C，或另開一個終端機下 `docker compose -f docker-compose.dev.yml down`。
 
 `start-dev.sh` 做的事情就是帶著 `.env.development` 去跑 `docker compose up --build`，所以腳本壞掉時你可以自己下：
 
@@ -77,16 +80,43 @@ actionTable[armor][part] = [
 
 `src/styles/tokens.css` 是全站**唯一**可以出現寫死顏色的地方，其他 CSS 一律 `var()` 引用。有測試掃描所有 CSS 把違規的抓出來，目前是 0 處。這條規則的理由很現實：在收斂之前 14 個 CSS 檔裡有 287 個寫死的顏色值、同一個灰有 25 個副本，想把背景調暗一階要改 25 個地方，漏一個就花掉。
 
-後端只有 `backend/main.py` 一支主程式加 `models.py` 的 Pydantic 模型。`backend/` 底下另外有一組 MongoDB 備份腳本，`BACKUP_README.md` 有完整說明。
+後端的 `backend/main.py` 負責「收到請求之後做什麼」，資料怎麼存在 `storage.py`、登入與權杖在 `auth.py`、檔案路徑的防線在 `paths.py`，Pydantic 模型在 `models.py`。`backend/` 底下另外有一組 MongoDB 備份腳本，`BACKUP_README.md` 有完整說明。
+
+## 依負責範圍，從哪一個檔案讀起
+
+先讀完這份 README 的資料模型，再依自己負責的範圍挑一份。每一份開頭都寫了它為什麼存在、以前壞過什麼：
+
+| 範圍 | 先讀 | 讀完會知道 |
+|---|---|---|
+| 3D 模型 | `docs/3d-armor-plan.md` | 用 3D 取代平面人像已經拍板的決定，以及換掉之後哪些東西必須保留（22 個部位的對應、點部位選軌、播放時取色） |
+| 日常維修 | `frontend/src/components/audio/audioplayer.jsx` | 編輯器的每個功能從哪裡接進來、每個快捷鍵對到哪個函式——使用者回報問題時從這裡找得到該修哪個檔案 |
+| 渲染與效能 | `frontend/src/utils/audio/engine.js` | 音訊的解碼快取與回收、多首歌怎麼無縫接起來、為什麼它刻意不是 React hook |
+| 複製貼上、跨軌 | `frontend/src/utils/segments/clipboard.js` | 貼上的落點怎麼算（跨軌的座標平移、跑馬燈相位、舞者沒有的部位不准貼） |
+| 拖曳、吸附、節拍 | `frontend/src/utils/segments/gestures.js` | 拖曳與 resize 能移多遠的唯一答案，以及網格對齊（`tick` 參數）在哪裡——吸附要從這裡延伸 |
+| 資料庫 | `backend/storage.py` | 一份光表存進去長什麼樣、索引、為什麼 `update_time` 不能改 UTC、為什麼兩個集合要成對寫入 |
+| 部署與資安 | `docker-compose.prod.yml` | 正式環境的秘密怎麼流進容器、哪些埠對外開放 |
+
+改到哪個模組之前，再去 `CLAUDE.md` 讀對應的那一節——它很長，不適合從頭讀，但每一節都記了那個模組踩過的坑。
 
 ## 驗收
+
+檢查分兩層，放在哪一層的判斷標準是：**把整個編輯器的畫面重做、功能全部改掉，這項檢查會不會因此變紅？**
+
+**第一層：CI，每個 PR 自動跑，失敗就不能合併**（`.github/workflows/ci.yml`）。只放不管功能怎麼改、失敗都代表真的壞了的東西：建不起來、未定義的變數或 hook 用錯順序、上傳給韌體的格式變了、權杖驗證或路徑穿越的防線被削弱。改功能或改介面不會讓它變紅——CI 一有誤報，大家很快就學會無視紅叉。
+
+```bash
+cd frontend && npm run lint && npm run test:contract && npm run build
+cd backend  && uv run ruff check . && uv run pytest tests/test_auth.py tests/test_paths.py
+```
+
+**第二層：完整驗收，在 GitHub 的 Actions 頁面手動觸發，不擋合併**（`full-check.yml`）。這些寫死了「現在的功能與畫面」，大改版之後變紅是正常的，代表測試要跟著改。發 dev → main 的 PR（也就是部署）之前跑一次。
 
 單元測試跑 vitest，分成 node 環境的純函式與 jsdom 環境的元件冒煙測試：
 
 ```bash
 cd frontend
 npm test          # 782 項
-npm run build
+cd backend && uv run pytest    # 全部後端測試
 ```
 
 但 jsdom 沒有版面也送不出真實的鍵盤事件序列，所以另外有兩支 Playwright 腳本補這一段。它們把 `/api/**` 全部攔截回假資料，**後端不用跑**：
@@ -138,7 +168,12 @@ cd backend && ./mongo-backup.sh                        # 手動備份資料庫
 
 ⚠️ **`.env.deployment` 裡那組 MongoDB root 帳密曾經被 commit 進這個 public fork。** 檔案已經移出版控，但**移出版控不等於收回**——git 歷史、GitHub 的 fork 與快取都還在，那組密碼必須換掉。同理，`db/dump_data/**/users.bson` 裡有七組帳號的明文密碼，那個檔案永遠不得 commit、不得 import 進測試 fixture（`frontend/scripts/import-mongo-fixtures.mjs` 的白名單只允許 `raw_json` 與 `color`，不要繞過）。
 
-還沒做的只剩其他端點的輸入驗證（上傳 payload 的內容、query 參數的範圍）。追蹤在 `todo.md` 的 C3b。
+還沒處理的：
+
+- **那組外洩的密碼還寫在兩個被追蹤的檔案裡**：`.env.development` 與 `backend/.env.local` 的 `root` / `nycuee`。正式環境換掉密碼之前，這兩個檔案等於還在公開它。
+- **正式環境的資料庫管理介面不用登入**：`docker-compose.prod.yml` 的 mongo-express（8081）設了 `ME_CONFIG_BASICAUTH: false`，而且用 root 帳密連資料庫；後端的 8000 也直接對外開放、繞過 Nginx。從校外連不到，校內連不連得到要確認。
+- `frontend/src/components/audio/musicsrc/` 有一首商業歌曲，而這個 repo 是公開的（`todo.md` 的 B4）。
+- 其他端點的輸入驗證（上傳 payload 的內容、query 參數的範圍，`todo.md` 的 C3b）。
 
 ## 輸出前的把關
 
@@ -149,5 +184,11 @@ cd backend && ./mongo-backup.sh                        # 手動備份資料庫
 ## 文件
 
 `docs/` 底下依主題分開放，索引在 `docs/README.md`。第一次上手看 `getting-started.md`，從編輯器到資料庫的完整資料流看 `data-flow-pipeline.md`，前端效能與渲染細節看 `frontend-rendering-optimization.md`，UI 設計系統的決策與施工回顧看 `ui-design-plan.md`，鍵盤快捷鍵看 `frontend/public/shortcuts.md`（編輯器裡按 Shortcuts 按鈕看到的就是這一份），MongoDB 備份與 Docker 操作看 `backend-management.md`。
+
+## 開發流程
+
+各自在自己的分支上開發，PR 到 `dev`；`dev` 穩定之後再 PR 到 `main`。**合併進 `main` 就會自動部署到正式伺服器**（`.github/workflows/deploy.yml`：Tailscale → SSH → `run-deploy.sh`），也可以在 Actions 頁面手動觸發。`run-deploy.sh` 在動到任何東西之前會先檢查 `AUTH_SECRET` 與網站目錄的寫入權限，不過就停下來，這時正式站還是舊版、照常運作。
+
+commit message 的第一行用類型前綴：`[feat]:`、`[fix]:`、`[docs]:`（半形括號，緊接冒號）。
 
 寫程式碼的時候註解用中文、命名用英文，而且註解要說明**為什麼**這樣做，不要複述程式碼在做什麼。品質的優先順序是可讀性 > 可維護性 > 可擴展性 > 簡潔。
