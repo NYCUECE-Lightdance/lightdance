@@ -1,13 +1,11 @@
-from typing import Union
 from pymongo import MongoClient
-from fastapi import Request, FastAPI, HTTPException, Depends, Path, status, Form, APIRouter
+from fastapi import Request, FastAPI, HTTPException, Depends, status, APIRouter
 from fastapi import File, UploadFile
 # 從 models.py 匯入所有資料模型
-from models import PlayerData, Player, Data, RAW, Item, User, UserInDB, FullUpload, RegisterRequest
+from models import PlayerData, Player, Data, RAW, User, UserInDB, FullUpload, RegisterRequest
 # typing.List 已在 models.py 中使用
 # from app import app
 # from flask import Flask, send_file, render_template
-import json
 import os
 import secrets
 import shutil
@@ -732,9 +730,6 @@ async def get_rand_lightlist_seeded(cnt : int,seed : int):
         "color_data": data
     }
     
-    json_str = json.dumps(response, ensure_ascii=False)
-    
-    # return json_str
     return response
 
 # 生成指定數量的隨機光表資料（自動種子值）
@@ -767,9 +762,6 @@ async def get_rand_lightlist(cnt : int):
         "color_data": data
     }
     
-    json_str = json.dumps(response, ensure_ascii=False)
-    
-    # return json_str
     return response
 
 # 生成指定數量的隨機光表資料（JSON 格式）

@@ -1,4 +1,3 @@
-import React from "react";
 import { useRef, useMemo } from "react";
 import { useWavesurfer } from "@wavesurfer/react";
 import Timeline from "wavesurfer.js/dist/plugins/timeline.esm.js";
@@ -10,7 +9,7 @@ function formatTime(seconds) {
   return `${m.toString().padStart(2, "0")}:${s.toString().padStart(2, "0")}`;
 }
 
-export default function WaveSurferPlayer({}) {
+export default function WaveSurferPlayer() {
   const containerRef = useRef(null);
 
   // 用 useMemo 記錄要啟用的 Wavesurfer 插件

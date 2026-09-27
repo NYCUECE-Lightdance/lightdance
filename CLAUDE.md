@@ -188,6 +188,35 @@ IndexedDB（localforage）自動備份，30 天自動清理。Redux 透過 redux
 2. 查閱 README.md 中的故障排除章節
 3. 如果是安全性相關問題，參考 `docs/technical-analysis.md` 第五章節
 
+### CI 與部署（`.github/workflows/`）
+
+| 檔案 | 什麼時候跑 | 做什麼 |
+|---|---|---|
+| `ci.yml` | 每個 PR、每次推上 main / dev | 前端 lint + 單元測試 + bundle 預算、瀏覽器驗收（e2e + 版面稽核）、後端 ruff + pytest、Docker 映像建置與兩份 compose 設定 |
+| `deploy.yml` | 推上 main，或在 Actions 頁面手動觸發 | Tailscale → SSH 進伺服器 → `run-deploy.sh` → 確認後端有回應 |
+
+⚠️ **每一項檢查都必須是真的會擋下來的，不要加 `continue-on-error`。** 前身
+`pr-checks.yml` 有一半的步驟掛著它：ESLint 在沒有設定檔的情況下每次都失敗、Docker
+建置壞了也顯示綠勾、後端從來沒跑過測試。綠勾只代表「前端單元測試過了」，而大家以為
+每一項都有人在守。要加一項「參考用」的檢查，就不要把它放進 CI。
+
+分支保護只需要把 **「CI 結果」** 設成必須通過——它彙整其他所有 job，之後新增或
+改名 job 不必回去改保護規則。
+
+lint 刻意只抓「幾乎一定是 bug」的東西（規則與理由分別寫在
+`frontend/eslint.config.mjs` 與 `backend/pyproject.toml` 的 `[tool.ruff.lint]`）。
+不開格式類規則：`main.py` 混用 tab 與空白，為了排版改整份檔案會讓每一條還開著的
+分支都衝突。`react-hooks` 也沒用 recommended——v7 起它包含 React Compiler 的規則，
+會把 Timeline 拖曳時直接寫 DOM 的零 re-render 路徑標成錯誤。
+
+⚠️ **`run-deploy.sh` 在動到任何東西之前先檢查 `AUTH_SECRET` 與靜態檔案目錄的寫入
+權限。** 兩者都曾經在部署做到一半才失敗（舊檔案刪了、新檔案複製不進去；或容器停了
+卻起不來），站就一直停著。部署帳號（`SSH_USERNAME`）必須是
+`/usr/share/nginx/html/lightdance` 的擁有者。
+
+⚠️ Node 的大版本在四個地方要一致：`ci.yml`、`frontend/Dockerfile`、
+`docker-compose.dev.yml`、`run-deploy.sh`。CI 測的必須是實際部署的那一版。
+
 ### 前端驗收（瀏覽器，不需要後端）
 
 單元測試（`npm test`）跑在 jsdom 上，測不到真實瀏覽器的鍵盤事件序列與版面
@@ -1141,6 +1170,16 @@ public fork——那個檔案永遠不得 import 進 fixture、不得 commit。*
 - 確保安全性問題沒有被引入
 
 ## 更新記錄
+
+- **2026-09-27**：**CI 從「看起來有在檢查」變成真的會擋**。`pr-checks.yml` 改寫成
+  `ci.yml`：拿掉所有 `continue-on-error`；ESLint 補上設定檔（ESLint 10 + hooks 規則，
+  清掉 50 個錯誤，全是沒用到的變數與 import——其中 `ControlPanel` 訂閱了
+  `currentTime` 卻沒用，播放時每一幀都被喚醒；`LoadData` 訂閱整張光表也沒用）；
+  後端第一次在 CI 跑 pytest，並加 ruff 抓未定義的名稱；e2e 與版面稽核進 CI。
+  `deploy.yml` 釘住 action 版本（原本是 `@master`）、加 `set -eu`、先 `tailscale ping`
+  讓連線問題在第一步就講清楚、部署後確認後端有回應、不再先停站再建置。
+  `run-deploy.sh` 部署前先檢查 `AUTH_SECRET` 與目錄權限。Node 統一 24。
+  另修 `audit:bundle` 在 Windows 上路徑錯誤（`.pathname` 在路徑有空白時會變 `%20`）
 
 - **2026-09-11**：**把稽核抓到的兩個缺陷修掉**。①**輸出前沒有人把關**：
   `isPartAllowed` 只用在「畫面上要不要讓你點」，而跨軌貼上的落點是座標差推出來

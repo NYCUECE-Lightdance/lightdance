@@ -16,12 +16,15 @@ import { execSync } from "node:child_process";
 import { gzipSync } from "node:zlib";
 import { readFileSync, readdirSync } from "node:fs";
 import { join } from "node:path";
+import { fileURLToPath } from "node:url";
 
 /** 初始 chunk 的上限。目前 487 KB / gzip 160 KB，留一點成長空間 */
 const BUDGET_KB = 600;
 const BUDGET_GZIP_KB = 200;
 
-const DIST = new URL("../dist/assets", import.meta.url).pathname;
+// 用 fileURLToPath 而不是 `.pathname`：後者在 Windows 上會得到 `/D:/…` 而且
+// 空白會變成 `%20`，於是路徑放在「light dance」這種資料夾底下時整支腳本直接炸掉
+const DIST = fileURLToPath(new URL("../dist/assets", import.meta.url));
 
 console.log("建置中…");
 execSync("npx vite build", { stdio: "pipe" });

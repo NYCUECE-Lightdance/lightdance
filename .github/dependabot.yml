@@ -1,0 +1,20 @@
+# 每個月檢查一次 workflow 用到的 action 有沒有新版，有的話發一個 PR 到 dev。
+#
+# workflow 裡的 action 都釘在確切的版本（例如 checkout@v7.0.1），不用 @master
+# 或 @v7 這種會自己移動的標籤：部署流程在沒有人改任何東西的情況下突然換了一版，
+# 壞掉時很難查。代價是要有人記得更新——這份設定就是那個「有人」。
+#
+# 刻意只管 GitHub Actions，不管 npm / pip：那兩邊的升級會動到應用程式本身，
+# 需要人跑過 e2e 看過畫面，一個月一批自動 PR 只會變成沒人看的噪音。
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    target-branch: dev
+    schedule:
+      interval: monthly
+    groups:
+      actions:
+        patterns: ["*"]
+    commit-message:
+      prefix: "ci"

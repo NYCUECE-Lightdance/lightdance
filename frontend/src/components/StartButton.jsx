@@ -1,6 +1,4 @@
-import React from "react";
 import "./StartButton.css";
-import { useState, useEffect } from "react";
 
 function StartButton({
   currentTime,

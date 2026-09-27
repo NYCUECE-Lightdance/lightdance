@@ -1,4 +1,4 @@
-import React, { useEffect } from "react";
+import { useEffect } from "react";
 import Armor from "./Armor.jsx";
 import { useDispatch, useSelector } from "react-redux";
 import { updateActionTable } from "../redux/actions.js";

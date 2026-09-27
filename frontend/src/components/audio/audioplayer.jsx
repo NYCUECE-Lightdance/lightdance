@@ -1,7 +1,6 @@
-import React, { useRef, useState, useEffect, createRef } from "react";
+import { useRef, useState, useEffect, createRef } from "react";
 import { useSelector, useDispatch } from "react-redux";
 import {
-  updateMultiSelectedBlocks,
   toggleMoveMode,
   // updateMusicIndex,
 } from "../../redux/actions.js";
@@ -23,7 +22,7 @@ import Timeline from "./Timeline.jsx";
 import TimeRuler from "./TimeRuler.jsx";
 import { MarqueeBox, useMarqueeSelect } from "./MarqueeSelect.jsx";
 import { PasteGhosts, usePastePreview } from "./PastePreview.jsx";
-import { updateChosenColor, updateCurrentTime } from "../../redux/actions.js";
+import { updateCurrentTime } from "../../redux/actions.js";
 import { TICK_MS } from "../../constants/time.js";
 import {
   insertColorSegment,

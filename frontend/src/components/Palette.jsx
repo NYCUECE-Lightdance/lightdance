@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { FaEyeDropper } from "react-icons/fa6";
 import { useDispatch, useSelector } from "react-redux";
 
@@ -301,7 +301,7 @@ function Palette({ rgba, setRgba }) {
               style={color ? swatchStyle(color) : undefined}
               title={
                 color
-                  ? `${index + 1}　${rgbToHex(color)} · ${Math.round(
+                  ? `${index + 1}\u3000${rgbToHex(color)} · ${Math.round(
                       (color.A ?? 1) * 100,
                     )}%${saveMode ? "（點擊覆蓋）" : "（點擊使用，快捷鍵 " + (index + 1) + "）"}`
                   : `第 ${index + 1} 格是空的，點擊存入目前顏色`

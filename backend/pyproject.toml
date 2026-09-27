@@ -20,6 +20,7 @@ py-modules = ["main", "models"]
 dev = [
     "httpx>=0.28.1",
     "pytest>=9.1.1",
+    "ruff>=0.16",
 ]
 
 [tool.pytest.ini_options]
@@ -27,3 +28,9 @@ dev = [
 # 讓 pytest 把根目錄放進 sys.path
 pythonpath = ["."]
 testpaths = ["tests"]
+
+[tool.ruff.lint]
+# 只開「幾乎一定是 bug」的規則：pyflakes（未定義的名稱、沒用到的 import／變數、
+# 重複定義）加上語法錯誤。刻意不開格式類的規則——main.py 混用 tab 與空白縮排，
+# 為了排版把整個檔案改一遍會讓每一個還開著的分支都衝突。
+select = ["F", "E9"]
