@@ -142,10 +142,20 @@ docker compose -f docker-compose.dev.yml --env-file .env.development down
 
 ### 6.1 解開資料包
 
+把拿到的 `.tgz` 放在 repo 根目錄（放在 `docs/` 也可以，指令改成 `tar xzf docs/檔名`），
+在 repo 根目錄執行：
+
 ```bash
-tar xzf ld-data-20260924.tgz      # 換成你拿到的檔名
-ls ld-dump/test                   # 應該看到 color.bson、raw_json.bson 等檔案
+tar xzf ld-data-20260927.tgz      # 換成你拿到的檔名
+ls ld-dump/test                   # color.bson、raw_json.bson 各一份 + 它們的 metadata + prelude.json
+ls ld-music                       # 一個帳號一個資料夾，例如 eesa3/
 ```
+
+⚠️ Windows 的 Git Bash 裡**不要用 `D:/...` 這種絕對路徑**給 `tar`：它會把 `D:` 當成
+遠端主機名稱而失敗（`Cannot connect to D: resolve failed`）。`cd` 到檔案所在的資料夾、
+用相對路徑就好。
+
+這些檔案已經在 `.gitignore` 裡，`git add .` 不會把它們帶進去。
 
 ### 6.2 還原資料庫
 
@@ -156,21 +166,35 @@ docker exec mongo-dev sh -c 'mongorestore \
   -u "$MONGO_INITDB_ROOT_USERNAME" -p "$MONGO_INITDB_ROOT_PASSWORD" \
   --authenticationDatabase admin --drop --nsInclude "test.*" /tmp/ld-dump'
 
-docker exec mongo-dev rm -rf /tmp/ld-dump
+docker exec mongo-dev sh -c 'rm -rf /tmp/ld-dump'
 ```
 
 - 帳號密碼是容器自己的環境變數，不用手打（單引號讓 `$...` 在容器**裡面**才展開）。
 - `--drop` 會先清掉資料包裡有的那幾個集合（`color`、`raw_json`）再寫入。
   **帳號（`users`）不在資料包裡，所以不會被動到**，`testuser` 照樣能登入。
+- 成功的話最後一行是 `N document(s) restored successfully. 0 document(s) failed to restore.`
+- ⚠️ 最後那行清暫存**一定要包在 `sh -c '...'` 裡**。Git Bash 會把以 `/` 開頭的參數當成
+  Windows 路徑自動改寫，直接寫 `docker exec mongo-dev rm -rf /tmp/ld-dump` 的話，
+  `/tmp/ld-dump` 會被換成一個容器裡不存在的路徑——`rm -rf` 找不到東西也不會報錯，
+  於是看起來成功了，幾百 MB 的暫存卻一直留在容器裡。包在引號裡的字串不會被改寫。
 
 ### 6.3 放音樂
 
-資料包裡如果有 `ld-music/` 資料夾（裡面一個帳號一個資料夾），把它的內容複製到 repo 的
-`music_file/` 底下：
+後端讀音樂的路徑是 `music_file/<帳號>/<檔名>`，所以**帳號那一層資料夾不能少**。
+資料包裡的 `ld-music/` 應該是一個帳號一個資料夾，整個複製過去：
 
 ```bash
 mkdir -p music_file
 cp -r ld-music/* music_file/
+ls music_file/*/                  # 例如 music_file/eesa3/ 底下有 mp3
+```
+
+如果 `ls ld-music` 直接看到 mp3、沒有帳號資料夾，那是打包時少了一層。問維護者這些音樂
+屬於哪個帳號，再手動補上那一層：
+
+```bash
+mkdir -p music_file/eesa3         # 換成實際的帳號
+cp ld-music/*.mp3 music_file/eesa3/
 ```
 
 不用重新啟動，後端是直接讀那個資料夾的。
@@ -197,6 +221,8 @@ docker exec mongo-dev sh -c 'mongosh \
 
 這段是把 `testuser` 的密碼雜湊複製一份給新帳號，所以兩個帳號的密碼一樣。
 這個帳號只存在你的電腦上，跟正式伺服器上那個帳號的真正密碼無關。
+
+用這個帳號登入後，Dashboard 會列出他的光表。清單**最多顯示最新的 200 版**（後端 `DEFAULT_LIST_LIMIT`），版本比這多的帳號，更舊的版本在畫面上看不到。
 
 ### 6.5 用完之後
 

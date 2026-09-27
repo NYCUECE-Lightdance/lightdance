@@ -149,12 +149,17 @@ test ! -e ld-dump/test/users.bson && echo "OK: 沒有 users"
 du -sh music_file/*
 ```
 
-把要給的人的資料夾複製出來：
+把要給的人的資料夾**整個**複製出來（帳號那一層要留著）：
 
 ```bash
 mkdir -p ld-music
 cp -r music_file/eesa1 music_file/eesa2 ld-music/
+ls ld-music                       # 應該看到 eesa1/ eesa2/，不是一堆 mp3
 ```
+
+⚠️ 不要寫成 `cp music_file/eesa1/* ld-music/`。後端讀音樂的路徑是
+`music_file/<帳號>/<檔名>`，少了帳號那一層，對方照著上手文件放好之後編輯器會找不到音樂，
+而且對方也無從得知那些歌是誰的。
 
 遇到 `Permission denied` 的話（檔案是容器用 root 身分寫的），在 `cp` 前面加 `sudo`，
 然後 `sudo chown -R $USER ld-music` 把擁有者改回自己。
