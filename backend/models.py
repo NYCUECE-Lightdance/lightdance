@@ -89,6 +89,19 @@ class FullUpload(BaseModel):
     music_filename: Union[str, int]
 
 
+class RegisterRequest(BaseModel):
+    """
+    建立帳號。
+
+    `invite_code` 是**必填**的，值來自後端的 `REGISTER_CODE`（見 main.py 的
+    /api/register）。型別留 `None` 是因為「沒填」與「填錯」都要走到那支端點
+    才判得出來——這裡擋掉的話回的是 Pydantic 的 422 而不是那句看得懂的訊息。
+    """
+    username: str
+    password: str
+    invite_code: Union[str, None] = None
+
+
 class Item(BaseModel):
     """
     時間軸項目資料

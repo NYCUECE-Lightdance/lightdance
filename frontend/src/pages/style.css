@@ -1,9 +1,32 @@
+/*
+ * Welcome（未登入的入口頁）專用樣式。
+ *
+ * 這頁刻意**不套用編輯器的無彩色規範**——編輯器要無彩色是因為畫面上唯一
+ * 該飽和的東西是使用者的燈光資料，而入口頁沒有燈光資料，不存在這個競爭。
+ * 但顏色一樣只能定義在下面這組 token 裡，不散落在規則中。
+ */
+.welcome-page,
+.login-button,
+.pass-button,
+.signup-button,
+.login-page,
+.signup-page {
+  --welcome-primary: rgb(235, 231, 143);
+  --welcome-primary-hover: rgb(190, 187, 98);
+  --welcome-accent: rgb(151, 235, 143);
+  --welcome-neutral-hover: rgb(204, 202, 182);
+  --welcome-sky-top: rgb(0, 0, 0);
+  --welcome-sky-bottom: rgb(10, 10, 51);
+  --welcome-link: rgb(0, 128, 255);
+  --welcome-link-hover: rgb(0, 103, 206);
+}
+
 .login-button {
   position: absolute;
   width: 200px;
   height: 50px;
   font-size: 25px;
-  background-color: rgb(235, 231, 143);
+  background-color: var(--welcome-primary);
   border-radius: 10rem;
   border: 0;
   transition: all 0.2s ease-in-out;
@@ -13,7 +36,7 @@
 
 .login-button:hover {
   cursor: pointer;
-  background-color: rgb(190, 187, 98);
+  background-color: var(--welcome-primary-hover);
 }
 
 .pass-button {
@@ -21,7 +44,7 @@
   width: 200px;
   height: 50px;
   font-size: 25px;
-  background-color: rgb(151, 235, 143);
+  background-color: var(--welcome-accent);
   border-radius: 10rem;
   border: 0;
   transition: all 0.2s ease-in-out;
@@ -31,7 +54,7 @@
 
 .pass-button:hover {
   cursor: pointer;
-  background-color: rgb(151, 235, 143);
+  background-color: var(--welcome-accent);
 }
 
 .signup-button {
@@ -39,7 +62,7 @@
   width: 200px;
   height: 50px;
   font-size: 25px;
-  background-color: rgb(255, 255, 255);
+  background-color: var(--bg-inverse);
   border-radius: 10rem;
   border: 0;
   transition: all 0.2s ease-in-out;
@@ -49,11 +72,11 @@
 
 .signup-button:hover {
   cursor: pointer;
-  background-color: rgb(204, 202, 182);
+  background-color: var(--welcome-neutral-hover);
 }
 
 .welcome-page {
-  background-image: linear-gradient(black, rgb(10, 10, 51));
+  background-image: linear-gradient(var(--welcome-sky-top), var(--welcome-sky-bottom));
   height: 100vh;
   width: 100%;
   position: absolute;
@@ -68,7 +91,7 @@ Form {
   width: 300px;
   font-size: 17px;
   position: absolute;
-  color: white;
+  color: var(--text-primary);
 }
 .form-control {
   height: 35px;
@@ -83,11 +106,11 @@ Form {
 
 .brand:hover {
   cursor: pointer;
-  color: rgb(214, 214, 214);
+  color: var(--text-primary);
 }
 
 .form {
-  color: black;
+  color: var(--text-inverse);
   position: relative;
   width: 80%;
   margin: auto;
@@ -101,7 +124,7 @@ Form {
 }
 
 .modify_password_form {
-  color: black;
+  color: var(--text-inverse);
   position: relative;
   margin: auto;
   width: 300px;
@@ -115,15 +138,15 @@ Form {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  background: linear-gradient(black, rgb(10, 10, 51));
+  background: linear-gradient(var(--welcome-sky-top), var(--welcome-sky-bottom));
 }
 
 .link-text {
-  color: #0080ff;
+  color: var(--welcome-link);
   text-decoration: underline;
 }
 
 .link-text:hover {
   cursor: pointer;
-  color: #0067ce;
+  color: var(--welcome-link-hover);
 }

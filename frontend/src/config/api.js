@@ -7,6 +7,7 @@ const API_BASE_URL = import.meta.env.BASE_URL=="/" ? "/api" : "/lightdance/api";
 export const API_ENDPOINTS = {
   BASE: API_BASE_URL,
   LOGIN: `${API_BASE_URL}/token`,
+  REGISTER: `${API_BASE_URL}/register`,
   USERS_ME: `${API_BASE_URL}/users/me`,
   TIMELIST: `${API_BASE_URL}/timelist`,
   ITEMS: `${API_BASE_URL}/items`,

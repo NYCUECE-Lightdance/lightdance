@@ -2,7 +2,13 @@ import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
 import { LuPlus, LuFolderOpen, LuMusic, LuChevronRight } from "react-icons/lu";
-import { updateActionTable, updateMusicFilename } from "../redux/actions";
+import {
+  updateActionTable,
+  updateAudioClips,
+  updateAudioOverlap,
+  updateMusicFilename,
+} from "../redux/actions";
+import { loadProjectData } from "../utils/migration/loadProjectData.js";
 import { API_ENDPOINTS } from "../config/api.js";
 import "./Dashboard.css"; // 引入外部 CSS
 
@@ -33,7 +39,9 @@ const Dashboard = () => {
   const handleToggleMusic = async () => {
     if (!showMusicMenu) {
       try {
-        const response = await fetch(`${API_ENDPOINTS.BASE}/get_music_list/${userName}`);
+        const response = await fetch(
+          `${API_ENDPOINTS.BASE}/get_music_list/${userName}`,
+        );
         const data = await response.json();
         setMusicList(data.music_list || []);
         setShowMusicMenu(true);
@@ -57,25 +65,33 @@ const Dashboard = () => {
       let actionData, musicFile;
 
       if (data && data.raw_data) {
-        const parsedRaw = JSON.parse(data.raw_data);
-        actionData = parsedRaw.actionTable || parsedRaw;
-        musicFile = parsedRaw.music_filename;
+        actionData = JSON.parse(data.raw_data);
       } else {
         actionData = data;
-        musicFile = data.music_filename;
       }
 
-      dispatch(updateActionTable(actionData));
+      // 統一走遷移入口：伺服器上同時存在 v1（keyframe）與 v2（segment）
+      // 兩種 raw_data，由形狀自動辨認並轉成 segments。
+      // 這裡還沒載入音檔，duration 未知——舊資料尾端本來就帶著自己的黑點，
+      // 不需要 duration 也能正確轉換。
+      const { segmentTable, musicFilename, audioClips, overlapMs } =
+        loadProjectData(actionData);
+      musicFile = musicFilename;
+
+      dispatch(updateActionTable(segmentTable));
       dispatch(updateMusicFilename(musicFile || ""));
+      // 音訊時間軸要在 music_filename 之後——後者在檔名不同時會把清單重設成單曲
+      dispatch(updateAudioOverlap(overlapMs));
+      dispatch(updateAudioClips(audioClips));
       navigate("/home");
     } catch (error) {
       alert("載入失敗: " + error.message);
     }
   };
 
-// ... 前方 import 與邏輯不變 ...
+  // ... 前方 import 與邏輯不變 ...
 
-return (
+  return (
     <div className="dashboard-container">
       {/* 左上角歡迎訊息 */}
       <header className="dashboard-header">
@@ -91,13 +107,17 @@ return (
             <LuPlus className="action-icon" />
             <span className="action-text">開始創作</span>
           </div>
-          
+
           {showMusicMenu && (
             <div className="music-extension">
               <LuChevronRight className="divider-icon" />
               <div className="music-list-scroll">
                 {musicList.map((file, i) => (
-                  <div key={i} className="music-item" onClick={() => createNewProject(file)}>
+                  <div
+                    key={i}
+                    className="music-item"
+                    onClick={() => createNewProject(file)}
+                  >
                     <LuMusic className="item-icon" />
                     <span>{file}</span>
                   </div>
@@ -113,13 +133,19 @@ return (
         <h3 className="section-title">我的專案 ({timeList.length})</h3>
         <div className="project-grid">
           {timeList.map((item, i) => (
-            <div key={i} className="project-card" onClick={() => loadProject(item.user, item.update_time)}>
+            <div
+              key={i}
+              className="project-card"
+              onClick={() => loadProject(item.user, item.update_time)}
+            >
               <div className="card-accent"></div>
               <div className="card-content">
                 <LuFolderOpen className="card-icon" />
                 <div className="card-info">
                   <span className="update-time">{item.update_time}</span>
-                  <span className="music-tag">🎵 {item.music_filename || "未設定"}</span>
+                  <span className="music-tag">
+                    🎵 {item.music_filename || "未設定"}
+                  </span>
                 </div>
               </div>
             </div>

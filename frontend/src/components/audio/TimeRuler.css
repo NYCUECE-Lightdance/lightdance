@@ -1,0 +1,46 @@
+/*
+ * 時間刻度尺。
+ *
+ * 定位方式跟時間軸色塊完全一樣（`left: time / duration × 100%`），所以它跟著
+ * `.main-controlPanel` 一起被 zoomLevel 縮放，橫向捲動也自動同步。
+ */
+.time-ruler {
+  position: relative;
+  width: 100%;
+  /* 高度是共用的：左側軌名欄要讓出同樣一段，兩邊的列才對得齊
+     （定義在 ControlPanel.css 的 .control-panel） */
+  height: var(--ruler-h, 24px);
+  flex-shrink: 0;
+  background: var(--bg-panel);
+  border-bottom: 1px solid var(--border-subtle);
+  cursor: pointer;
+  user-select: none;
+  overflow: hidden;
+}
+
+.ruler-tick {
+  position: absolute;
+  bottom: 0;
+  width: 1px;
+  height: 5px;
+  background: var(--armor-outline);
+  pointer-events: none;
+}
+
+.ruler-tick.is-major {
+  height: 11px;
+  background: var(--text-disabled);
+}
+
+.ruler-label {
+  position: absolute;
+  top: 3px;
+  /* 標籤畫在刻度線右邊 3px，不置中——置中的話 0:00 會有一半跑到畫面外 */
+  transform: translateX(3px);
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+  font-variant-numeric: tabular-nums;
+  color: var(--text-muted);
+  pointer-events: none;
+  white-space: nowrap;
+}

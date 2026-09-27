@@ -63,6 +63,14 @@ jobs:
           npx prettier --check src/
         continue-on-error: true
 
+      # 硬性門檻：golden 測試守住韌體輸出契約（PlayerData 格式）
+      # 若這裡紅燈，代表 handleOutput 的輸出與基準不同，硬體會看到不一樣的畫面
+      - name: 🧪 執行單元測試（含 golden 輸出契約）
+        working-directory: ./frontend
+        run: |
+          echo "🧪 執行 vitest..."
+          npm test
+
       - name: 🏗️ 建置前端
         working-directory: ./frontend
         run: |

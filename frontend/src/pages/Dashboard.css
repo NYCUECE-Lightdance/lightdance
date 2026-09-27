@@ -8,6 +8,10 @@
     --text-main: #ffffff;
     --text-muted: #8b949e;
     --glass-bg: rgba(0, 0, 0, 0.85);
+    /* 上方漸層與音樂項目 hover——入口頁保留品牌綠，但一樣只定義在這裡 */
+    --hero-gradient-from: #04404b;
+    --hero-gradient-to: #24984e;
+    --item-hover-bg: rgba(126, 232, 250, 0.2);
   }
   
   .dashboard-container {
@@ -34,9 +38,9 @@
   .welcome-message {
     font-size: 1.5rem;
     font-weight: 300;
-    color: rgba(255, 255, 255, 0.9);
+    color: var(--text-primary);
     letter-spacing: 0.05rem;
-    text-shadow: 0 0.2rem 0.4rem rgba(0, 0, 0, 0.3);
+    text-shadow: 0 0.2rem 0.4rem var(--overlay-soft);
   }
   
   .user-highlight {
@@ -49,7 +53,7 @@
   /* --- 上方漸層區域 (開始創作) --- */
   .upper-section {
     height: 35vh;
-    background: linear-gradient(135deg, #04404b 0%, #24984e 100%);
+    background: linear-gradient(135deg, var(--hero-gradient-from) 0%, var(--hero-gradient-to) 100%);
     display: flex;
     align-items: center;
     justify-content: center;
@@ -65,9 +69,9 @@
     align-items: center;
     transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
     cursor: pointer;
-    box-shadow: 0 0.6rem 2rem rgba(0, 0, 0, 0.4);
+    box-shadow: 0 0.6rem 2rem var(--overlay-soft);
     max-width: 90%;
-    border: 1px solid rgba(255, 255, 255, 0.1);
+    border: 1px solid var(--overlay-light);
   }
   
   .creation-bar.expanded {
@@ -99,7 +103,7 @@
     display: flex;
     align-items: center;
     gap: 0.8rem;
-    border-left: 1px solid #444;
+    border-left: 1px solid var(--border-strong);
     margin-left: 1.5rem;
     padding-left: 1rem;
     overflow: hidden;
@@ -112,7 +116,7 @@
   }
   
   .divider-icon {
-    color: #666;
+    color: var(--text-disabled);
     flex-shrink: 0;
   }
   
@@ -129,7 +133,7 @@
   }
   
   .music-item {
-    background: rgba(255, 255, 255, 0.1);
+    background: var(--overlay-light);
     padding: 0.5rem 1rem;
     border-radius: 0.5rem;
     display: flex;
@@ -142,7 +146,7 @@
   }
   
   .music-item:hover {
-    background: rgba(126, 232, 250, 0.2);
+    background: var(--item-hover-bg);
     border-color: var(--primary-cyan);
     transform: translateY(-2px);
   }
@@ -161,7 +165,7 @@
   
   .section-title {
     font-size: 1.1rem;
-    color: #888;
+    color: var(--text-muted);
     margin-bottom: 2rem;
     letter-spacing: 0.05rem;
     text-transform: uppercase;
@@ -187,7 +191,7 @@
   
   .project-card:hover {
     transform: translateY(-0.3rem);
-    box-shadow: 0 0.8rem 1.5rem rgba(0, 0, 0, 0.5);
+    box-shadow: 0 0.8rem 1.5rem var(--overlay-soft);
     border-color: var(--accent-blue);
   }
   

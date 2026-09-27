@@ -1,7 +1,24 @@
 * {
   box-sizing: border-box;
 }
+/*
+ * 全站的欄位尺寸 —— 上下兩塊共用，這樣它們的左右邊緣才會對齊。
+ *
+ * 先前這三個數字散在三個檔案裡各寫各的：調色盤 `right: 0.3%; width: 10%`、
+ * 光表區 `right: calc(10.3% + 8px)`、飾品側欄 `width: 200px` 配上光表區的
+ * `padding-right: 200px`。結果是光表區的右緣停在 1427，而它下面的工具列與
+ * 時間軸一路到 1595——中間空出 168px 的缺口，看起來就是「上面那塊短了一截」。
+ *
+ * 現在只有這裡定義一次，改欄寬不必去對三個檔案。
+ */
 .homepage {
+  --page-inset: 0.3%; /* 版面右側留白，下半部的捲動區也是這個數字 */
+  /* 上半部右側唯一的欄（調色盤）。
+     先前是「調色盤 168px」與「飾品側欄 200px」兩欄並排；飾品搬到光衣旁邊、
+     身體部位本來就在光衣上點得到之後，右側只剩調色盤，376px → 200px，
+     多出來的全部還給光衣。 */
+  --palette-w: 200px;
+
   height: 100%;
   width: 100%;
   position: absolute;
@@ -9,7 +26,7 @@
   left: 0px;
   display: flex;
   justify-content: center;
-  background: rgb(0, 0, 0);
+  background: var(--bg-canvas);
   gap: 0px;
   z-index: 0;
   overflow: hidden;
@@ -28,12 +45,9 @@
   font-weight: 900;
   font-style: italic;
   letter-spacing: 2px;
-  left: 25px;
-  position: absolute;
-  color: rgb(255, 255, 255);
+  color: var(--text-primary);
   font-size: 29px;
-  margin-top: 21.5px;
-  transform: translateY(-30%);
+  white-space: nowrap;
   animation: fadeIn 1s ease-in-out;
 }
 
@@ -45,37 +59,78 @@
   left: 0px;
   display: flex;
   justify-content: center;
+
+  /*
+   * 自成一個 stacking context。
+   *
+   * 沒有這一行的話，裡面 .people-container 的 z-index: 100 會「逃出去」和
+   * 同層的 .control-panel（z-index: 0）比大小——因為 panel 原本是
+   * position: absolute + z-index: auto，不建立 stacking context。
+   *
+   * 結果：光衣 SVG 的元素框（480px 高，比畫出來的圖形高很多）整片蓋在下方
+   * 工具列上，Effect / 剪刀 / 刪除 / 亮度 / 導航按鈕的中心點全部點不到。
+   * 瀏覽器實測 document.elementFromPoint() 在每個按鈕的中心都回傳光衣的 svg。
+   */
+  z-index: 0;
 }
 
-.output-button {
-  font-family: "Kanit", sans-serif;
-  font-weight: 400;
-  font-size: 15px;
-  color: rgb(237, 237, 237);
-  letter-spacing: 0.5px;
+/*
+ * 頂部工具列：一排 flex，不再由每個按鈕自己 position: absolute + 寫死 left。
+ *
+ * 舊寫法的座標（370 / 584 / 681 / 778…）是照著某一個視窗寬度量出來的，
+ * 換一個寬度就互相重疊。實測 1600×950 下「有尚未儲存的變更」橫幅
+ * （x 660..940）把 Edit（681..771）與 Logout（778..868）整個蓋住，
+ * 兩顆按鈕完全點不到；1280 寬時連 Shortcuts 與 Load 也一起被蓋。
+ *
+ * 橫跨整個寬度：調色盤欄從 header 下方（60px）才開始，兩者不重疊，
+ * 所以這裡不必再減去右欄的寬度。先前減掉之後在 1280 寬會放不下六顆按鈕，
+ * flex 不會自己裁切，最後一顆就溢出到右欄底下被蓋住（版面稽核抓到的）。
+ */
+.panel-header {
   position: absolute;
-  margin-top: 15px;
-  left: 370px;
-  height: 34px;
-  width: 90px;
-  border: solid, 2.5px, rgb(237, 237, 237);
-  border-radius: 5.7px;
-  background: black;
-  cursor: pointer;
-  transition: all 0.2s ease-in-out;
-  line-height: 1.5;
-  display: inline-flex;
+  top: 0;
+  left: 0;
+  right: var(--page-inset);
+  height: 56px;
+  display: flex;
   align-items: center;
-  justify-content: center;
-  padding: 0.5px;
+  gap: 10px;
+  padding: 0 16px;
+  z-index: 1;
 }
-.output-button:hover {
-  background: rgb(99, 97, 97);
-  border-radius: 10px;
+
+/* 右半邊（新專案 / 裝置）靠右對齊，中間自動留白 */
+.panel-header .home-creation-bar {
+  margin-left: auto;
 }
-.output-button:active {
-  transform: scale(0.8);
+
+/*
+ * header 的六顆按鈕：外觀一律由 styles/buttons.css 的 .btn 階層決定，
+ * 這裡只補「這個站特有」的字族與字距。
+ *
+ * 之前每顆按鈕各自寫了一份 background / border / color / font-size，
+ * 六份幾乎一樣卻又差一點點（border 是 2.5px 還是 3px、圓角 5.7px…），
+ * 而且因為 Home.css 比 buttons.css 晚載入，它們會無聲蓋掉階層樣式。
+ */
+.output-button,
+.shortcut-button,
+.load-button,
+.edit-button,
+.device-info-button,
+.logout-button {
+  font-family: "Kanit", sans-serif;
+  letter-spacing: 0.5px;
 }
+
+.output-button:active,
+.shortcut-button:active,
+.load-button:active,
+.edit-button:active,
+.device-info-button:active,
+.logout-button:active {
+  transform: scale(0.94);
+}
+
 .output-icon {
   display: inline-block;
   vertical-align: baseline;
@@ -84,35 +139,6 @@
   margin-left: 4.5px;
 }
 
-.shortcut-button {
-  font-family: "Kanit", sans-serif;
-  font-weight: 400;
-  font-size: 15px;
-  color: rgb(237, 237, 237);
-  letter-spacing: 0.5px;
-  position: absolute;
-  margin-top: 15px;
-  left: 467px;
-  height: 34px;
-  width: 110px;
-  border: solid, 2.5px, rgb(237, 237, 237);
-  border-radius: 5.7px;
-  background: black;
-  cursor: pointer;
-  transition: all 0.2s ease-in-out;
-  line-height: 1.5;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  padding: 0.5px;
-}
-.shortcut-button:hover {
-  background: rgb(99, 97, 97);
-  border-radius: 10px;
-}
-.shortcut-button:active {
-  transform: scale(0.8);
-}
 .shortcut-icon {
   display: inline-block;
   vertical-align: baseline;
@@ -121,43 +147,21 @@
   margin-left: 4.5px;
 }
 .alert-warning {
-  background: rgb(255, 162, 0);
-  position: absolute;
-  color: rgb(237, 237, 237);
-  top: 20px;
-  height: 39px;
-  width: 280px;
-  font-size: 25px;
+  background: var(--bg-control);
+  border: 1px solid var(--state-warning);
+  color: var(--state-warning);
+  height: 34px;
+  font-size: var(--fs-sm);
   font-family: "Kanit", sans-serif;
-  font-weight: 700;
+  font-weight: 600;
+  border-radius: 5.7px;
+  padding: 0 12px;
+  display: inline-flex;
+  align-items: center;
+  white-space: nowrap;
+  flex-shrink: 0;
 }
 
-.load-button {
-  font-family: "Kanit", sans-serif;
-  font-weight: 400;
-  font-size: 15px;
-  color: rgb(237, 237, 237);
-  letter-spacing: 0.5px;
-  position: absolute;
-  /*top: 100px;*/
-  margin-top: 15px;
-  left: 584px;
-  height: 34px;
-  width: 90px;
-  border: solid, 3px, rgb(237, 237, 237);
-  border-radius: 5.7px;
-  background: black;
-  cursor: pointer;
-  transition: all 0.2s ease-in-out;
-  line-height: 1.5;
-}
-.load-button:hover {
-  background: rgb(99, 97, 97);
-  border-radius: 10px;
-}
-.load-button:active {
-  transform: scale(0.8);
-}
 .load-icon {
   display: inline-block;
   vertical-align: baseline;
@@ -165,84 +169,12 @@
   font-size: 15px;
   top: 2px;
 }
-.edit-button {
-  font-family: "Kanit", sans-serif;
-  font-weight: 400;
-  font-size: 15px;
-  color: rgb(237, 237, 237);
-  letter-spacing: 0.5px;
-  position: absolute;
-  /*top: 175px;*/
-  margin-top: 15px;
-  left: 681px;
-  height: 34px;
-  width: 90px;
-  border: solid, 3px, rgb(237, 237, 237);
-  border-radius: 5.7px;
-  background: black;
-  cursor: pointer;
-  transition: all 0.2s ease-in-out;
-  line-height: 1.5;
-}
-.device-info-button:hover,
-.edit-button:hover {
-  background: rgb(99, 97, 97);
-  border-radius: 10px;
-}
-.edit-button:active {
-  transform: scale(0.8);
-}
 .edit-icon {
   display: inline-block;
   vertical-align: baseline;
   position: relative;
   font-size: 15px;
   top: 2px;
-}
-.device-info-button {
-  font-family: "Kanit", sans-serif;
-  font-weight: 400;
-  font-size: 15px;
-  color: rgb(237, 237, 237);
-  letter-spacing: 0.5px;
-  position: absolute;
-  /*top: 175px;*/
-  margin-top: 15px;
-  right: 11.7%;
-  width: 90px;
-  height: 34px;
-  border: solid, 3px, rgb(237, 237, 237);
-  border-radius: 5.7px;
-  background: black;
-  cursor: pointer;
-  transition: all 0.2s ease-in-out;
-  line-height: 1.5;
-}
-.logout-button {
-  font-family: "Kanit", sans-serif;
-  font-weight: 400;
-  font-size: 15px;
-  color: rgb(237, 237, 237);
-  letter-spacing: 0.5px;
-  position: absolute;
-  /*top: 100px;*/
-  margin-top: 15px;
-  left: 778px;
-  height: 34px;
-  width: 90px;
-  border: solid, 3px, rgb(237, 237, 237);
-  border-radius: 5.7px;
-  background: black;
-  cursor: pointer;
-  transition: all 0.2s ease-in-out;
-  line-height: 1.5;
-}
-.logout-button:hover {
-  background: rgb(99, 97, 97);
-  border-radius: 10px;
-}
-.logout-button:active {
-  transform: scale(0.8);
 }
 .logout-icon {
   display: inline-block;
@@ -259,33 +191,48 @@
 .people-container {
   position: absolute;
   align-items: center;
+  /* 從 header（56px）下方開始，兩者不重疊 */
+  top: 60px;
   bottom: 0;
-  left: 25px;
-  align-content: center;
-  border-radius: 1.5%;
-  border: solid, 3px, rgb(156, 156, 156);
-  border-radius: 7px;
-  background: rgb(75, 74, 74);
-  height: 85%;
-  width: 87.5%;
-  z-index: 100;
+
+  /*
+   * 左右都跟下半部同一條線：左緣 0（軌道側欄也從 0 開始）、右緣 --page-inset
+   * （下半部的捲動區與波形都停在那裡）。
+   *
+   * 舊版右緣停在 `calc(10.3% + 8px)`，也就是調色盤的**左邊**，於是上半部比
+   * 下半部短了一整欄，右下角空出一塊沒有東西的區域。現在光表區延伸到底，
+   * 調色盤與飾品側欄是它右側的兩個內欄——整個上半部是一張完整的卡片。
+   */
+  left: 0;
+  right: var(--page-inset);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  background: var(--bg-panel);
   display: flex;
-  justify-content: space-around;
-  padding-right: 200px;
+  flex-direction: column;
+  justify-content: flex-start;
+
+  /* 讓開右側的調色盤欄，光衣才不會被蓋住 */
+  padding-right: calc(var(--palette-w) + var(--space-2));
+
+  /*
+   * 只需要疊在 panel 的背景上，不需要壓過 panel 上排的按鈕。
+   *
+   * 原本是 100 —— 那個數字沒有對應到任何真實的層級需求，卻讓光衣 SVG
+   * 蓋住 Output / Shortcuts（實測 Output 按鈕的中心點不到，畫面上也看得到
+   * 舞者的頭壓在按鈕文字上）。改成 0 之後，下面那條規則讓按鈕排在光衣之上。
+   */
+  z-index: 0;
 }
 
-.background-botton {
-  position: absolute;
-  top: 25px;
-  left: 160px;
-  height: 45px;
-  width: 90px;
-  border: none;
-  font-size: 20px;
-  border-radius: 100px;
-  background: rgb(255, 229, 180);
-  cursor: pointer;
-  transition: all 0.2s ease-in-out;
+/*
+ * panel 上排的按鈕永遠在光衣之上。
+ *
+ * 光衣 SVG 的元素框比畫出來的圖形高，空白部分照樣攔截點擊；按鈕在 DOM 上
+ * 又排在 .people-container 前面，同層時會輸給它。這裡明確拉高一層。
+ */
+.panel > *:not(.people-container) {
+  z-index: 1;
 }
 
 .box-row {
@@ -325,24 +272,14 @@
   gap: 1px;
 }
 
-.loading-block {
-  position: absolute;
-  margin-left: 150px;
-  margin-top: 300px;
-  height: 500px;
-  width: 500px;
-  border-radius: 50px;
-  background-color: bisque;
-  z-index: 100;
-}
 
 /* 容器：預設寬度窄，展開時變寬 */
 .home-creation-bar {
   display: flex;
   flex-direction: row; /* 水平排列，JSX 中音樂清單在前 */
   align-items: center;
-  background-color: #1a3d24; /* 深暗綠色 */
-  border: 1px solid #2d5a3c;
+  background-color: var(--bg-control);
+  border: 1px solid var(--border-strong);
   border-radius: 5.7px; /* 統一圓角以對齊其他按鈕 */
   height: 34px; /* 對齊 Output/Edit 按鈕高度 */
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
@@ -351,17 +288,14 @@
   padding: 0 12px;
   white-space: nowrap;
 
-  /* 定位：放在 device-info-button (right: 11.7%) 的左邊 */
-  position: absolute;
-  margin-top: 15px;
-  right: calc(11.7% + 100px); 
+  /* 定位：放在 device-info-button (right: 11.7%) 的左邊 */ 
   z-index: 101;
 }
 
 /* 展開後的寬度（可以根據音樂名字長度調整，或設為 auto） */
 .home-creation-bar.expanded {
-  background-color: #244d30;
-  box-shadow: -5px 0 15px rgba(0, 0, 0, 0.3);
+  background-color: var(--bg-control-hover);
+  box-shadow: -5px 0 15px var(--overlay-soft);
 }
 
 /* 主要按鈕部分 */
@@ -369,7 +303,7 @@
   display: flex;
   align-items: center;
   gap: 8px;
-  color: white;
+  color: var(--text-primary);
   font-family: "Kanit", sans-serif;
   font-weight: 400;
   font-size: 15px;
@@ -395,7 +329,7 @@
 
 .divider-icon {
   margin: 0 8px;
-  color: rgba(255, 255, 255, 0.3);
+  color: var(--text-disabled);
   font-size: 1rem;
 }
 
@@ -416,7 +350,7 @@
   display: flex;
   align-items: center;
   gap: 6px;
-  color: #f0f0f0;
+  color: var(--text-primary);
   font-size: 0.9rem;
   padding: 4px 8px;
   border-radius: 4px;
@@ -424,7 +358,7 @@
 }
 
 .home-music-item:hover {
-  background: rgba(255, 255, 255, 0.2);
+  background: var(--border-strong);
 }
 
 /* Modal 遮罩層 */
@@ -434,7 +368,7 @@
   left: 0;
   width: 100vw;
   height: 100vh;
-  background: rgba(0, 0, 0, 0.7); /* 半透明黑 */
+  background: var(--overlay-scrim); /* 半透明黑 */
   display: flex;
   justify-content: center;
   align-items: center;
@@ -443,20 +377,20 @@
 
 /* Modal 內容主體 */
 .custom-modal-content {
-  background: #1e1e1e; /* 深色背景 */
+  background: var(--bg-control); /* 深色背景 */
   padding: 25px;
   border-radius: 12px;
-  border: 1px solid #2d5a3c; /* 暗綠邊框 */
+  border: 1px solid var(--border-strong);
   width: 400px;
   text-align: center;
-  color: #ededed;
-  box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+  color: var(--text-primary);
+  box-shadow: 0 10px 30px var(--overlay-soft);
 }
 
 .modal-title {
   margin-bottom: 15px;
   font-family: "Kanit", sans-serif;
-  color: #28a745; /* 綠色標題 */
+  color: var(--text-primary);
 }
 
 .modal-body {
@@ -481,9 +415,12 @@
   transition: opacity 0.2s;
 }
 
-.btn-save { background-color: #28a745; color: white; }
-.btn-discard { background-color: #dc3545; color: white; } /* 紅色警告 */
-.btn-cancel { background-color: #444; color: white; }
+/* 儲存是主要動作（唯一的亮底），捨棄是破壞性，取消是次要 */
+.btn-save { background-color: var(--bg-inverse); color: var(--text-inverse); font-weight: 600; }
+.btn-discard { background-color: transparent; color: var(--state-danger);
+  border: 1px solid var(--state-danger-border); }
+.btn-discard:hover { background-color: var(--state-danger-bg); }
+.btn-cancel { background-color: var(--bg-control); color: var(--text-secondary); }
 
 .modal-footer-buttons button:hover {
   opacity: 0.8;
