@@ -1,116 +1,120 @@
+/*
+ * 原始表格編輯器（/edit）的樣式。
+ *
+ * ⚠️ 每一條都必須包在 `.edit-container` 底下。
+ *
+ * 這個檔案原本有裸的 `button` / `table` / `th, td` 選擇器。它一直沒被 import
+ * 所以沒出事，Phase 5g 補上 import 之後立刻打到首頁——`button` 的 padding 把
+ * 「NYCUEE Light Dance」的標題撐出容器 1237px（`npm run audit:layout` 抓到的）。
+ * CSS 沒有模組作用域，檔名叫什麼都不影響它的影響範圍。
+ */
+
 .edit-container {
   display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: center;
-  height: 100vh;
-  background-color: #f8f9fa; /* Light background */
+  min-height: 100vh;
+  background-color: var(--bg-inverse);
+  color: var(--text-inverse); /* 淺底深字——這頁刻意是淺色的 */
   padding: 20px;
 }
 
-.select-container {
+.edit-container .select-container {
   display: flex;
   gap: 20px;
-  height: 50px;
   margin-bottom: 20px;
-  align-content: center;
-  background: #ffffff;
+  align-items: flex-start;
+  background: var(--bg-inverse);
   padding: 15px;
   border-radius: 8px;
-  box-shadow: 0px 2px 5px rgba(0, 0, 0, 0.1);
+  box-shadow: 0px 2px 5px var(--overlay-soft);
 }
 
-.history-buttons {
+.edit-container .history-buttons {
   display: flex;
   gap: 10px;
   margin-bottom: 10px;
 }
 
-.table-wrapper {
+.edit-container .table-wrapper {
   display: flex;
   justify-content: center;
   width: 100%;
 }
 
-.back-button {
-  background-color: #007bff;
-  color: white;
-  padding: 10px 15px;
-  border: none;
-  border-radius: 5px;
-  cursor: pointer;
-  margin-bottom: 15px;
-  transition: all 0.3s ease;
-  box-shadow: 0px 2px 5px rgba(0, 0, 0, 0.2);
-}
-
-.back-button:hover {
-  background-color: #0056b3;
-  transform: scale(1.05);
-}
-.table-container {
+.edit-container .table-container {
   display: flex;
   flex-direction: column;
-  align-items: center; /* 水平置中 */
-  justify-content: center; /* 垂直置中 */
+  align-items: center;
   width: 100%;
 }
 
-.scrollable-table {
+/* 不變式檢查的結果。擋不住輸入（改一段的時候本來就會短暫違反），只提醒 */
+.edit-container .segment-problems {
+  list-style: none;
+  margin: 0 0 12px;
+  padding: 8px 12px;
+  border-radius: var(--radius-md);
+  background: var(--bg-inverse);
+  color: var(--text-inverse);
+  box-shadow: 0px 2px 5px var(--overlay-soft);
+  font-size: var(--fs-sm);
+}
+
+.edit-container .scrollable-table {
   width: 90%;
-  max-width: 1000px; /* 限制最大寬度 */
-  overflow-x: auto; /* 允許水平滾動 */
-  max-height: 65vh; /* 限制表格的最大高度 */
-  overflow-y: auto; /* 允許垂直滾動 */
-  background: #ffffff;
+  max-width: 1000px;
+  overflow-x: auto; /* 欄位多的時候可以左右捲 */
+  max-height: 65vh;
+  overflow-y: auto;
+  background: var(--bg-inverse);
   border-radius: 10px;
-  box-shadow: 0px 4px 10px rgba(0, 0, 0, 0.1);
+  box-shadow: 0px 4px 10px var(--overlay-soft);
   padding: 15px;
 }
 
-table {
+.edit-container table {
   width: 100%;
+  margin: 0 auto;
   border-collapse: collapse;
-  background: #fff;
+  background: var(--bg-inverse);
   border-radius: 8px;
 }
 
-th,
-td {
+.edit-container th,
+.edit-container td {
   padding: 12px;
   text-align: center;
-  border: 1px solid #ddd;
-}
-th {
-  background: #007bff;
-  color: white;
+  border: 1px solid var(--text-disabled);
 }
 
-/* 讓表格置中 */
-.scrollable-table table {
-  margin: 0 auto;
+.edit-container th {
+  background: var(--bg-inverse);
+  color: var(--text-inverse);
 }
 
-/* 當畫面較小時，讓表格可以滾動 */
-@media (max-width: 768px) {
-  .scrollable-table {
-    width: 100%;
-  }
-}
-
-/* 按鈕樣式 */
-button {
-  background-color: #28a745;
-  color: white;
+.edit-container button {
+  background-color: var(--bg-control);
+  color: var(--text-primary);
   border: none;
   padding: 10px 15px;
   border-radius: 5px;
   cursor: pointer;
   transition: all 0.3s ease;
-  box-shadow: 0px 2px 5px rgba(0, 0, 0, 0.2);
+  box-shadow: 0px 2px 5px var(--overlay-soft);
 }
 
-button:hover {
-  background-color: #218838;
+.edit-container button:hover {
+  background-color: var(--bg-control-hover);
   transform: scale(1.05);
+}
+
+.edit-container .back-button {
+  margin-bottom: 15px;
+}
+
+@media (max-width: 768px) {
+  .edit-container .scrollable-table {
+    width: 100%;
+  }
 }

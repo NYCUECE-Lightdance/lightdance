@@ -1,66 +1,45 @@
-.dancer-toggle-container {
+/*
+ * 「已隱藏的舞者」提示列。
+ *
+ * ## 為什麼是「只在需要時才存在」
+ *
+ * 舊版是七個 50px 方形開關排成一整列，連同留白約 66px——而那一列在多數時候
+ * 完全沒有作用（平常七位都顯示著，誰都不會去點）。用畫面上最貴的資源
+ * （光衣那一區的垂直空間）擺一個幾乎不會用到的控制項，代價與使用頻率對不起來。
+ *
+ * 現在「隱藏」收進光衣卡片自己的標題列，這裡只留「叫回來」的入口，而且
+ * **全部顯示時整個元件不 render**，一個像素都不佔。
+ *
+ * ⚠️ 恢復的入口一定要在卡片外面：放在卡片上的話，卡片一隱藏那個按鈕也跟著
+ * 消失，使用者就叫不回來了（軌道的眼睛按鈕當初就是這樣被移除的）。
+ */
+.hidden-dancers {
   display: flex;
-  gap: 10px;
-  padding: 15px;
-  background-color: rgb(45, 45, 45);
-  border-radius: 8px;
-  position: absolute;
-  bottom: 20px;
-  left: 20px;
-  z-index: 10;
-  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
-}
-
-.dancer-toggle-item {
-  position: relative;
-  display: flex;
-  flex-direction: column;
   align-items: center;
-  justify-content: center;
-  width: 50px;
-  height: 50px;
-  background-color: #1a1a1a;
-  border: 2px solid #333;
-  border-radius: 8px;
-  cursor: pointer;
-  transition: all 0.3s ease;
+  gap: var(--space-1);
+  flex-wrap: wrap;
+  flex-shrink: 0;
+  padding: var(--space-1) 0;
 }
 
-.dancer-toggle-item:hover {
-  border-color: #555;
-  transform: translateY(-2px);
-  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.4);
+.hidden-dancers__label {
+  font-size: var(--fs-xs);
+  color: var(--text-muted);
+  letter-spacing: 0.5px;
 }
 
-.dancer-toggle-item.active {
-  background-color: #4a9eff;
-  border-color: #4a9eff;
+/*
+ * 編號的方塊。定寬讓一排數字看起來是同一組，而不是寬度隨字寬跳動的按鈕。
+ */
+.hidden-dancers__chip {
+  min-width: 26px;
+  padding: 2px 6px;
+  font-size: var(--fs-xs);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
 }
 
-.dancer-toggle-item.active:hover {
-  background-color: #3a8eef;
-  border-color: #3a8eef;
-}
-
-.dancer-icon {
-  font-size: 20px;
-  color: #666;
-  transition: color 0.3s ease;
-}
-
-.dancer-toggle-item.active .dancer-icon {
-  color: white;
-}
-
-.dancer-number {
-  position: absolute;
-  bottom: 2px;
-  font-size: 10px;
-  font-weight: bold;
-  color: #888;
-  transition: color 0.3s ease;
-}
-
-.dancer-toggle-item.active .dancer-number {
-  color: white;
+.hidden-dancers__all {
+  padding: 2px 8px;
+  font-size: var(--fs-xs);
 }

@@ -240,7 +240,7 @@ restore_backup() {
         --password "$MONGO_PASSWORD" \
         --authenticationDatabase admin \
         --drop \
-        /data/db/dump_data/"$backup_name"/"$DATABASE_NAME" > /dev/null 2>&1; then
+        /data/db/dump_data/"$backup_name"/"$DATABASE_NAME" > ./error.log 2>&1; then
         
         log "SUCCESS" "備份還原完成: $backup_name"
         return 0
