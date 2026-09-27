@@ -31,6 +31,11 @@ logs/
 .idea/
 .DS_Store
 
+# 交接用的資料包（docs/data-handoff.md）：別人的作品與商業歌曲，這個 repo 是公開的
+ld-dump/
+ld-music/
+ld-data-*.tgz
+
 # 部署用的真實憑證。範本在 .env.deployment.example
 .env.deployment
 
