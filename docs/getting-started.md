@@ -67,9 +67,6 @@ repo 裡有十一首示範用的音樂（`frontend/src/components/audio/musicsrc
 ./start-dev.sh
 ```
 
-⚠️ **這支腳本一開始會停掉你電腦上「所有」正在跑的 Docker 容器**，不只是這個專案的。
-如果你有其他專案的容器在跑，請先存好它們的工作。
-
 **第一次啟動會比較久**（大約 3～10 分鐘，看網路速度）：要下載 Node、Python、MongoDB
 的映像檔，建置後端，還要在容器裡跑一次 `npm install`。腳本最多會等 10 分鐘。之後再啟動
 就只要幾十秒。

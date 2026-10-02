@@ -6,7 +6,7 @@
 #
 # 功能:
 #   - 檢查 Docker 是否正在運行
-#   - 停止可能正在運行的舊容器
+#   - 停止可能正在運行的舊開發環境容器 (不影響其他容器)
 #   - 從 .env.development 讀取環境變數
 #   - 使用 docker-compose.dev.yml 啟動所有本地開發服務
 #   - 監控服務狀態，並在啟動後顯示訪問位置
@@ -92,18 +92,9 @@ if ! docker info > /dev/null 2>&1; then
     exit 1
 fi
 
-# 2. 停止所有正在運行的 Docker 容器，並移除舊的服務
-echo -e "🛑 ${YELLOW}正在停止所有正在運行的 Docker 容器...${NC}"
-if [ -n "$(docker ps -q)" ]; then
-    if [ -n "$(docker ps -q)" ]; then
-        docker stop $(docker ps -q)
-    fi
-    echo -e "✅ ${GREEN}所有容器已成功停止。${NC}"
-    echo -e "📦 ${BLUE}正在停止並移除舊的服務...${NC}"
-    docker compose -f ${COMPOSE_FILE} --env-file ${ENV_FILE} down
-else
-    echo -e "✅ ${GREEN}沒有正在運行的容器。${NC}"
-fi
+# 2. 停止並移除舊的開發服務 (僅限本專案開發容器，不影響其他容器)
+echo -e "📦 ${BLUE}正在檢查並停止舊的開發服務...${NC}"
+docker compose -f ${COMPOSE_FILE} --env-file ${ENV_FILE} down
 
 # 3. 使用 docker compose 建置並啟動所有服務
 echo -e "📦 ${BLUE}正在建置並啟動所有開發服務 (in background)...${NC}"

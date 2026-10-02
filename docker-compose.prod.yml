@@ -12,6 +12,8 @@
 #   docker compose -f docker-compose.prod.yml up -d --build
 #
 
+name: lightdance-prod
+
 services:
   # ------------------ 後端服務 (FastAPI) ------------------
   backend:

@@ -12,6 +12,8 @@
 #   docker compose -f docker-compose.dev.yml up --build
 #
 
+name: lightdance-dev
+
 services:
   # ------------------ 前端開發服務 (React Dev Server) ------------------
   frontend-dev:
