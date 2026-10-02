@@ -13,8 +13,6 @@ cd lightdance
 ./start-dev.sh
 ```
 
-⚠️ `start-dev.sh` 一開始會停掉這台電腦上**所有**正在跑的 Docker 容器，不只是這個專案的。
-
 跑起來之後用 `testuser` / `testpassword` 登入。編輯器在 [localhost:3000](http://localhost:3000)，API 文件在 [localhost:8000/docs](http://localhost:8000/docs)，資料庫管理介面在 [localhost:8081](http://localhost:8081)。要停就 Ctrl+C，或另開一個終端機下 `docker compose -f docker-compose.dev.yml down`。
 
 `start-dev.sh` 做的事情就是帶著 `.env.development` 去跑 `docker compose up --build`，所以腳本壞掉時你可以自己下：
