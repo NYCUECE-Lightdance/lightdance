@@ -42,7 +42,7 @@ jobs:
 
     steps:
       - name: 加入 Tailscale
-        uses: tailscale/github-action@v4.2.0
+        uses: tailscale/github-action@v4.4.0
         with:
           oauth-client-id: ${{ secrets.TS_OAUTH_CLIENT_ID }}
           oauth-secret: ${{ secrets.TS_OAUTH_SECRET }}

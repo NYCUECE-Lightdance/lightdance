@@ -53,7 +53,7 @@ jobs:
     steps:
       - uses: actions/checkout@v7.0.1
 
-      - uses: actions/setup-node@v7.0.0
+      - uses: actions/setup-node@v7.1.0
         with:
           # 和 frontend/Dockerfile、docker-compose.dev.yml、run-deploy.sh 用同一個大版本
           node-version: "24"
@@ -87,7 +87,7 @@ jobs:
     steps:
       - uses: actions/checkout@v7.0.1
 
-      - uses: astral-sh/setup-uv@v10.2.0
+      - uses: astral-sh/setup-uv@v10.3.3
         with:
           # 和 backend/Dockerfile 的 python:3.11 一致
           python-version: "3.11"
