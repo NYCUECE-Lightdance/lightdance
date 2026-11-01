@@ -42,7 +42,7 @@ jobs:
     steps:
       - uses: actions/checkout@v7.0.1
 
-      - uses: actions/setup-node@v7.0.0
+      - uses: actions/setup-node@v7.1.0
         with:
           node-version: "24"
           cache: npm
@@ -72,7 +72,7 @@ jobs:
     steps:
       - uses: actions/checkout@v7.0.1
 
-      - uses: actions/setup-node@v7.0.0
+      - uses: actions/setup-node@v7.1.0
         with:
           node-version: "24"
           cache: npm
@@ -108,7 +108,7 @@ jobs:
       - name: 上傳截圖與伺服器日誌
         # 成功時也上傳：改完版面想看看新畫面長什麼樣，不必自己在本機跑一次
         if: always()
-        uses: actions/upload-artifact@v7.0.1
+        uses: actions/upload-artifact@v7.0.2
         with:
           name: e2e-shots
           path: |
@@ -128,7 +128,7 @@ jobs:
     steps:
       - uses: actions/checkout@v7.0.1
 
-      - uses: astral-sh/setup-uv@v10.2.0
+      - uses: astral-sh/setup-uv@v10.3.3
         with:
           python-version: "3.11"
           enable-cache: true
