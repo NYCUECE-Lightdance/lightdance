@@ -240,8 +240,8 @@ async def get_user_color_by_chunk (username: str, query_time: str, chunk: int, p
 @api_router.get("/raw/{username}/{query_time}")
 async def get_user_color (username: str, query_time: str):
     if query_time == "LATEST":
-        user_data = collection_color.find_one(
-            {"user": username}, 
+        user_data = collection_raw.find_one(
+            {"user": username},
             sort=[("update_time", -1)]  # Sort by update_time in descending order to get the latest entry
         )
     else:
@@ -285,13 +285,6 @@ async def upload_user_color (request: Request, current_user: User = Depends(get_
 		players = [Player(data=[PlayerData(**item) for item in sublist]) for sublist in b['players']],
         music_filename = b.get('music_filename', 0)
 	)
-
-	existing_entries = collection_color.find({"user": user_data.user}).sort("update_time", 1)  # Sort by update time
-	existing_count = collection_color.count_documents({"user": user_data.user})
-
-	if existing_count >= 5:
-		oldest_entry = existing_entries[0]
-	#	collection_color.delete_one({"_id": oldest_entry["_id"]})
 
 	document = {
 		'user': user_data.user,
@@ -380,13 +373,6 @@ async def upload_raw_data (request: Request, current_user: User = Depends(get_cu
 		last_updated_time = current_time,
 		raw_data = b['raw_data']
 	)
-
-	existing_entries = collection_color.find({"user": user_data.user}).sort("update_time", 1)  # Sort by update time
-	existing_count = collection_color.count_documents({"user": user_data.user})
-
-	if existing_count >= 5:
-		oldest_entry = existing_entries[0]
-	#	collection_color.delete_one({"_id": oldest_entry["_id"]})
 
 	document = {
 		'user': user_data.user,

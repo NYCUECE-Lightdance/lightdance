@@ -6,10 +6,14 @@ local/
 # Python 相關
 __pycache__/
 *.pyc
-.env
-.env.production
 venv/
 *.egg-info/
+
+# 環境變數(含機密,不納入版控)
+# 請依 .env.example 自行建立本地檔案
+.env
+.env.*
+!.env.example
 
 # Node.js 相關
 node_modules/

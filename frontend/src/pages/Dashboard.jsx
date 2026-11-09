@@ -1,7 +1,7 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
-import { LuPlus, LuFolderOpen, LuMusic, LuChevronRight } from "react-icons/lu";
+import { LuPlus, LuFolderOpen, LuMusic, LuChevronRight, LuUpload } from "react-icons/lu";
 import { updateActionTable, updateMusicFilename } from "../redux/actions";
 import { API_ENDPOINTS } from "../config/api.js";
 import "./Dashboard.css"; // 引入外部 CSS
@@ -10,10 +10,13 @@ const Dashboard = () => {
   const navigate = useNavigate();
   const dispatch = useDispatch();
   const userName = useSelector((state) => state.profiles.user);
+  const token = useSelector((state) => state.profiles.accessToken);
 
   const [timeList, setTimeList] = useState([]);
   const [musicList, setMusicList] = useState([]);
   const [showMusicMenu, setShowMusicMenu] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const fileInputRef = useRef(null);
 
   // 初始化即抓取舊光表列表
   useEffect(() => {
@@ -29,19 +32,65 @@ const Dashboard = () => {
     fetchInitialData();
   }, [userName]);
 
-  // 抓取音樂清單
+  // 抓取當前使用者的音樂清單（供展開選單與上傳後刷新共用）
+  const fetchMusicList = async () => {
+    const response = await fetch(`${API_ENDPOINTS.BASE}/get_music_list/${userName}`);
+    const data = await response.json();
+    setMusicList(data.music_list || []);
+  };
+
+  // 切換音樂選單；首次展開時抓取清單
   const handleToggleMusic = async () => {
     if (!showMusicMenu) {
       try {
-        const response = await fetch(`${API_ENDPOINTS.BASE}/get_music_list/${userName}`);
-        const data = await response.json();
-        setMusicList(data.music_list || []);
+        await fetchMusicList();
         setShowMusicMenu(true);
       } catch (error) {
         console.error("Fetch music error:", error);
       }
     } else {
       setShowMusicMenu(false);
+    }
+  };
+
+  // 上傳 MP3 音樂檔，成功後刷新清單
+  const handleUploadMusic = async (event) => {
+    const file = event.target.files?.[0];
+    // 清空 input 值，讓同一個檔案可以再次觸發 onChange
+    event.target.value = "";
+    if (!file) return;
+
+    // 後端只接受 audio/mpeg，先在前端擋掉避免多一次來回
+    if (file.type !== "audio/mpeg") {
+      alert("只能上傳 MP3 檔案 (audio/mpeg)");
+      return;
+    }
+
+    const formData = new FormData();
+    formData.append("file", file);
+
+    setUploading(true);
+    try {
+      const response = await fetch(API_ENDPOINTS.UPLOAD_MUSIC, {
+        method: "POST",
+        headers: {
+          // 注意：multipart 上傳不可手動設定 Content-Type，
+          // 否則會缺少 boundary；交給瀏覽器自動帶上
+          Authorization: `Bearer ${token || " "}`,
+        },
+        body: formData,
+      });
+
+      if (response.ok) {
+        await fetchMusicList();
+      } else {
+        const err = await response.json().catch(() => ({}));
+        alert("上傳失敗: " + (err.detail || response.status));
+      }
+    } catch (error) {
+      alert("上傳失敗: " + error.message);
+    } finally {
+      setUploading(false);
     }
   };
 
@@ -96,6 +145,17 @@ return (
             <div className="music-extension">
               <LuChevronRight className="divider-icon" />
               <div className="music-list-scroll">
+                {/* 上傳音樂按鈕 */}
+                <div
+                  className="music-item upload-item"
+                  onClick={() => !uploading && fileInputRef.current?.click()}
+                >
+                  <LuUpload className="item-icon" />
+                  <span>{uploading ? "上傳中..." : "上傳音樂"}</span>
+                </div>
+                {musicList.length === 0 && (
+                  <div className="music-item music-empty">尚無音樂，請先上傳</div>
+                )}
                 {musicList.map((file, i) => (
                   <div key={i} className="music-item" onClick={() => createNewProject(file)}>
                     <LuMusic className="item-icon" />
@@ -106,6 +166,15 @@ return (
             </div>
           )}
         </div>
+
+        {/* 隱藏的檔案選擇器，由「上傳音樂」按鈕觸發 */}
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept="audio/mpeg,.mp3"
+          style={{ display: "none" }}
+          onChange={handleUploadMusic}
+        />
       </div>
 
       {/* 下方區域 */}
