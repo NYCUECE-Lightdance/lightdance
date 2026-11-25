@@ -40,8 +40,8 @@ VALID_PAYLOAD = {
 def collections(monkeypatch):
     color = FakeCollection("color")
     raw = FakeCollection("raw_json")
-    monkeypatch.setattr(main, "collection_color", color)
-    monkeypatch.setattr(main, "collection_raw", raw)
+    # 年份怎麼選是 test_seasons.py 的事，這裡不管哪一年都給同一組
+    monkeypatch.setattr(main, "show_collections", lambda season: (color, raw))
     # 驗證與授權不是這個檔案要測的東西
     monkeypatch.setattr(
         main.app,

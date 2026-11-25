@@ -19,6 +19,9 @@ import {
 
 const initialState = {
   user: null,
+  // 演出年份。null = 今年（見 utils/season.js）。要持久化：重新整理之後還在編
+  // 去年的光表的話，存檔也要存回去年
+  season: null,
   fullPeaks: [],
   duration: 0,
   data: {
@@ -219,6 +222,8 @@ export const profiles = (state = initialState, action) => {
       return { ...state, currentTime: action.payload };
     case "UPDATEACCESSTOKEN":
       return { ...state, accessToken: action.payload };
+    case "UPDATESEASON":
+      return { ...state, season: action.payload ?? null };
     case "UPDATEUSERNAME":
       return { ...state, userName: action.payload };
     case "UPDATEAUTOREFRESH":

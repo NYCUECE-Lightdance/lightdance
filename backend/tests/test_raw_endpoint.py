@@ -54,8 +54,8 @@ COLOR_DOCS = [
 def collections(monkeypatch):
     raw = FakeCollection("raw_json", RAW_DOCS)
     color = FakeCollection("color", COLOR_DOCS)
-    monkeypatch.setattr(main, "collection_raw", raw)
-    monkeypatch.setattr(main, "collection_color", color)
+    # 年份怎麼選是 test_seasons.py 的事，這裡不管哪一年都給同一組
+    monkeypatch.setattr(main, "show_collections", lambda season: (color, raw))
     return raw, color
 
 

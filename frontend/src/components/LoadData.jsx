@@ -10,6 +10,7 @@ import {
   updateMusicFilename,
 } from "../redux/actions.js";
 import { API_ENDPOINTS } from "../config/api.js";
+import { selectSeason, withSeason } from "../utils/season.js";
 import { getAllLocalBackups } from "../utils/indexedDB.js";
 import { loadProjectData } from "../utils/migration/loadProjectData.js";
 
@@ -17,6 +18,7 @@ function Dropdown({ userName, setIsDirty }) {
   const [timeList, setTimeList] = useState([]);
   const dispatch = useDispatch();
   const duration = useSelector((state) => state.profiles.duration);
+  const season = useSelector(selectSeason);
   const [localBackups, setLocalBackups] = useState([]);
 
   async function fetchAvailableDataList() {
@@ -47,7 +49,7 @@ function Dropdown({ userName, setIsDirty }) {
     setLocalBackups(backups);
 
     // Define the API endpoint
-    const apiEndpoint = `${API_ENDPOINTS.TIMELIST}/${userName}`; // Example API
+    const apiEndpoint = withSeason(`${API_ENDPOINTS.TIMELIST}/${userName}`, season);
 
     // Use fetch to send a GET request
     fetch(apiEndpoint)
@@ -93,7 +95,7 @@ function Dropdown({ userName, setIsDirty }) {
   async function fetchRawPlayerData(user, time) {
     // console.log(time);
     // Define the API endpoint
-    const apiEndpoint = `${API_ENDPOINTS.BASE}/raw/${user}/${time}`; // Example API
+    const apiEndpoint = withSeason(`${API_ENDPOINTS.BASE}/raw/${user}/${time}`, season);
     // Use fetch to send a GET request
     fetch(apiEndpoint)
       .then((response) => {

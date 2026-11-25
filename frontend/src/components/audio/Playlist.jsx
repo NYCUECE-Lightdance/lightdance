@@ -4,6 +4,7 @@ import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faMusic } from "@fortawesome/free-solid-svg-icons";
 
 import { API_ENDPOINTS } from "../../config/api.js";
+import { selectSeason, withSeason } from "../../utils/season.js";
 import { useAudioClips } from "../../hooks/useAudioClips.js";
 import {
   updateAudioClips,
@@ -115,13 +116,14 @@ function useSeamSlider(overlapMs, commit) {
 /** 後端上這個使用者有哪些音檔可以選 */
 function useMusicLibrary() {
   const userName = useSelector((state) => state.profiles.user);
+  const season = useSelector(selectSeason);
   const [files, setFiles] = useState([]);
 
   useEffect(() => {
     if (!userName) return;
     let cancelled = false;
 
-    fetch(`${API_ENDPOINTS.BASE}/get_music_list/${userName}`)
+    fetch(withSeason(`${API_ENDPOINTS.BASE}/get_music_list/${userName}`, season))
       .then((response) => response.json())
       .then((data) => {
         if (!cancelled && data?.music_list) setFiles(data.music_list);
@@ -131,7 +133,7 @@ function useMusicLibrary() {
     return () => {
       cancelled = true;
     };
-  }, [userName]);
+  }, [userName, season]);
 
   return files;
 }

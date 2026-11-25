@@ -5,7 +5,7 @@
 # =================================================================
 # 功能：
 #   - 每兩天凌晨 6 點自動執行備份
-#   - 使用 mongodump 建立完整資料庫備份
+#   - 使用 mongodump 備份帳號資料庫與每一年的光表資料庫
 #   - 保留最近一個月的備份檔案（約 15 個備份）
 #   - 詳細的日誌記錄
 #   - 自動清理過期備份檔案
@@ -93,6 +93,19 @@ check_mongo_container() {
     return 0
 }
 
+# 要備份哪些資料庫：帳號所在的 $DATABASE_NAME，加上每一年的光表（lightdance_<年份>，
+# 見 backend/seasons.py）。年份是逐年長出來的，所以每次都現場問，不寫死清單
+SEASON_DB_PREFIX="${SEASON_DB_PREFIX:-lightdance_}"
+list_databases() {
+    echo "$DATABASE_NAME"
+    docker exec "$MONGO_CONTAINER_ID" mongosh --quiet \
+        --host localhost:27017 \
+        --username "$MONGO_USERNAME" \
+        --password "$MONGO_PASSWORD" \
+        --authenticationDatabase admin \
+        --eval "db.adminCommand({listDatabases: 1, nameOnly: true}).databases.map(d => d.name).filter(n => /^${SEASON_DB_PREFIX}[0-9]{4}\$/.test(n)).forEach(n => print(n))"
+}
+
 # 建立備份
 create_backup() {
     local timestamp=$(date '+%Y%m%d_%H%M%S')
@@ -106,15 +119,32 @@ create_backup() {
     
     # 執行 mongodump
     local start_time=$(date +%s)
-    
-    if docker exec "$MONGO_CONTAINER_ID" mongodump \
-        --host localhost:27017 \
-        --db "$DATABASE_NAME" \
-        --username "$MONGO_USERNAME" \
-        --password "$MONGO_PASSWORD" \
-        --authenticationDatabase admin \
-        --out /data/db/dump_data/"$backup_name" > /dev/null 2>&1; then
-        
+
+    # 列不出來就停：只備份到帳號、漏掉每一年的光表，比備份失敗更糟——
+    # 失敗會被發現，漏掉的話要等到需要還原那天才知道
+    local databases
+    if ! databases=$(list_databases); then
+        log "ERROR" "列不出有哪些資料庫，備份中止: $backup_name"
+        rm -rf "$backup_path"
+        return 1
+    fi
+
+    local failed=0
+    for database in $databases; do
+        if ! docker exec "$MONGO_CONTAINER_ID" mongodump \
+            --host localhost:27017 \
+            --db "$database" \
+            --username "$MONGO_USERNAME" \
+            --password "$MONGO_PASSWORD" \
+            --authenticationDatabase admin \
+            --out /data/db/dump_data/"$backup_name" > /dev/null 2>&1; then
+            log "ERROR" "資料庫 $database 備份失敗"
+            failed=1
+        fi
+    done
+
+    if [ "$failed" -eq 0 ]; then
+        log "INFO" "已備份的資料庫: $(echo $databases)"
         local end_time=$(date +%s)
         local duration=$((end_time - start_time))
         
@@ -232,17 +262,32 @@ restore_backup() {
     
     log "INFO" "開始還原備份: $backup_name"
     
-    # 執行 mongorestore
-    if docker exec "$MONGO_CONTAINER_ID" mongorestore \
-        --host localhost:27017 \
-        --db "$DATABASE_NAME" \
-        --username "$MONGO_USERNAME" \
-        --password "$MONGO_PASSWORD" \
-        --authenticationDatabase admin \
-        --drop \
-        /data/db/dump_data/"$backup_name"/"$DATABASE_NAME" > ./error.log 2>&1; then
-        
-        log "SUCCESS" "備份還原完成: $backup_name"
+    # 執行 mongorestore：備份裡的每個資料庫各自一個資料夾（帳號 + 每一年的光表）
+    : > ./error.log
+    local failed=0
+    local restored=""
+    for dump_dir in "$backup_path"/*/; do
+        local database=$(basename "$dump_dir")
+        case "$database" in
+            admin|config|local) continue ;;  # 系統資料庫不動
+        esac
+        if docker exec "$MONGO_CONTAINER_ID" mongorestore \
+            --host localhost:27017 \
+            --db "$database" \
+            --username "$MONGO_USERNAME" \
+            --password "$MONGO_PASSWORD" \
+            --authenticationDatabase admin \
+            --drop \
+            /data/db/dump_data/"$backup_name"/"$database" >> ./error.log 2>&1; then
+            restored="$restored $database"
+        else
+            log "ERROR" "資料庫 $database 還原失敗（詳見 error.log）"
+            failed=1
+        fi
+    done
+
+    if [ "$failed" -eq 0 ] && [ -n "$restored" ]; then
+        log "SUCCESS" "備份還原完成: $backup_name（$restored ）"
         return 0
     else
         log "ERROR" "備份還原失敗: $backup_name"
