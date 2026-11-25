@@ -1,7 +1,7 @@
 /*
  * ⚠️ **憑證一律從環境變數來，不要寫死在這個檔案裡。**
  *
- * 這裡原本是 `db.auth('root', 'nycuee')` 與 `pwd: 'testpassword'` ——而這個
+ * 這裡原本是 `db.auth('root', '***')` 與 `pwd: '***'` ——而這個
  * 檔案在版控裡、repo 是 public fork，等於把正式資料庫的 root 密碼公開發布。
  *
  * mongo 官方 image 的 entrypoint 會把 MONGO_INITDB_ROOT_USERNAME /

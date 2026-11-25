@@ -30,7 +30,7 @@ DEV_MODE=false              # Set to 'true' for development features
 
 # Database Credentials
 MONGO_USERNAME=root
-MONGO_PASSWORD=nycuee
+MONGO_PASSWORD=你的密碼
 
 # Port Mappings
 NGINX_PORT=80               # Frontend access port
@@ -62,7 +62,7 @@ When running backend directly with uvicorn:
 
 ```bash
 # Local Development Configuration
-MONGO_CONNECT_URI=mongodb://root:nycuee@localhost:27017
+MONGO_CONNECT_URI=mongodb://root:你的密碼@localhost:27017
 MUSIC_FILE_PATH=./music_file
 APP_RELOAD=true
 ```
@@ -276,7 +276,7 @@ docker-compose down && docker-compose up --build
    docker logs lightdance-mongo-czli
    
    # Test connection
-   docker exec lightdance-backend-czli python -c "from pymongo import MongoClient; MongoClient('mongodb://root:nycuee@mongo:27017').admin.command('ping')"
+   docker exec lightdance-backend-czli python -c "from pymongo import MongoClient; MongoClient('mongodb://root:你的密碼@mongo:27017').admin.command('ping')"
    ```
 
 ### Configuration Validation

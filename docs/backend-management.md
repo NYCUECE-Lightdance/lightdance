@@ -75,7 +75,7 @@ crontab -l | grep mongo-backup
 ```bash
 DATABASE_NAME="test"        # 資料庫名稱
 MONGO_USERNAME="root"       # MongoDB 使用者
-MONGO_PASSWORD="nycuee"     # MongoDB 密碼
+MONGO_PASSWORD="你的密碼"   # MongoDB 密碼
 RETENTION_DAYS=30           # 備份保留天數
 ```
 
@@ -162,7 +162,7 @@ print('MongoDB 連線成功:', client.server_info()['version'])
 "
 
 # 進入 mongo shell
-docker compose -f docker-compose.dev.yml exec mongo mongosh -u root -p nycuee
+docker compose -f docker-compose.dev.yml exec mongo mongosh -u root -p "$MONGO_PASSWORD"
 ```
 
 ### Mongo Express (Web 管理介面)

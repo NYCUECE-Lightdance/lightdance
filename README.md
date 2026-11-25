@@ -170,7 +170,7 @@ cd backend && ./mongo-backup.sh                        # 手動備份資料庫
 
 還沒處理的：
 
-- **那組外洩的密碼還寫在兩個被追蹤的檔案裡**：`.env.development` 與 `backend/.env.local` 的 `root` / `nycuee`。正式環境換掉密碼之前，這兩個檔案等於還在公開它。
+- **那組外洩的密碼還在 git 歷史裡**：目前版本的檔案已經不含它（範本與文件都改成占位字串，`.env.development` / `backend/.env.local` 改用開發專用的 `devpassword`），但舊 commit 裡的 `.env.deployment`、`backend/.env`、`db/` 都還查得到。要清掉得改寫歷史並 force push；正式環境換掉密碼之前，它仍然是有效的。
 - **正式環境的資料庫管理介面不用登入**：`docker-compose.prod.yml` 的 mongo-express（8081）設了 `ME_CONFIG_BASICAUTH: false`，而且用 root 帳密連資料庫；後端的 8000 也直接對外開放、繞過 Nginx。從校外連不到，校內連不連得到要確認。
 - `frontend/src/components/audio/musicsrc/` 有一首商業歌曲，而這個 repo 是公開的（`todo.md` 的 B4）。
 - 其他端點的輸入驗證（上傳 payload 的內容、query 參數的範圍，`todo.md` 的 C3b）。

@@ -23,7 +23,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 BACKUP_DIR="${SCRIPT_DIR}/../db/dump_data"
 LOG_FILE="${BACKUP_DIR}/backup.log"
 MONGO_USERNAME="${MONGO_USERNAME:-root}"
-MONGO_PASSWORD="${MONGO_PASSWORD:-nycuee}"
+MONGO_PASSWORD="${MONGO_PASSWORD:?}"
 ```
 
 **重要概念解析：**

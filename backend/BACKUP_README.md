@@ -109,7 +109,7 @@ ls -la ../db/dump_data/mongodb_backup_20250822_181758/test/
 ```bash
 DATABASE_NAME="test"           # 要備份的資料庫名稱
 MONGO_USERNAME="root"          # MongoDB 使用者名稱  
-MONGO_PASSWORD="nycuee"        # MongoDB 密碼
+MONGO_PASSWORD="你的密碼"      # MongoDB 密碼
 RETENTION_DAYS=30              # 備份保留天數
 ```
 
