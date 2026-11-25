@@ -28,27 +28,29 @@ CURRENT = 2027
 @pytest.mark.parametrize(
     "day, season",
     [
-        (date(2026, 6, 30), 2026),  # 6 月底還是今年的演出
-        (date(2026, 7, 1), 2027),   # 7 月 1 日起算隔年
-        (date(2026, 12, 31), 2027),
+        (date(2026, 1, 1), 2026),
+        (date(2026, 6, 30), 2026),  # 電機營 6 月開始做……
+        (date(2026, 7, 4), 2026),   # ……7 月初演出，同一個活動要在同一年
+        (date(2026, 12, 31), 2026),
         (date(2027, 1, 1), 2027),
-        (datetime(2026, 7, 1, 0, 0, 1), 2027),
+        (datetime(2026, 7, 1, 0, 0, 1), 2026),
     ],
 )
-def test_season_starts_in_july(day, season):
+def test_season_is_calendar_year_by_default(day, season):
     assert seasons.season_of(day) == season
 
 
-def test_start_month_one_means_calendar_year(monkeypatch):
-    monkeypatch.setattr(seasons, "SEASON_START_MONTH", 1)
-    assert seasons.season_of(date(2026, 1, 1)) == 2026
-    assert seasons.season_of(date(2026, 12, 31)) == 2026
+def test_start_month_can_still_be_shifted(monkeypatch):
+    # SEASON_START_MONTH=7：7 月到隔年 6 月算隔年
+    monkeypatch.setattr(seasons, "SEASON_START_MONTH", 7)
+    assert seasons.season_of(date(2026, 6, 30)) == 2026
+    assert seasons.season_of(date(2026, 7, 1)) == 2027
 
 
 @pytest.mark.parametrize(
     "stamp, season",
     [
-        ("2026-08-15-12:00:00.123", 2027),  # 現在的格式（含毫秒）
+        ("2026-08-15-12:00:00.123", 2026),  # 現在的格式（含毫秒）
         ("2026-03-01-09:30:00", 2026),      # 只到秒的舊格式
         ("2026-01-01_00-00-00", 2026),      # 更早期的底線格式
         ("LATEST", None),
@@ -109,7 +111,7 @@ class FindOneCollection(FakeCollection):
 
 
 DOC_2026 = {"user": "alice", "update_time": "2026-03-01-09:30:00", "raw_data": "去年的", "players": [[1]]}
-DOC_2027 = {"user": "alice", "update_time": "2026-09-01-09:30:00", "raw_data": "今年的", "players": [[2]]}
+DOC_2027 = {"user": "alice", "update_time": "2027-03-01-09:30:00", "raw_data": "今年的", "players": [[2]]}
 
 
 @pytest.fixture
@@ -306,7 +308,7 @@ def legacy_client():
 def test_migration_preview_writes_nothing(legacy_client):
     results, _ = migrate_to_seasons.migrate(legacy_client, apply=False, log=lambda *_: None)
 
-    assert results[("color", 2026)]["copied"] == 2
+    assert results[("color", 2026)]["copied"] == 3
     for name, db in legacy_client.dbs.items():
         if name != "test":
             assert all(not collection.documents for collection in db.collections.values())
@@ -316,8 +318,8 @@ def test_migration_splits_by_season_and_keeps_source(legacy_client):
     results, unknown = migrate_to_seasons.migrate(legacy_client, apply=True, log=lambda *_: None)
 
     by_season = lambda season: sorted(d["_id"] for d in legacy_client[f"lightdance_{season}"]["color"].documents)
-    assert by_season(2026) == [1, 2]
-    assert by_season(2027) == [3, 4]  # 4 號的版本編號壞了，退而用 created_at
+    assert by_season(2025) == [1]
+    assert by_season(2026) == [2, 3, 4]  # 4 號的版本編號壞了，退而用 created_at
     assert [entry[1] for entry in unknown] == [5, 5]  # color 與 raw_json 各一次，沒有複製
     # 只複製不刪除
     assert len(legacy_client["test"]["color"].documents) == 5
@@ -328,8 +330,8 @@ def test_migration_can_run_twice(legacy_client):
     migrate_to_seasons.migrate(legacy_client, apply=True, log=lambda *_: None)
     results, _ = migrate_to_seasons.migrate(legacy_client, apply=True, log=lambda *_: None)
 
-    assert results[("color", 2026)] == {"existing": 2}
-    assert len(legacy_client["lightdance_2026"]["color"].documents) == 2
+    assert results[("color", 2026)] == {"existing": 3}
+    assert len(legacy_client["lightdance_2026"]["color"].documents) == 3
 
 
 def test_migration_reports_source_duplicates_instead_of_guessing(legacy_client):
@@ -341,22 +343,22 @@ def test_migration_reports_source_duplicates_instead_of_guessing(legacy_client):
 
     results, _ = migrate_to_seasons.migrate(legacy_client, apply=True, log=logged.append)
 
-    assert results[("color", 2026)] == {"copied": 2, "duplicate": 1}
+    assert results[("color", 2025)] == {"copied": 1, "duplicate": 1}
     assert any("_id=9" in line for line in logged)
-    target = legacy_client["lightdance_2026"]["color"]
-    assert sorted(d["_id"] for d in target.documents) == [1, 2]
+    target = legacy_client["lightdance_2025"]["color"]
+    assert sorted(d["_id"] for d in target.documents) == [1]
 
     # 重跑時兩份都已經處理過：第一份是已存在，第二份仍然回報為重複
     results, _ = migrate_to_seasons.migrate(legacy_client, apply=True, log=lambda *_: None)
-    assert results[("color", 2026)] == {"existing": 2, "duplicate": 1}
+    assert results[("color", 2025)] == {"existing": 1, "duplicate": 1}
 
 
 def test_migration_reports_concurrent_writes(legacy_client):
     # 讓「查有沒有」那一步看不到：模擬查完之後、寫入之前，後端剛好存了同一個版本
-    target = legacy_client["lightdance_2026"]["color"]
+    target = legacy_client["lightdance_2025"]["color"]
     target.documents.append({"_id": 99, "user": "alice", "update_time": "2025-12-01-10:00:00"})
     target.find_one = lambda *args, **kwargs: None
 
     results, _ = migrate_to_seasons.migrate(legacy_client, apply=True, log=lambda *_: None)
 
-    assert results[("color", 2026)]["duplicate"] == 1
+    assert results[("color", 2025)]["duplicate"] == 1

@@ -1019,8 +1019,11 @@ e2e 有三項互相對立的檢查（會捲 / 使用者捲走後不扯回去 / �
 ### 演出年份：每一年一個資料庫
 
 光表存在 `lightdance_<年份>`（`color` + `raw_json`），帳號（`users`）留在 `test`
-各年共用。年份規則與資料庫命名只定義在 **`backend/seasons.py`**：7 月到隔年 6 月
-上傳的算隔年的演出（`SEASON_START_MONTH`）。部署與搬遷步驟見 `docs/seasons.md`。
+各年共用。年份規則與資料庫命名只定義在 **`backend/seasons.py`**：**存檔那天的西元年**
+就是演出年份（`SEASON_START_MONTH`，預設 1）。部署與搬遷步驟見 `docs/seasons.md`。
+
+⚠️ **不要改回「7 月起算隔年」。** 試過了：電機營 6 月開始做、7 月初演出，
+那條規則把同一個活動拆進兩年（2026-11-25 使用者拍板改成西元年）。
 
 ⚠️ **前端不自己算年份。** `state.profiles.season` 是 `null` 時請求就不帶 `year`，
 由後端決定今年是哪一年（`utils/season.js` 的 `withSeason`）。兩邊各算一次遲早
