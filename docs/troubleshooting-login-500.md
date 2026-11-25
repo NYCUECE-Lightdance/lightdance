@@ -203,7 +203,7 @@ docker compose -f docker-compose.dev.yml logs backend --tail=30
 ### 3. 驗證資料庫中有測試帳號
 
 ```bash
-docker exec mongo-dev mongosh --quiet -u root -p nycuee --authenticationDatabase admin --eval "db.getSiblingDB('test').users.find().toArray()"
+docker exec mongo-dev mongosh --quiet -u root -p "$MONGO_PASSWORD" --authenticationDatabase admin --eval "db.getSiblingDB('test').users.find().toArray()"
 ```
 
 **預期輸出**:
@@ -261,7 +261,7 @@ backend:
 
 ```bash
 # 匯出資料庫
-docker exec mongo-dev mongodump -u root -p nycuee --authenticationDatabase admin --out /tmp/backup
+docker exec mongo-dev mongodump -u root -p "$MONGO_PASSWORD" --authenticationDatabase admin --out /tmp/backup
 
 # 複製到本地
 docker cp mongo-dev:/tmp/backup ./mongo_backup_$(date +%Y%m%d)
@@ -338,7 +338,7 @@ echo -e "\n=== 後端日誌 ==="
 docker compose -f docker-compose.dev.yml logs backend --tail=10
 
 echo -e "\n=== 測試帳號 ==="
-docker exec mongo-dev mongosh --quiet -u root -p nycuee --authenticationDatabase admin --eval "db.getSiblingDB('test').users.find().toArray()"
+docker exec mongo-dev mongosh --quiet -u root -p "$MONGO_PASSWORD" --authenticationDatabase admin --eval "db.getSiblingDB('test').users.find().toArray()"
 
 echo -e "\n✅ 如果看到 testuser 帳號,請前往 http://localhost:3000/login 測試登入"
 ```

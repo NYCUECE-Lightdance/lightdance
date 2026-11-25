@@ -45,3 +45,6 @@ graphify-out/
 # macOS 的資源分叉，不是真的檔案
 ._*
 .DS_Store
+
+# MongoDB root 帳號的密碼雜湊（SCRAM），可以拿去離線暴力破解，不進版控
+mongo-init/root.json

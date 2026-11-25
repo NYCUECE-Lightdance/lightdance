@@ -22,9 +22,21 @@ BACKUP_DIR="${SCRIPT_DIR}/../db/dump_data"
 LOG_FILE="${BACKUP_DIR}/backup.log"
 CONTAINER_NAME_PATTERN="*mongo*"
 DATABASE_NAME="test"
-MONGO_USERNAME="${MONGO_USERNAME:-root}"
-MONGO_PASSWORD="${MONGO_PASSWORD:-nycuee}"
 RETENTION_DAYS=30
+
+# 帳密不寫在這裡：這個檔案在版控中，而這個 repo 是公開的。
+# 優先用環境變數；沒設就讀部署用的 .env.deployment（已 gitignore）。
+ENV_FILE="${ENV_FILE:-${SCRIPT_DIR}/../.env.deployment}"
+read_env_value() {
+    grep -E "^$1=" "$ENV_FILE" 2>/dev/null | tail -n 1 | cut -d= -f2- | sed -E "s/^[\"'](.*)[\"']$/\1/"
+}
+if [ -z "${MONGO_USERNAME:-}" ]; then
+    MONGO_USERNAME="$(read_env_value MONGO_USERNAME)"
+fi
+if [ -z "${MONGO_PASSWORD:-}" ]; then
+    MONGO_PASSWORD="$(read_env_value MONGO_PASSWORD)"
+fi
+MONGO_USERNAME="${MONGO_USERNAME:-root}"
 
 # 顏色輸出
 RED='\033[0;31m'
@@ -280,7 +292,18 @@ main() {
     fi
     
     log "INFO" "=== MongoDB 備份腳本啟動 ==="
-    
+
+    # 備份與還原都要登入資料庫；沒有密碼就停下來，不要用空密碼硬跑
+    case "${1:-}" in
+        "--test"|"--list") ;;
+        *)
+            if [ -z "$MONGO_PASSWORD" ]; then
+                log "ERROR" "找不到 MONGO_PASSWORD：請設定環境變數，或確認 ${ENV_FILE} 存在"
+                exit 1
+            fi
+            ;;
+    esac
+
     # 解析命令列參數
     case "${1:-}" in
         "--test")

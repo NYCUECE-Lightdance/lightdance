@@ -397,7 +397,7 @@ CLAUDE.md 一直有記，但沒進過 todo，所以列在這裡免得又被忘�
 `docker-compose.prod.yml` 現在設了 `REQUIRE_AUTH_SECRET=1`，漏設會啟動失敗。
 
 ⚠️ **`.env.deployment` 已移出版控**，部署機器要自己有一份（範本
-`.env.deployment.example`）。裡面那組 `root`/`nycuee` 已經公開過，**必須換掉**
+`.env.deployment.example`）。裡面那組 `root`/`***` 已經公開過，**必須換掉**
 ——移出 repo 不等於收回。
 沒設的話後端每次重啟都會臨時產生一把新秘鑰，所有人被登出。產生方式：
 `python3 -c "import secrets; print(secrets.token_urlsafe(32))"`

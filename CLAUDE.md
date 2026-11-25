@@ -1078,8 +1078,8 @@ e2e 有三項互相對立的檢查（會捲 / 使用者捲走後不扯回去 / �
 ### 已修（2026-08-15）：憑證不再寫在版控裡
 
 ⚠️ **正式資料庫的 root 帳密原本在 repo 裡。** `.env.deployment`（`MONGO_USERNAME=root`
-／`MONGO_PASSWORD=nycuee`）是被追蹤的檔案，`mongo-init/01-init-data.js` 開頭還寫死
-了 `db.auth('root', 'nycuee')`——而這個 repo 是 public fork，等於公開發布。
+／`MONGO_PASSWORD=***`）是被追蹤的檔案，`mongo-init/01-init-data.js` 開頭還寫死
+了 `db.auth('root', '***')`——而這個 repo 是 public fork，等於公開發布。
 
 現在：`.env.deployment` 移出版控（範本留在 `.env.deployment.example`），
 `mongo-init` 改讀 `MONGO_INITDB_ROOT_USERNAME` / `MONGO_INITDB_ROOT_PASSWORD`
@@ -1337,8 +1337,8 @@ public fork——那個檔案永遠不得 import 進 fixture、不得 commit。*
 
 - **2026-08-15（深夜三）**：**憑證不再寫在版控裡**。查密碼明文儲存的狀況時發現
   更嚴重的一層：**正式資料庫的 root 帳密就在 repo 裡**——`.env.deployment`
-  （`MONGO_PASSWORD=nycuee`）是被追蹤的檔案，`mongo-init` 開頭還寫死了
-  `db.auth('root', 'nycuee')`，而這個 repo 是 public fork。已把 env 檔移出版控
+  （`MONGO_PASSWORD=***`）是被追蹤的檔案，`mongo-init` 開頭還寫死了
+  `db.auth('root', '***')`，而這個 repo 是 public fork。已把 env 檔移出版控
   （範本留 `.env.deployment.example`）、`mongo-init` 改讀環境變數且沒設就 throw、
   `run-deploy.sh` 找不到 env 檔改成停下來（舊版會「使用預設設定」繼續跑，用空
   憑證起 mongo、用臨時秘鑰起後端，而畫面上看起來部署成功）。
