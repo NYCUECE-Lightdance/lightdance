@@ -17,6 +17,12 @@ export const UPDATEDANCERVISIBILITY = "UPDATEDANCERVISIBILITY";
 export const UPDATECLIPBOARD = "UPDATECLIPBOARD";
 
 export const updateUser = (value) => ({ type: UPDATEUSER, payload: value });
+
+/** 選哪一年的演出。`null` = 今年（由後端決定是哪一年，見 utils/season.js） */
+export const updateSeason = (season) => ({
+  type: "UPDATESEASON",
+  payload: season ?? null,
+});
 export const updateFullpeaks = (value) => ({
   type: UPDATEFULLPEAKS,
   payload: value,

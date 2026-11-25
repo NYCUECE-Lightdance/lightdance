@@ -7,6 +7,7 @@ from models import PlayerData, Player, Data, RAW, User, UserInDB, FullUpload, Re
 # from app import app
 # from flask import Flask, send_file, render_template
 import os
+from typing import Optional
 import secrets
 import shutil
 import random
@@ -24,6 +25,7 @@ from storage import (
     DEFAULT_LIST_LIMIT,
     LIST_PROJECTION,
     MAX_LIST_LIMIT,
+    SHOW_COLLECTIONS,
     StorageError,
     color_document,
     ensure_indexes,
@@ -32,6 +34,14 @@ from storage import (
     now_utc,
     prune_history,
     raw_document,
+)
+from seasons import (
+    ACCOUNTS_DB,
+    current_season,
+    database_name,
+    season_of_stamp,
+    seasons_from_database_names,
+    validate_season,
 )
 from auth import (
     InvalidCredentialsError,
@@ -75,9 +85,8 @@ except Exception as e:
 
 SIZE = 256 # number of LED per board
 
-db = client['test']
-collection_color = db['color']
-collection_raw = db['raw_json']
+# 帳號各年共用，留在原本的資料庫；光表每一年一個資料庫（見 seasons.py）
+db = client[ACCOUNTS_DB]
 user_list = db['users']
 
 # 索引在啟動時建立一次（冪等）。定義與理由在 storage.py——簡單說：這個資料庫
@@ -88,9 +97,38 @@ user_list = db['users']
 # 上面那個 ping 已經知道答案了，直接用它。連不上時服務照樣起得來，
 # 讀寫會各自失敗並回報。
 if MONGO_REACHABLE:
-    ensure_indexes(db)
+    ensure_indexes(db, names=["users"])
 else:
     print("[storage] MongoDB 連不上，略過索引建立（服務仍會啟動）")
+
+#: 已經確認過索引的年份。每一年第一次被用到時補建一次
+_indexed_seasons = set()
+
+def show_collections(season):
+    """這一年的 `(color, raw_json)` 兩個集合。"""
+    season_db = client[database_name(season)]
+    if MONGO_REACHABLE and season not in _indexed_seasons:
+        ensure_indexes(season_db, names=SHOW_COLLECTIONS)
+        _indexed_seasons.add(season)
+    return season_db['color'], season_db['raw_json']
+
+def resolve_season(year=None, query_time=None):
+    """
+    這個請求要讀寫哪一年。
+
+    有帶 `?year=` 就用它；沒帶的話，指定版本的請求由版本編號推（舊連結因此
+    不必改），其他一律是今年。
+    """
+    if year is not None:
+        try:
+            return validate_season(year)
+        except ValueError as error:
+            raise HTTPException(status_code=400, detail=str(error))
+    if query_time and query_time != "LATEST":
+        season = season_of_stamp(query_time)
+        if season is not None:
+            return season
+    return current_season()
 
 # 允許的來源。
 #
@@ -297,11 +335,50 @@ async def read_root():
 # 光表項目資源 (Light Item Resource) - 光表資料的查詢與管理
 # ============================================================================
 
+# 有哪些演出年份
+# 使用方法：GET /api/seasons，無需驗證
+# 使用場景：前端的年份選單
+@api_router.get("/seasons")
+async def list_seasons():
+    """
+    `current` 是現在正在準備的那一年（沒帶 `?year=` 的請求都落在這一年），
+    `seasons` 是有資料的年份再加上 `current`，由新到舊。
+    """
+    current = current_season()
+    try:
+        stored = seasons_from_database_names(client.list_database_names())
+    except PyMongoError as error:
+        # 列不出來就只回今年——選單少幾個選項，總比整頁打不開好
+        print(f">>> [WARN] 列不出有哪些年份: {error}")
+        stored = []
+    return {"current": current, "seasons": sorted({current, *stored}, reverse=True)}
+
+# ============================================================================
+# 光表項目資源 (Light Item Resource) - 光表資料的查詢與管理
+# ============================================================================
+#
+# 以下每一支都收一個選填的 `?year=`（演出年份）。沒帶的話：
+# - 指定版本的（`/items/{u}/{版本}`、`/raw/{u}/{版本}`）由版本編號推出年份，
+#   所以分年之前的舊連結照樣打得開
+# - 其他（LATEST、清單、上傳）用今年（seasons.current_season）
+
+def _timelist_entries(cursor):
+    return [
+        {
+            "user": entry["user"],
+            "update_time": entry["update_time"],
+            # 預設值是空字串不是 0：先前用 0，於是同一個欄位在資料庫裡
+            # 同時有字串與整數兩種型別
+            "music_filename": entry.get("music_filename", ""),
+        }
+        for entry in cursor
+    ]
+
 # 取得所有使用者的光表資料時間清單
-# 使用方法：GET /api/timelist/，無需驗證
+# 使用方法：GET /api/timelist/?year=2026，無需驗證
 # 使用場景：前端載入選單、顯示可用的光表資料列表
 @api_router.get("/timelist/")
-async def list_all_timestamps(limit: int = DEFAULT_LIST_LIMIT):
+async def list_all_timestamps(limit: int = DEFAULT_LIST_LIMIT, year: Optional[int] = None):
     """
     ⚠️ **一定要有上限。** 舊版是 `find({})` 全部撈出來再在 Python 裡排序：
     這個資料庫從來不刪舊版本，用一學期之後這支端點會把整個歷史一次回給前端。
@@ -309,59 +386,42 @@ async def list_all_timestamps(limit: int = DEFAULT_LIST_LIMIT):
     排序交給資料庫（`(user, update_time)` 的索引正好就是這個順序），
     Python 這端不再排一次。
     """
+    season = resolve_season(year)
+    collection_color, _ = show_collections(season)
     limit = max(1, min(limit, MAX_LIST_LIMIT))
 
-    entries = list(
+    entries = (
         collection_color.find({}, LIST_PROJECTION)
         .sort([("user", 1), ("update_time", -1)])
         .limit(limit)
     )
-
-    return {
-        "list": [
-            {
-                "user": entry["user"],
-                "update_time": entry["update_time"],
-                # 預設值是空字串不是 0：先前用 0，於是同一個欄位在資料庫裡
-                # 同時有字串與整數兩種型別
-                "music_filename": entry.get("music_filename", ""),
-            }
-            for entry in entries
-        ]
-    }
+    return {"year": season, "list": _timelist_entries(entries)}
 
 # 取得特定使用者的光表資料時間清單
-# 使用方法：GET /api/timelist/{username}，無需驗證
+# 使用方法：GET /api/timelist/{username}?year=2026，無需驗證
 # 使用場景：查看特定使用者的所有光表資料版本
 @api_router.get("/timelist/{username}")
-async def list_user_timestamps(username: str, limit: int = DEFAULT_LIST_LIMIT):
-	limit = max(1, min(limit, MAX_LIST_LIMIT))
+async def list_user_timestamps(username: str, limit: int = DEFAULT_LIST_LIMIT, year: Optional[int] = None):
+    season = resolve_season(year)
+    collection_color, _ = show_collections(season)
+    limit = max(1, min(limit, MAX_LIST_LIMIT))
 
-	entries = list(
-		collection_color.find({"user": username}, LIST_PROJECTION)
-		.sort("update_time", -1)
-		.limit(limit)
-	)
-
-	return {
-		"list": [
-			{
-				"user": entry["user"],
-				"update_time": entry["update_time"],
-				"music_filename": entry.get("music_filename", ""),
-			}
-			for entry in entries
-		]
-	}
+    entries = (
+        collection_color.find({"user": username}, LIST_PROJECTION)
+        .sort("update_time", -1)
+        .limit(limit)
+    )
+    return {"year": season, "list": _timelist_entries(entries)}
 
 # 取得特定使用者在特定時間的完整光表資料
 # 使用方法：GET /api/items/{username}/{query_time}，無需驗證
 # 使用場景：載入指定版本的光表資料進行編輯或播放
 @api_router.get("/items/{username}/{query_time}")
-async def get_user_color (username: str, query_time: str):
+async def get_user_color (username: str, query_time: str, year: Optional[int] = None):
+    collection_color, _ = show_collections(resolve_season(year, query_time))
     if query_time == "LATEST":
         user_data = collection_color.find_one(
-            {"user": username}, 
+            {"user": username},
             sort=[("update_time", -1)]  # Sort by update_time in descending order to get the latest entry
         )
     else:
@@ -377,9 +437,9 @@ async def get_user_color (username: str, query_time: str):
 # 使用方法：GET /api/items/{username}/{query_time}/player={player}/chunk={chunk}
 # 使用場景：大資料量時分批載入，提升前端效能
 @api_router.get("/items/{username}/{query_time}/player={player}/chunk={chunk}")
-async def get_user_color_by_chunk (username: str, query_time: str, chunk: int, player: int):
+async def get_user_color_by_chunk (username: str, query_time: str, chunk: int, player: int, year: Optional[int] = None):
     CHUNK_SIZE = 10
-    
+
     start_idx = chunk * CHUNK_SIZE
 
     if chunk < 0 or player < 0:
@@ -396,6 +456,7 @@ async def get_user_color_by_chunk (username: str, query_time: str, chunk: int, p
     （哪一位舞者），第二層再用 Python 切（BSON 的 $slice 不能巢狀）。
     """
     projection = {"players": {"$slice": [player, 1]}}
+    collection_color, _ = show_collections(resolve_season(year, query_time))
 
     if query_time == "LATEST":
         user_data = collection_color.find_one(
@@ -430,7 +491,8 @@ async def get_user_color_by_chunk (username: str, query_time: str, chunk: int, p
 # 使用方法：GET /api/raw/{username}/{query_time}，無需驗證
 # 使用場景：載入原始編輯資料、資料備份與還原
 @api_router.get("/raw/{username}/{query_time}")
-async def get_user_raw (username: str, query_time: str):
+async def get_user_raw (username: str, query_time: str, year: Optional[int] = None):
+    _, collection_raw = show_collections(resolve_season(year, query_time))
     # 兩條分支都必須查 collection_raw。這裡原本 LATEST 分支查的是 collection_color，
     # 回傳的是播放用的 32-bit 打包資料而不是編輯器原始 JSON，前端載入會拿到錯的東西。
     if query_time == "LATEST":
@@ -451,9 +513,10 @@ async def get_user_raw (username: str, query_time: str):
 # 使用方法：GET /api/items/{username}/{query_time}/{player_ID}，無需驗證
 # 使用場景：編輯單一玩家光表效果時使用
 @api_router.get("/items/{username}/{query_time}/{player_ID}")
-async def get_certain_player_color (username: str, query_time: str, player_ID: int):
+async def get_certain_player_color (username: str, query_time: str, player_ID: int, year: Optional[int] = None):
+    collection_color, _ = show_collections(resolve_season(year, query_time))
     user_data = collection_color.find_one({"user": username, "update_time": query_time})
-	
+
     if user_data:
         if player_ID < len(user_data['players']):
             return {
@@ -465,236 +528,276 @@ async def get_certain_player_color (username: str, query_time: str, player_ID: i
         return {"message": f"user not found: '{username}'"}
 
 # 上傳處理後的光表資料（用於硬體播放）
-# 使用方法：POST /api/upload_items，需要 Bearer Token
+# 使用方法：POST /api/upload_items?year=2026，需要 Bearer Token
 # 使用場景：將編輯完成的光表資料上傳至伺服器
 @api_router.post("/upload_items")
-async def upload_user_color (request: Request, current_user: User = Depends(get_current_active_user)):
-	b = await request.json()
+async def upload_user_color (request: Request, year: Optional[int] = None, current_user: User = Depends(get_current_active_user)):
+    collection_color, _ = show_collections(resolve_season(year))
+    b = await request.json()
 
-	current_time = strftime("%Y-%m-%d-%H:%M:%S", localtime())
+    current_time = strftime("%Y-%m-%d-%H:%M:%S", localtime())
 
-	user_data = Data(
-		user = current_user.username,
-		last_updated_time = current_time,
-		players = [Player(data=[PlayerData(**item) for item in sublist]) for sublist in b['players']],
+    user_data = Data(
+        user = current_user.username,
+        last_updated_time = current_time,
+        players = [Player(data=[PlayerData(**item) for item in sublist]) for sublist in b['players']],
         music_filename = b.get('music_filename', 0)
-	)
+    )
 
-	# 保留策略統一走 storage.prune_history（預設 HISTORY_LIMIT=0，不刪任何東西）。
-	# 這裡原本有一段「撈出所有版本、數一數、取出最舊那一筆」——而真正的刪除
-	# 那一行是註解掉的。等於每次上傳都掃一次該使用者的全部光表，然後什麼也沒做。
-	prune_history(collection_color, user_data.user)
+    # 保留策略統一走 storage.prune_history（預設 HISTORY_LIMIT=0，不刪任何東西）。
+    # 這裡原本有一段「撈出所有版本、數一數、取出最舊那一筆」——而真正的刪除
+    # 那一行是註解掉的。等於每次上傳都掃一次該使用者的全部光表，然後什麼也沒做。
+    prune_history(collection_color, user_data.user)
 
-	document = {
-		'user': user_data.user,
-		'update_time': user_data.last_updated_time,
-		'players': [[player_data.dict() for player_data in player.data] for player in user_data.players],
+    document = {
+        'user': user_data.user,
+        'update_time': user_data.last_updated_time,
+        'players': [[player_data.dict() for player_data in player.data] for player in user_data.players],
         'music_filename': user_data.music_filename
-	}
+    }
 
-	collection_color.insert_one(document)
+    collection_color.insert_one(document)
 
-	return {
-		'message': 'upload success d(OvO)y'
-	}
+    return {
+        'message': 'upload success d(OvO)y'
+    }
 
 # 同時上傳原始與處理後資料（解決時間不同步問題）
-# 使用方法：POST /api/upload_full，需要 Bearer Token
+# 使用方法：POST /api/upload_full?year=2026，需要 Bearer Token
 @api_router.post("/upload_full")
-async def upload_full_data (data: FullUpload, current_user: User = Depends(get_current_active_user)):
-	"""
-	一次上傳兩份：韌體要播的 `color` 與編輯器要載回來的 `raw_json`，
-	共用同一個 `update_time` 當版本編號。
+async def upload_full_data (data: FullUpload, year: Optional[int] = None, current_user: User = Depends(get_current_active_user)):
+    """
+    一次上傳兩份：韌體要播的 `color` 與編輯器要載回來的 `raw_json`，
+    共用同一個 `update_time` 當版本編號。
 
-	⚠️ **兩份要嘛都寫成功、要嘛都不留**（見 storage.insert_show）。舊版是分別
-	try/except、各自印一行錯誤，然後**不管結果一律回 success**——寫壞一份的話
-	會留下「跑得動但打不開」或「打得開但跑不動」的版本，而使用者看到的是綠色的
-	上傳成功訊息，下次才發現東西不見了。
+    存進哪一年由 `?year=` 決定（沒帶就是今年）。刻意**不**用上傳日期推：
+    使用者打開去年的光表修一修再存，那一版應該留在去年。
 
-	⚠️ 舊版還有一段「模型驗證失敗就以原始格式存入」的保底方案。那不是保底，
-	是**把驗不過的資料塞進資料庫再回報成功**——驗證存在的唯一理由就是擋掉那種
-	資料。現在驗不過就回 422，讓使用者知道這一版沒存進去。
-	"""
-	current_time = now_stamp()
+    ⚠️ **兩份要嘛都寫成功、要嘛都不留**（見 storage.insert_show）。舊版是分別
+    try/except、各自印一行錯誤，然後**不管結果一律回 success**——寫壞一份的話
+    會留下「跑得動但打不開」或「打得開但跑不動」的版本，而使用者看到的是綠色的
+    上傳成功訊息，下次才發現東西不見了。
 
-	# 1. 先把兩份文件都組好、驗完，再開始寫。驗證失敗時資料庫完全沒被碰過
-	try:
-		# data.players 是 List[List[PlayerData]]，轉成 List[Player] 之後
-		# 走 Data 模型，形狀與舊端點 100% 一致（韌體的 ABI 靠這個鎖住）
-		color_data_obj = Data(
-			user = current_user.username,
-			last_updated_time = current_time,
-			players = [Player(data=player_list) for player_list in data.players],
-			music_filename = str(data.music_filename)
-		)
-	except Exception as e:
-		print(f">>> [REJECT] 光表格式驗證失敗: {e}")
-		raise HTTPException(
-			status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-			detail=f"光表格式不正確，這一版沒有存進去：{e}",
-		)
+    ⚠️ 舊版還有一段「模型驗證失敗就以原始格式存入」的保底方案。那不是保底，
+    是**把驗不過的資料塞進資料庫再回報成功**——驗證存在的唯一理由就是擋掉那種
+    資料。現在驗不過就回 422，讓使用者知道這一版沒存進去。
+    """
+    season = resolve_season(year)
+    collection_color, collection_raw = show_collections(season)
+    current_time = now_stamp()
 
-	document_color = color_document(
-		user = color_data_obj.user,
-		update_time = current_time,
-		players = [[p.dict() for p in player.data] for player in color_data_obj.players],
-		music_filename = color_data_obj.music_filename,
-	)
-	document_raw = raw_document(
-		user = current_user.username,
-		update_time = current_time,
-		raw_data = data.raw_data,
-		music_filename = color_data_obj.music_filename,
-	)
+    # 1. 先把兩份文件都組好、驗完，再開始寫。驗證失敗時資料庫完全沒被碰過
+    try:
+        # data.players 是 List[List[PlayerData]]，轉成 List[Player] 之後
+        # 走 Data 模型，形狀與舊端點 100% 一致（韌體的 ABI 靠這個鎖住）
+        color_data_obj = Data(
+            user = current_user.username,
+            last_updated_time = current_time,
+            players = [Player(data=player_list) for player_list in data.players],
+            music_filename = str(data.music_filename)
+        )
+    except Exception as e:
+        print(f">>> [REJECT] 光表格式驗證失敗: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=f"光表格式不正確，這一版沒有存進去：{e}",
+        )
 
-	# 2. 成對寫入。失敗就回滾並回報，不要假裝成功
-	try:
-		insert_show(
-			collection_color,
-			collection_raw,
-			color = document_color,
-			raw = document_raw,
-		)
-	except StorageError as error:
-		raise HTTPException(
-			status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=str(error)
-		)
+    document_color = color_document(
+        user = color_data_obj.user,
+        update_time = current_time,
+        players = [[p.dict() for p in player.data] for player in color_data_obj.players],
+        music_filename = color_data_obj.music_filename,
+    )
+    document_raw = raw_document(
+        user = current_user.username,
+        update_time = current_time,
+        raw_data = data.raw_data,
+        music_filename = color_data_obj.music_filename,
+    )
 
-	# 3. 超出保留上限的舊版本。預設 HISTORY_LIMIT=0 → 什麼都不刪
-	prune_history(collection_color, current_user.username)
-	prune_history(collection_raw, current_user.username)
+    # 2. 成對寫入。失敗就回滾並回報，不要假裝成功
+    try:
+        insert_show(
+            collection_color,
+            collection_raw,
+            color = document_color,
+            raw = document_raw,
+        )
+    except StorageError as error:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=str(error)
+        )
 
-	return {
-		'message': 'Full data upload success (synchronous timestamp) d(OuO)y',
-		'update_time': current_time
-	}
+    # 3. 超出保留上限的舊版本。預設 HISTORY_LIMIT=0 → 什麼都不刪
+    prune_history(collection_color, current_user.username)
+    prune_history(collection_raw, current_user.username)
+
+    return {
+        'message': 'Full data upload success (synchronous timestamp) d(OuO)y',
+        'update_time': current_time,
+        'year': season,
+    }
 
 # 上傳原始光表資料（JSON 格式）
-# 使用方法：POST /api/upload_raw，需要 Bearer Token
+# 使用方法：POST /api/upload_raw?year=2026，需要 Bearer Token
 # 使用場景：儲存編輯中的光表資料，保留完整計時資訊
 @api_router.post("/upload_raw")
-async def upload_raw_data (request: Request, current_user: User = Depends(get_current_active_user)):
-	b = await request.json()
+async def upload_raw_data (request: Request, year: Optional[int] = None, current_user: User = Depends(get_current_active_user)):
+    collection_color, collection_raw = show_collections(resolve_season(year))
+    b = await request.json()
 
-	current_time = strftime("%Y-%m-%d-%H:%M:%S", localtime())
+    current_time = strftime("%Y-%m-%d-%H:%M:%S", localtime())
 
-	user_data = RAW(
-		user = current_user.username,
-		last_updated_time = current_time,
-		raw_data = b['raw_data']
-	)
+    user_data = RAW(
+        user = current_user.username,
+        last_updated_time = current_time,
+        raw_data = b['raw_data']
+    )
 
-	# 保留策略統一走 storage.prune_history（預設 HISTORY_LIMIT=0，不刪任何東西）。
-	# 這裡原本有一段「撈出所有版本、數一數、取出最舊那一筆」——而真正的刪除
-	# 那一行是註解掉的。等於每次上傳都掃一次該使用者的全部光表，然後什麼也沒做。
-	prune_history(collection_color, user_data.user)
+    # 保留策略統一走 storage.prune_history（預設 HISTORY_LIMIT=0，不刪任何東西）。
+    # 這裡原本有一段「撈出所有版本、數一數、取出最舊那一筆」——而真正的刪除
+    # 那一行是註解掉的。等於每次上傳都掃一次該使用者的全部光表，然後什麼也沒做。
+    prune_history(collection_color, user_data.user)
 
-	document = {
-		'user': user_data.user,
-		'update_time': user_data.last_updated_time,
-		'raw_data': user_data.raw_data
-	}
-    
-	collection_raw.insert_one(document)
+    document = {
+        'user': user_data.user,
+        'update_time': user_data.last_updated_time,
+        'raw_data': user_data.raw_data
+    }
 
-	return {
-		'message': 'raw data upload success d(OuO)y'
-	}
+    collection_raw.insert_one(document)
+
+    return {
+        'message': 'raw data upload success d(OuO)y'
+    }
 
 # ============================================================================
 # 音樂資源 (Music Resource) - 音樂檔案的上傳與管理
 # ============================================================================
+#
+# 新上傳的音樂放在 `{MUSIC_FILE_PATH}/_years/{年份}/{使用者}/`。
+# 分年之前上傳的留在原地（`{MUSIC_FILE_PATH}/{使用者}/`），**每一年都看得到**
+# ——舊光表引用的是檔名不是路徑，搬走的話舊光表就找不到歌了。
+#
+# 資料夾叫 `_years` 而不是直接用年份：帳號名稱可以是 `2026`，那會跟使用者的
+# 舊資料夾撞名。帳號名稱一定以英數字開頭（auth.validate_credentials），
+# 所以 `_` 開頭的名字不會是任何人的資料夾。
+
+MUSIC_SEASONS_DIR = "_years"
+
+def _music_dirs(username, season):
+    """這個使用者在這一年看得到的音樂資料夾，先找的在前面（今年的、再來是舊的共用區）。"""
+    return [
+        resolve_within(MUSIC_FILE_PATH, MUSIC_SEASONS_DIR, str(season), username),
+        resolve_within(MUSIC_FILE_PATH, username),
+    ]
+
+def _list_files(directory):
+    if not os.path.isdir(directory):
+        return []
+    return sorted(f for f in os.listdir(directory) if os.path.isfile(os.path.join(directory, f)))
 
 # 上傳音樂檔案到伺服器
-# 使用方法：POST /api/upload_music，需要 Bearer Token，檔案以 multipart/form-data 格式
+# 使用方法：POST /api/upload_music?year=2026，需要 Bearer Token，檔案以 multipart/form-data 格式
 # 使用場景：為光表表演配對音樂檔案、建立音樂庫
 @api_router.post("/upload_music")
-async def upload_music(file: UploadFile = File(None), current_user: User = Depends(get_current_active_user)):
-	print(f"Received file: {file.filename}")  # Add this line to debug
+async def upload_music(file: UploadFile = File(None), year: Optional[int] = None, current_user: User = Depends(get_current_active_user)):
+    if file is None:
+        raise HTTPException(status_code=400, detail="No file provided")
+    print(f"Received file: {file.filename}")
+    if file.content_type != "audio/mpeg":
+        raise HTTPException(status_code=415, detail="File must be an MP3")
 
-	if file is None:
-		raise HTTPException(status_code=400, detail="No file provided")
-	if file.content_type != "audio/mpeg":
-		raise HTTPException(status_code=415, detail="File must be an MP3")
+    season = resolve_season(year)
+    # 檔名完全由客戶端決定，直接接上去的話 `../../something` 會寫到目錄外面
+    try:
+        file_loc = resolve_within(
+            MUSIC_FILE_PATH, MUSIC_SEASONS_DIR, str(season), current_user.username, file.filename
+        )
+    except UnsafePathError as error:
+        raise HTTPException(status_code=400, detail=str(error))
 
-	# 檔名完全由客戶端決定，直接接上去的話 `../../something` 會寫到目錄外面
-	try:
-		file_loc = resolve_within(MUSIC_FILE_PATH, current_user.username, file.filename)
-	except UnsafePathError as error:
-		raise HTTPException(status_code=400, detail=str(error))
+    file_location = os.path.dirname(file_loc)
+    os.makedirs(file_location, exist_ok=True)
 
-	file_location = os.path.dirname(file_loc)
-	if not os.path.exists(file_location):
-		print("make new directory")
-		os.makedirs(file_location, exist_ok=True)
+    # Save the uploaded file to the local server
+    with open(file_loc, "wb") as buffer:
+        shutil.copyfileobj(file.file, buffer)
 
-	print("saving files")
-	# Save the uploaded file to the local server
-	with open(file_loc, "wb") as buffer:
-		shutil.copyfileobj(file.file, buffer)
-	    
-	return {"info": f"file '{file.filename}' saved at '{file_location}'"}
+    # 不回完整路徑——那會洩漏伺服器上的目錄結構
+    return {"info": f"file '{file.filename}' saved", "year": season}
 
 
 # 取得特定使用者上傳的音樂檔案清單
-# 使用方法：GET /api/get_music_list/{username}，無需驗證
+# 使用方法：GET /api/get_music_list/{username}?year=2026，無需驗證
 # 使用場景：瀏覽特定使用者的音樂檔案庫
 @api_router.get("/get_music_list/{username}")
-async def get_music_list(username: str):
-	try:
-		file_path = resolve_within(MUSIC_FILE_PATH, username)
-	except UnsafePathError as error:
-		raise HTTPException(status_code=400, detail=str(error))
+async def get_music_list(username: str, year: Optional[int] = None):
+    season = resolve_season(year)
+    try:
+        directories = _music_dirs(username, season)
+    except UnsafePathError as error:
+        raise HTTPException(status_code=400, detail=str(error))
 
-	if not os.path.isdir(file_path):
-		return {"music_list": [], "message": f"no music directory for {username}"}
-	files = os.listdir(file_path)
-	# Filtering only the files.
-	files = [f for f in files if os.path.isfile(file_path+'/'+f)]
-	print(*files, sep="\n")
+    files = []
+    for directory in directories:
+        files += [f for f in _list_files(directory) if f not in files]
 
-	return {
-		"music_list": files,
-		"message": f"get music list from {file_path}"
-	}
+    return {
+        "music_list": files,
+        "year": season,
+        "message": f"{len(files)} music files for {username}",
+    }
 
 
 # 下載特定使用者的音樂檔案
-# 使用方法：GET /api/get_music/{username}/{filename}，無需驗證
+# 使用方法：GET /api/get_music/{username}/{filename}?year=2026，無需驗證
 # 使用場景：播放或下載音樂檔案
 @api_router.get("/get_music/{username}/{filename}")
-async def get_music_file(username: str, filename: str):
-	# 網址裡的字串不能直接接進路徑：百分比編碼是在路由之後才解開的，
-	# `..%2F..%2Fetc%2Fpasswd` 進到這裡就是 `../../etc/passwd`（見 paths.py）
-	try:
-		file_location = resolve_within(MUSIC_FILE_PATH, username, filename)
-	except UnsafePathError as error:
-		raise HTTPException(status_code=400, detail=str(error))
+async def get_music_file(username: str, filename: str, year: Optional[int] = None):
+    # 網址裡的字串不能直接接進路徑：百分比編碼是在路由之後才解開的，
+    # `..%2F..%2Fetc%2Fpasswd` 進到這裡就是 `../../etc/passwd`（見 paths.py）
+    try:
+        candidates = [
+            resolve_within(directory, filename)
+            for directory in _music_dirs(username, resolve_season(year))
+        ]
+    except UnsafePathError as error:
+        raise HTTPException(status_code=400, detail=str(error))
 
-	if not os.path.isfile(file_location):
-		# 不要把組出來的路徑回給客戶端——那會洩漏伺服器上的目錄結構
-		raise HTTPException(status_code=404, detail="File not found")
+    for file_location in candidates:
+        if os.path.isfile(file_location):
+            return FileResponse(file_location, media_type='audio/mpeg', filename=filename)
 
-	# Return the file as a response
-	return FileResponse(file_location, media_type='audio/mpeg', filename=filename)
-from os import listdir
-from os.path import isfile, join, isdir
+    # 不要把組出來的路徑回給客戶端——那會洩漏伺服器上的目錄結構
+    raise HTTPException(status_code=404, detail="File not found")
 
 # 取得所有使用者的音樂檔案清單
-# 使用方法：GET /api/get_music_list，無需驗證
+# 使用方法：GET /api/get_music_list?year=2026，無需驗證
 # 使用場景：瀏覽所有可用的音樂檔案
 @api_router.get("/get_music_list")
-async def get_all_music_lists():
-    root_path = MUSIC_FILE_PATH
-    if not os.path.exists(root_path):
-        return {"message": f"Root directory '{root_path}' not found"}
+async def get_all_music_lists(year: Optional[int] = None):
+    season = resolve_season(year)
+    if not os.path.isdir(MUSIC_FILE_PATH):
+        return {"music_lists": {}, "year": season, "message": "Music directory not found"}
+
+    season_root = os.path.join(MUSIC_FILE_PATH, MUSIC_SEASONS_DIR, str(season))
+    usernames = set()
+    for root in (season_root, MUSIC_FILE_PATH):
+        if os.path.isdir(root):
+            usernames.update(
+                name for name in os.listdir(root)
+                if not name.startswith("_") and os.path.isdir(os.path.join(root, name))
+            )
+
     user_music_lists = {}
-    for username in listdir(root_path):
-        user_path = join(root_path, username)
-        if isdir(user_path):
-            files = [f for f in listdir(user_path) if isfile(join(user_path, f))]
-            user_music_lists[username] = files
-    return {"music_lists": user_music_lists, "message": "Retrieved all music lists"}
+    for username in sorted(usernames):
+        files = []
+        for directory in _music_dirs(username, season):
+            files += [f for f in _list_files(directory) if f not in files]
+        user_music_lists[username] = files
+    return {"music_lists": user_music_lists, "year": season, "message": "Retrieved all music lists"}
 
 # ============================================================================
 # 生成工具資源 (Generator Resource) - 隨機與測試資料生成

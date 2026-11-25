@@ -86,9 +86,16 @@ INDEXES = {
 }
 
 
-def ensure_indexes(db, log=print):
+#: 每一年的資料庫裡有哪些集合（帳號 `users` 不在這裡，它各年共用，見 seasons.py）
+SHOW_COLLECTIONS = ("color", "raw_json")
+
+
+def ensure_indexes(db, log=print, names=None):
     """
     建立索引。**冪等**：已經存在的定義 `create_index` 直接回傳，不會重建。
+
+    `names` 限定只建哪幾個集合的索引（預設全部）。帳號資料庫只需要 `users`，
+    每一年的資料庫只需要 `SHOW_COLLECTIONS`。
 
     在啟動時呼叫。刻意不讓它把整個服務弄掛——資料庫暫時連不上時，服務應該還是
     起得來（讀寫會各自失敗並回報），比整個 API 起不來好。
@@ -98,6 +105,8 @@ def ensure_indexes(db, log=print):
     created, failed = [], []
 
     for name, specs in INDEXES.items():
+        if names is not None and name not in names:
+            continue
         collection = db[name]
         for spec in specs:
             keys = spec["keys"]

@@ -160,6 +160,7 @@ IndexedDB（localforage）自動備份，30 天自動清理。Redux 透過 redux
 - **`docs/getting-started.md`**：全新電腦從零跑起 dev 環境（含匯入真實資料、跑測試）
 - **`docs/data-handoff.md`**：給維護者：交接給新成員的資料（只給 `color`/`raw_json` 與音樂，不給 `users`/`.env.deployment`）與伺服器打包步驟
 - **`docs/data-flow-pipeline.md`**：從編輯器到資料庫的完整資料流說明
+- **`docs/seasons.md`**：演出年份（每一年一個資料庫）：年份規則、API 的 `?year=`、第一次部署時搬舊資料的步驟
 - **`docs/backend-management.md`**：MongoDB 備份與 Docker 管理操作指南
 - **`frontend/public/shortcuts.md`**：鍵盤快速鍵速查表，編輯器的 Shortcuts 按鈕讀的就是這一份（只有這一份，改快捷鍵時更新它）
 - **`docs/troubleshooting-login-500.md`**：MongoDB 連線 500 錯誤 SOP
@@ -1014,6 +1015,30 @@ e2e 有三項互相對立的檢查（會捲 / 使用者捲走後不扯回去 / �
 ⚠️ **保留策略預設不刪任何東西。** `HISTORY_LIMIT` 環境變數大於 0 才啟用
 （`storage.prune_history`）。舊版那段「超過 5 份就刪最舊的」真正刪除的那一行是
 註解掉的，但**查詢還留著**——每次上傳都掃一次該使用者的全部光表然後什麼也沒做。
+
+### 演出年份：每一年一個資料庫
+
+光表存在 `lightdance_<年份>`（`color` + `raw_json`），帳號（`users`）留在 `test`
+各年共用。年份規則與資料庫命名只定義在 **`backend/seasons.py`**：7 月到隔年 6 月
+上傳的算隔年的演出（`SEASON_START_MONTH`）。部署與搬遷步驟見 `docs/seasons.md`。
+
+⚠️ **前端不自己算年份。** `state.profiles.season` 是 `null` 時請求就不帶 `year`，
+由後端決定今年是哪一年（`utils/season.js` 的 `withSeason`）。兩邊各算一次遲早
+會對不上，而對不上的症狀是「存檔成功、清單卻看不到」——存進了另一年。
+
+⚠️ **指定版本的請求由版本編號推年份**（`seasons.season_of_stamp`）。版本編號開頭
+就是日期，所以分年之前存下來的連結不必補 `?year=`。`LATEST`、清單、上傳沒帶
+`year` 時才用今年。
+
+⚠️ **存檔存進選的那一年，不是上傳日期那一年。** 打開去年的光表修改後存檔，
+那一版應該留在去年。
+
+⚠️ **音樂檔的年份資料夾叫 `_years`，不要改成直接用年份**：帳號名稱可以是
+`2026`，會跟那個人的舊音樂資料夾撞名。帳號名稱一定以英數字開頭，所以 `_` 開頭
+的不會是任何人的資料夾。分年之前上傳的歌留在原地、每一年都看得到。
+
+⚠️ **備份要涵蓋每一年。** `mongo-backup.sh` 每次現場列出 `lightdance_*`，列不出來
+就整次失敗——只備份到帳號而漏掉光表，要等到需要還原那天才會發現。
 
 ## Backend 管理
 

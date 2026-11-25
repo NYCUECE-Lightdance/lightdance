@@ -24,6 +24,7 @@ import { LuPlus, LuMusic, LuChevronRight } from "react-icons/lu";
  */
 const ShortcutModal = lazy(() => import("../components/ShortcutModal.jsx"));
 import { API_ENDPOINTS } from "../config/api.js";
+import { selectSeason, withSeason } from "../utils/season.js";
 import { localMusicFiles } from "../components/audio/musicData.js";
 import {
   saveLocalBackup,
@@ -92,6 +93,8 @@ function Home({ rgba, setRgba, setButtonState }) {
   const actionTable = data.actionTable || [];
   const musicFilename = data.music_filename ?? "";
   const userName = useSelector((state) => state.profiles.user);
+  // 存檔存進哪一年的演出（null = 今年，由後端決定）
+  const season = useSelector(selectSeason);
   const duration = useSelector((state) => state.profiles.duration);
   const [isDirty, setIsDirty] = useState(false);
   const [isLoaded, setIsLoaded] = useState(false);
@@ -243,7 +246,7 @@ function Home({ rgba, setRgba, setButtonState }) {
     };
 
     try {
-      const response = await fetch(API_ENDPOINTS.UPLOAD_FULL, {
+      const response = await fetch(withSeason(API_ENDPOINTS.UPLOAD_FULL, season), {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -267,7 +270,16 @@ function Home({ rgba, setRgba, setButtonState }) {
         } catch (e) {
           console.error("更新本地同步狀態失敗:", e);
         }
-        alert("原始檔與播放檔皆上傳成功！");
+        // 講出存進哪一年：選錯年份的話，這是使用者唯一會看到的地方
+        const savedYear = await response
+          .json()
+          .then((body) => body?.year)
+          .catch(() => null);
+        alert(
+          savedYear
+            ? `原始檔與播放檔皆上傳成功！（${savedYear} 年的演出）`
+            : "原始檔與播放檔皆上傳成功！",
+        );
         console.log("upload(full) : ", JSON.stringify(fullUploadData));
       } else {
         /*
@@ -300,7 +312,7 @@ function Home({ rgba, setRgba, setButtonState }) {
       let apiList = [];
       try {
         const response = await fetch(
-          `${API_ENDPOINTS.BASE}/get_music_list/${userName}`,
+          withSeason(`${API_ENDPOINTS.BASE}/get_music_list/${userName}`, season),
         );
         const json = await response.json();
         apiList = json.music_list || [];

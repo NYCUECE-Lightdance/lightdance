@@ -163,12 +163,45 @@
     background-color: var(--bg-dark);
   }
   
+  .section-heading {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 1rem;
+    flex-wrap: wrap;
+    margin-bottom: 2rem;
+  }
+
   .section-title {
     font-size: 1.1rem;
     color: var(--text-muted);
-    margin-bottom: 2rem;
+    margin-bottom: 0;
     letter-spacing: 0.05rem;
     text-transform: uppercase;
+  }
+
+  /* 演出年份：每一年的光表分開存，選哪一年就只看到、只存進那一年 */
+  .season-picker {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    font-size: 0.95rem;
+    color: var(--text-muted);
+  }
+
+  .season-picker select {
+    background-color: var(--card-bg);
+    color: var(--text-main);
+    border: 1px solid var(--border-color);
+    border-radius: 0.4rem;
+    padding: 0.3rem 0.6rem;
+    font: inherit;
+    cursor: pointer;
+  }
+
+  .season-picker select:focus-visible {
+    outline: 2px solid var(--primary-cyan);
+    outline-offset: 1px;
   }
   
   .project-grid {

@@ -141,6 +141,8 @@ const stubApi = (context) =>
         contentType: "audio/wav",
         body: WAV,
       });
+    if (url.includes("/api/seasons"))
+      return json({ current: 2027, seasons: [2027, 2026] });
     if (url.includes("/api/timelist")) return json({ list: [] });
     if (url.includes("/api/raw/")) return json({ message: "not found" });
     if (url.includes("/api/upload")) return json({ status: "ok" });

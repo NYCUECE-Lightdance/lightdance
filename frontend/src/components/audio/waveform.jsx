@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState, memo } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { API_ENDPOINTS } from "../../config/api.js";
+import { selectSeason, withSeason } from "../../utils/season.js";
 import { localMusicMap } from "./musicData.js";
 import {
   peaksForViewport,
@@ -573,6 +574,7 @@ const AudioWaveform = ({
  */
 function useResolvedClips(clips) {
   const userName = useSelector((state) => state.profiles.user);
+  const season = useSelector(selectSeason);
 
   return useMemo(
     () =>
@@ -581,9 +583,12 @@ function useResolvedClips(clips) {
         // 優先用本地打包檔，不需後端；否則從後端 API 取得
         sourceFile:
           localMusicMap[clip.sourceFile] ??
-          `${API_ENDPOINTS.BASE}/get_music/${userName}/${clip.sourceFile}`,
+          withSeason(
+            `${API_ENDPOINTS.BASE}/get_music/${userName}/${clip.sourceFile}`,
+            season,
+          ),
       })),
-    [clips, userName],
+    [clips, userName, season],
   );
 }
 
